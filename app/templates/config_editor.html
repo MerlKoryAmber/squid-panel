@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Squid Manager Config Editor</title>
+</head>
+<body class="bg-dark text-white p-4">
+<div class="container mt-4 mb-5">
+  {% if error %}<div class="alert alert-danger mb-3" role="alert">{{ error }}</div>{% endif %}
+  <p><strong>Warning:</strong> Editing this file is permanent and unverified. A backup will be created before applying changes.</p>
+  <textarea rows="20" id="config-editor" class="form-control w-auto" placeholder="/etc/squid/squid.conf"></textarea>
+  <div class="text-end mt-4">
+    <button type="button" class="btn btn-outline-primary me-1" onclick="window.open('https://www.squid-cache.org/Doc/config/','_blank')">Squid Config Docs</button>
+    <button id="save-btn" type="button" class="btn btn-success" disabled>Save</button>
+    <button id="reset-btn" type="button" class="btn btn-outline-secondary">Reset (undo backup)</button>
+  </div>
+</div>
+<script>
+const editor = document.getElementById('config-editor');
+editor.addEventListener('input', () => {
+  document.getElementById('save-btn').disabled = false;
+});
+document.getElementById('reset-btn').onclick = async () => {
+  if (confirm('Are you sure? This will revert to the backup created before editing.')) {
+    await fetch('/config/editor/reset', {method: 'POST'});
+    window.location.reload();
+  }
+};
+document.getElementById('save-btn').onclick = async () => {
+  const content = editor.value;
+  try {
+    await fetch('/config/editor/save', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({content})});
+    alert('Configuration saved successfully. Squid reconfigured.');
+  } catch (e) {
+    alert('Error saving configuration: ' + e.message);
+  }
+};
+</script>
+</body>
+</html>

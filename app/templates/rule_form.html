@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+</head>
+<body class="bg-dark text-white p-4">
+<div class="container mt-4 mb-5 d-grid gap-2 justify-content-center">
+  {% if error %}<div class="alert alert-danger mb-3" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" onsubmit="return confirm('Create rule with action {{ action|upper }}?');" action="/rules/add/">
+    <input type="hidden" name="action" value="{{ action or '' }}">
+    <label for="acl-names">ACL Names</label><br/>
+    <input id="acl-names" name="acl_names" placeholder="example.com, 192.168.0.0/24" value="{{ acl_names or '' }}" class="form-control mt-2">
+    <button type="submit" class="btn btn-primary w-auto mt-3">Save</button>
+  </form>
+</div>
+<script>
+{% for a in ACL_NAMES %}
+    const sel = document.querySelector('#acl-names');
+    if (sel) {
+        const opt = document.createElement('option');
+        opt.value = '{{ a }}';
+        opt.textContent = '{{ a }}';
+        sel.appendChild(opt);
+    }
+{% endfor %}
+</script>
+</body>
+</html>

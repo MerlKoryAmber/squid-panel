@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+</head>
+<body class="bg-dark text-white p-4">
+<div class="container mt-4 mb-5 d-grid gap-2 justify-content-center">
+  {% if error %}<div class="alert alert-danger mb-3" role="alert">{{ error }}</div>{% endif %}
+  <button id="add-rule-btn" type="button" class="btn btn-primary me-2 mt-4">Add Rule</button>
+  {% if not rules or len(rules) == 0 %}<p class="text-muted mb-3">No http_access rules found. Use the form above to add them.</p>{% endif %}
+  <table class="table table-hover border-light">
+    <thead><tr><th scope="col" class="text-white">#</th><th scope="col" class="text-white">Action</th><th scope="col" class="text-white">ACLs</th><th scope="col"></th></tr></thead>
+    <tbody>{% for idx, rule in enumerate(rules) %}<tr><td>{{ rule.index }}</td><td class="badge bg-primary text-dark">{{ rule.action|upper }}<i class="fas fa-arrow-right" aria-hidden="true"></i></td><td>{% if rule.acl_names and len(rule.acl_names) > 0 %}{{ rule.acl_names | join(', ') }}{% else %}(none){% endif %}</td>
+      <td><button id="move-up-{{ idx }}" type="button" class="btn btn-outline-success"{% if idx == 0 %} disabled{% endif %}>Move Up</button>&nbsp;<button id="delete-rule-{{ idx }}" type="button" class="btn btn-outline-danger ml-1">Delete</button></td>
+    </tr>{% endfor %}</tbody>
+  </table>
+</div>
+<script>
+const addBtn = document.getElementById('add-rule-btn');
+addBtn.onclick = () => { window.location.href='/rules/add/'; };
+{% for idx, rule in enumerate(rules) %}
+    const moveUpBtn = document.getElementById('move-up-' + encodeURIComponent(idx));
+    const deleteBtn = document.getElementById('delete-rule-' + encodeURIComponent(idx));
+    if (moveUpBtn && idx > 0) {
+        moveUpBtn.onclick = () => { fetch('/rules/move_up/' + encodeURIComponent(rule.index), {method:'POST'}).then(r=>{if(r.ok) window.location.reload();}); };
+    }
+    if (deleteBtn) {
+        deleteBtn.onclick = () => { if (!confirm('Delete rule #' + idx + '?')) return; fetch('/rules/delete/' + encodeURIComponent(idx), {method:'POST'}).then(r=>{if(r.ok) window.location.reload();}); };
+    }
+{% endfor %}
+</script>
+</body>
+</html>

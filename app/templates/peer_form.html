@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+</head>
+<body class="bg-dark text-white p-4">
+<div class="container mt-4 mb-5 d-grid gap-2 justify-content-center">
+  {% if error %}<div class="alert alert-danger mb-3" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" onsubmit="return confirm('Create peer "{{ hostname }}"?');" action="/peers/add/">
+    <input type="hidden" name="hostname" value="{{ hostname or '' }}">
+    <label for="peer-type">Type</label>
+    <select id="peer-type" name="type" class="form-select form-control mt-2" required>{% for t in PEER_TYPES %}<option value="{{ t }}"{% if type == t %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+    <label for="http-port">HTTP Port</label><small class="text-muted ms-1">Leave blank for default 3128.</small><br/>
+    <input id="http-port" name="proxy_port" placeholder="3128" value="{{ proxy_port or '' }}" class="form-control mt-2">
+    <label for="icp-port">ICP Port</label><small class="text-muted ms-1">Leave blank if not used.</small><br/>
+    <input id="icp-port" name="icp_port" placeholder="3130" value="{{ icp_port or '' }}" class="form-control mt-2">
+    <label for="peer-options">Options</label><small class="text-muted ms-1">Space-separated, e.g. "no-query weight=10".</small><br/>
+    <input id="peer-options" name="options" placeholder="no-query weight=10" value="{{ options or '' }}" class="form-control mt-2">
+    <button type="submit" class="btn btn-primary w-auto mt-3">Save</button>
+  </form>
+</div>
+<script>
+{% for t in PEER_TYPES %}
+    const sel = document.querySelector('#peer-type');
+    if (sel) {
+        const opt = document.createElement('option');
+        opt.value = '{{ t }}';
+        opt.textContent = '{{ t }}';
+        sel.appendChild(opt);
+    }
+{% endfor %}
+</script>
+</body>
+</html>
