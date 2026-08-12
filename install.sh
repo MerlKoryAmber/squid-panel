@@ -59,6 +59,15 @@ mkdir -p "$SPM_DIR"
 rm -rf "$SPM_DIR"/*
 cp -r . "$SPM_DIR/"
 
+# Ensure all required directories exist (even if empty dirs were skipped by tar)
+mkdir -p "$SPM_DIR/storage"
+mkdir -p "$SPM_DIR/storage/backups"
+mkdir -p "$SPM_DIR/storage/logs"
+mkdir -p "$SPM_DIR/storage/tmp"
+mkdir -p "$SPM_DIR/database"
+mkdir -p "$SPM_DIR/views/backup"
+mkdir -p "$SPM_DIR/views/users"
+
 # Set permissions
 chown -R "$WEB_USER:$WEB_USER" "$SPM_DIR"
 chmod 750 "$SPM_DIR"
