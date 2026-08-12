@@ -1,0 +1,13 @@
+# SPM sudo rules — fallback if agent is not used
+# Install to /etc/sudoers.d/spm
+
+squidmgr ALL=(root) NOPASSWD: /usr/sbin/squid -k reconfigure
+squidmgr ALL=(root) NOPASSWD: /usr/sbin/squid -k parse
+squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl start squid
+squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl stop squid
+squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl restart squid
+squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl status squid --no-pager -o short
+squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl status winbind --no-pager -o short
+squidmgr ALL=(root) NOPASSWD: /usr/bin/kinit -k -t *
+squidmgr ALL=(root) NOPASSWD: /usr/bin/wbinfo -t
+squidmgr ALL=(root) NOPASSWD: /usr/bin/net ads info

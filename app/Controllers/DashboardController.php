@@ -1,0 +1,48 @@
+<?php
+class DashboardController {
+    public function index($params = []) {
+        Auth::requireAuth();
+
+        $status = PrivilegedExecutor::getSquidStatus();
+        $version = PrivilegedExecutor::getSquidVersion();
+
+        // Get connection count (approximate via netstat or ss)
+        $connections = 0;
+        $port = 3128;
+        $globals = Database::fetch("SELECT http_port FROM squid_globals LIMIT 1");
+        if ($globals && !empty($globals['http_port'])) {
+            $port = (int)$globals['http_port'];
+        }
+        $ss = @shell_exec("/usr/sbin/ss -tan | grep :{$port} | wc -l");
+        if ($ss !== null) {
+            $connections = (int)trim($ss);
+        }
+
+        $recentLogs = LogParser::tail(SQUID_ACCESS_LOG, 10);
+        $auditLogs = Audit::getRecent(5);
+
+        $stats = LogParser::getStats(SQUID_ACCESS_LOG, 24);
+
+        echo View::render('dashboard', [
+            'title' => 'Dashboard',
+            'status' => $status,
+            'version' => $version,
+            'connections' => $connections,
+            'recentLogs' => $recentLogs,
+            'auditLogs' => $auditLogs,
+            'stats' => $stats,
+        ]);
+    }
+
+    public function apiStatus($params = []) {
+        Auth::requireAuth();
+        header('Content-Type: application/json');
+        echo json_encode(PrivilegedExecutor::getSquidStatus());
+    }
+
+    public function apiStats($params = []) {
+        Auth::requireAuth();
+        header('Content-Type: application/json');
+        echo json_encode(LogParser::getStats(SQUID_ACCESS_LOG, 24));
+    }
+}
