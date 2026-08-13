@@ -304,8 +304,8 @@ class SquidConfigParser {
         $order = ($maxOrder['max'] ?? 0) + 1;
 
         Database::query(
-            "INSERT INTO cache_peer_access_rules (peer_id, acl_name, action, sort_order, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
-            [$rule['peer_id'], $rule['acl_name'], $rule['action'], $order]
+            "INSERT INTO cache_peer_access_rules (peer_id, acl_name, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+            [$rule['peer_id'], $rule['acl_name'], $rule['action'], $rule['negated'] ?? 0, $order]
         );
     }
 
@@ -321,10 +321,17 @@ class SquidConfigParser {
         for ($i = 3; $i < count($tokens); $i++) {
             $aclName = $tokens[$i];
             if ($aclName === 'all') continue;
+            // Handle negations: !ACLname
+            $isNegated = false;
+            if (strpos($aclName, '!') === 0) {
+                $isNegated = true;
+                $aclName = substr($aclName, 1);
+            }
             $rules[] = [
                 'directive' => $directive,
                 'action' => $action,
                 'acl_name' => $aclName,
+                'negated' => $isNegated ? 1 : 0,
             ];
         }
 
@@ -333,8 +340,8 @@ class SquidConfigParser {
 
     private static function importRouting($rule) {
         Database::query(
-            "INSERT INTO routing_rules (directive, action, acl_name) VALUES (?, ?, ?)",
-            [$rule['directive'], $rule['action'], $rule['acl_name']]
+            "INSERT INTO routing_rules (directive, action, acl_name, negated) VALUES (?, ?, ?, ?)",
+            [$rule['directive'], $rule['action'], $rule['acl_name'], $rule['negated'] ?? 0]
         );
     }
 

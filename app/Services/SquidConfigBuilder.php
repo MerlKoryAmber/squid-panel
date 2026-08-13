@@ -91,7 +91,8 @@ class SquidConfigBuilder {
             if (!empty($peerAccessRules)) {
                 $lines[] = "# === Cache Peer Access Rules ===";
                 foreach ($peerAccessRules as $rule) {
-                    $lines[] = "cache_peer_access " . $rule['hostname'] . " " . $rule['action'] . " " . $rule['acl_name'];
+                    $aclName = ($rule['negated'] ?? 0) ? "!" . $rule['acl_name'] : $rule['acl_name'];
+                    $lines[] = "cache_peer_access " . $rule['hostname'] . " " . $rule['action'] . " " . $aclName;
                 }
                 $lines[] = "";
             }
@@ -101,7 +102,8 @@ class SquidConfigBuilder {
         $lines[] = "# === Global Routing ===";
         $routing = Database::fetchAll("SELECT * FROM routing_rules ORDER BY id");
         foreach ($routing as $rule) {
-            $lines[] = $rule['directive'] . " " . $rule['action'] . " " . $rule['acl_name'];
+            $aclName = ($rule['negated'] ?? 0) ? "!" . $rule['acl_name'] : $rule['acl_name'];
+            $lines[] = $rule['directive'] . " " . $rule['action'] . " " . $aclName;
         }
         $lines[] = "";
 
