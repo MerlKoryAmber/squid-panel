@@ -24,6 +24,16 @@ class SquidConfigParser {
             'globals' => 0,
         ];
 
+        // Debug: show all cache_peer lines
+        echo "DEBUG: All cache_peer lines in file:
+";
+        foreach ($lines as $idx => $l) {
+            if (strpos($l, 'cache_peer') !== false) {
+                echo "  line {$idx}: " . trim($l) . "
+";
+            }
+        }
+
         $globals = [];
         $authParams = [];
         $currentAcl = null;
@@ -72,6 +82,7 @@ class SquidConfigParser {
                     break;
 
                 case 'cache_peer_access':
+                    echo "DEBUG: processing cache_peer_access: " . implode(' | ', $tokens) . "\n";
                     $results = self::parseCachePeerAccess($tokens);
                     if (is_array($results)) {
                         foreach ($results as $result) {
