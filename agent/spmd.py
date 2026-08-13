@@ -48,7 +48,7 @@ def validate_command(command_key, extra_args):
 
     # Validate extra args against injection
     for arg in extra_args:
-        if any(c in arg for c in [';', '&', '|', '<', '>', '$', '`', '\']):
+        if any(c in arg for c in [";", "&", "|", "<", ">", "$", "`", "\\"]):
             raise ValueError(f"Invalid character in argument: {arg}")
         cmd.append(arg)
 
