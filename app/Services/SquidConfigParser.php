@@ -327,7 +327,7 @@ class SquidConfigParser {
         }
 
         $directive = $tokens[0];
-        $action = $tokens[2]; // never_direct allow ACL1 ACL2
+        $action = $tokens[1]; // never_direct allow ACL1 ACL2
 
         if (!in_array($action, ['allow', 'deny'])) return [];
 
