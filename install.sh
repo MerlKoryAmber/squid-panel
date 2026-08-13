@@ -100,7 +100,7 @@ SERVER_IP=$(hostname -I | awk '{print $1}')
 
 cat > "$NGINX_SPM_CONF" << 'EOF'
 server {
-    listen 443 ssl http2;
+    listen 443 ssl http2 default_server;
     server_name _;
 
     ssl_certificate /etc/pki/tls/certs/spm-selfsigned.crt;
@@ -135,7 +135,7 @@ server {
 }
 
 server {
-    listen 80;
+    listen 80 default_server;
     server_name _;
     return 301 https://$host$request_uri;
 }
@@ -152,9 +152,15 @@ if [ ! -f /etc/pki/tls/certs/spm-selfsigned.crt ]; then
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
         -keyout /etc/pki/tls/private/spm-selfsigned.key \
         -out /etc/pki/tls/certs/spm-selfsigned.crt \
-        -subj "/C=RU/O=SPM/CN=$SERVER_IP" 2>/dev/null
+        -subj "/C=RU/O=SPM/CN=$SERVER_IP"
     chmod 600 /etc/pki/tls/private/spm-selfsigned.key
     chmod 644 /etc/pki/tls/certs/spm-selfsigned.crt
+fi
+
+# Verify certificates exist
+if [ ! -f /etc/pki/tls/certs/spm-selfsigned.crt ] || [ ! -f /etc/pki/tls/private/spm-selfsigned.key ]; then
+    echo "WARNING: Self-signed SSL certificate generation failed or files are missing."
+    echo "         HTTPS will not work until certificates are created manually."
 fi
 
 echo "[5/9] Configuring PHP-FPM..."
@@ -259,10 +265,14 @@ fi
 
 # Restart services only if unit files exist
 if systemctl list-unit-files | grep -q '^nginx.service'; then
-    if nginx -t 2>/dev/null; then
+    NGINX_TEST_OUTPUT=$(nginx -t 2>&1)
+    if [ $? -eq 0 ]; then
         systemctl restart nginx
     else
-        echo "WARNING: Nginx config test failed. Please check /etc/nginx/conf.d/spm.conf"
+        echo "WARNING: Nginx config test failed."
+        echo "Details:"
+        echo "$NGINX_TEST_OUTPUT"
+        echo "Please check /etc/nginx/conf.d/spm.conf and /etc/nginx/nginx.conf"
     fi
 else
     echo "WARNING: Skipping nginx restart — nginx.service not found."
