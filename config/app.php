@@ -39,3 +39,10 @@ foreach ($dirs as $dir) {
         mkdir($dir, 0750, true);
     }
 }
+
+/**
+ * Get absolute path inside storage directory
+ */
+function storage_path($subpath = '') {
+    return $subpath ? SPM_STORAGE . '/' . $subpath : SPM_STORAGE;
+}
