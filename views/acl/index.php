@@ -12,7 +12,7 @@
         </thead>
         <tbody>
             <?php foreach ($acls as $acl): 
-                $vals = json_decode($acl['values'], true) ?: [];
+                $vals = json_decode($acl['entries'], true) ?: [];
             ?>
             <tr>
                 <td><code><?= htmlspecialchars($acl['name']) ?></code></td>

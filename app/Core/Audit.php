@@ -12,7 +12,7 @@ class Audit {
 
         // Also write to file log
         $logLine = date('Y-m-d H:i:s') . " | {$username} | {$ip} | {$action} | {$details}" . PHP_EOL;
-        file_put_contents(SPM_STORAGE . '/logs/audit.log', $logLine, FILE_APPEND | LOCK_EX);
+        file_put_contents(storage_path('logs', 'audit.log'), $logLine, FILE_APPEND | LOCK_EX);
 
         // Cleanup old records
         self::cleanup();

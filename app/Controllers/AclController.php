@@ -20,7 +20,7 @@ class AclController {
         $name = preg_replace('/[^a-zA-Z0-9_-]/', '', $_POST['name'] ?? '');
         $type = $_POST['type'] ?? '';
         $values = array_filter(array_map('trim', explode("
-", $_POST['values'] ?? '')));
+", $_POST['entries'] ?? '')));
         $description = $_POST['description'] ?? '';
         $group = $_POST['group_name'] ?? '';
 
@@ -38,7 +38,7 @@ class AclController {
         }
 
         Database::query(
-            "INSERT INTO acls (name, type, values, description, group_name, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+            "INSERT INTO acls (name, type, `values`, description, group_name, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
             [$name, $type, json_encode(array_values($values)), $description, $group]
         );
 
@@ -64,7 +64,7 @@ class AclController {
 
         $id = (int)($_POST['id'] ?? 0);
         $values = array_filter(array_map('trim', explode("
-", $_POST['values'] ?? '')));
+", $_POST['entries'] ?? '')));
         $description = $_POST['description'] ?? '';
         $group = $_POST['group_name'] ?? '';
 
@@ -82,7 +82,7 @@ class AclController {
         }
 
         Database::query(
-            "UPDATE acls SET values = ?, description = ?, group_name = ? WHERE id = ?",
+            "UPDATE acls SET `values` = ?, description = ?, group_name = ? WHERE id = ?",
             [json_encode(array_values($values)), $description, $group, $id]
         );
 

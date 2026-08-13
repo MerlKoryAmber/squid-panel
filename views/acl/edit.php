@@ -26,7 +26,7 @@
         <div class="form-group">
             <label>Values (one per line)</label>
             <textarea name="values" rows="6" required><?= htmlspecialchars(implode("
-", json_decode($acl['values'] ?? '[]', true) ?: [])) ?></textarea>
+", json_decode($acl['entries'] ?? '[]', true) ?: [])) ?></textarea>
             <div class="help-text">Enter one value per line. For IPs: 192.168.1.0/24. For time: MTWHF 08:00-18:00</div>
         </div>
 

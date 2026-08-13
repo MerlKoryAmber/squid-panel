@@ -56,7 +56,7 @@ class SquidConfigBuilder {
         // ACLs
         $lines[] = "# === ACL Definitions ===";
         foreach ($this->config['acls'] as $acl) {
-            $values = json_decode($acl['values'], true) ?: [];
+            $values = json_decode($acl['entries'], true) ?: [];
             foreach ($values as $val) {
                 $lines[] = "acl " . $acl['name'] . " " . $acl['type'] . " " . $val;
             }

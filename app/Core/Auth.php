@@ -46,8 +46,15 @@ class Auth {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
-            $_SESSION['expires'] = time() + SESSION_LIFETIME;
-            Audit::log('login', "User {$username} logged in");
+    $_SESSION['expires'] = time() + SESSION_LIFETIME;
+
+
+
+
+
+    
+    
+        Audit::log('login', "User {$username} logged in");
             return true;
         }
         Audit::log('login_failed', "Failed login attempt for {$username}");

@@ -38,8 +38,6 @@ echo ""
 echo "[1/7] Stopping SPM services..."
 systemctl stop spmd 2>/dev/null || true
 systemctl disable spmd 2>/dev/null || true
-systemctl stop nginx 2>/dev/null || true
-systemctl stop php-fpm 2>/dev/null || true
 
 echo "[2/7] Removing systemd service..."
 rm -f /etc/systemd/system/spmd.service
@@ -48,13 +46,25 @@ systemctl daemon-reload 2>/dev/null || true
 echo "[3/7] Removing Nginx configuration..."
 rm -f "$NGINX_SPM_CONF"
 
-# Restore default nginx welcome if no other configs exist
-if [ ! "$(ls -A /etc/nginx/conf.d/ 2>/dev/null)" ]; then
-    echo "No remaining nginx configs detected."
+# Reload nginx to apply changes (don't stop if other sites exist)
+if systemctl is-active nginx &>/dev/null; then
+    if nginx -t 2>/dev/null; then
+        systemctl reload nginx 2>/dev/null || systemctl restart nginx
+    else
+        echo "WARNING: Nginx config test failed after removing SPM config."
+        echo "You may need to manually fix /etc/nginx/conf.d/ configuration."
+    fi
 fi
 
 echo "[4/7] Removing PHP-FPM pool..."
 rm -f /etc/php-fpm.d/spm.conf
+
+# Reload php-fpm to apply changes
+PHP_FPM_SERVICE="php-fpm"
+if systemctl list-unit-files | grep -q "^php[0-9]\+\.[0-9]\+-fpm\.service"; then
+    PHP_FPM_SERVICE=$(systemctl list-unit-files | grep "^php[0-9]\+\.[0-9]\+-fpm\.service" | head -1 | awk '{print $1}' | sed 's/\.service$//')
+fi
+systemctl reload "$PHP_FPM_SERVICE" 2>/dev/null || true
 
 echo "[5/7] Removing sudoers rules..."
 rm -f /etc/sudoers.d/spm

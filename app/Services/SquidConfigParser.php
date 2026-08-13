@@ -135,7 +135,7 @@ class SquidConfigParser {
         $cleanValues = [];
         foreach ($values as $val) {
             if ($val === '-i') continue; // Skip case-insensitive flag for now
-            $cleanValues[] = trim($val, '"'');
+            $cleanValues[] = trim($val, '"\'');
         }
 
         return [
@@ -150,16 +150,16 @@ class SquidConfigParser {
         $existing = Database::fetch("SELECT id FROM acls WHERE name = ? AND type = ?", [$acl['name'], $acl['type']]);
         if ($existing) {
             // Merge values
-            $current = Database::fetch("SELECT values FROM acls WHERE id = ?", [$existing['id']]);
+            $current = Database::fetch("SELECT `values` FROM acls WHERE id = ?", [$existing['id']]);
             $currentValues = json_decode($current['values'], true) ?: [];
             $merged = array_unique(array_merge($currentValues, $acl['values']));
             Database::query(
-                "UPDATE acls SET values = ? WHERE id = ?",
+                "UPDATE acls SET `values` = ? WHERE id = ?",
                 [json_encode(array_values($merged)), $existing['id']]
             );
         } else {
             Database::query(
-                "INSERT INTO acls (name, type, values, description, group_name, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+                "INSERT INTO acls (name, type, `values`, description, group_name, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
                 [$acl['name'], $acl['type'], json_encode($acl['values']), 'Imported from squid.conf', '']
             );
         }
@@ -350,7 +350,7 @@ class SquidConfigParser {
                     $schemes[$scheme]['children'] = (int)$p['value'];
                     break;
                 case 'realm':
-                    $schemes[$scheme]['realm'] = trim($p['value'], '"'');
+                    $schemes[$scheme]['realm'] = trim($p['value'], '"\'');
                     break;
                 case 'credentialsttl':
                     $schemes[$scheme]['credentialsttl'] = $p['value'];

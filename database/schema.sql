@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS acls (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     type TEXT NOT NULL,
-    values TEXT NOT NULL,
+    entries TEXT NOT NULL,
     description TEXT,
     group_name TEXT DEFAULT '',
     created_at TEXT,
