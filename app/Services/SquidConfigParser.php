@@ -28,7 +28,7 @@ class SquidConfigParser {
         $authParams = [];
         $currentAcl = null;
 
-        foreach ($lines as $line) {
+        foreach ($lines as $i => $line) {
             $line = trim($line);
 
             // Skip comments and empty lines
@@ -264,9 +264,22 @@ class SquidConfigParser {
 
         if (!in_array($action, ['allow', 'deny'])) return null;
 
-        // Find peer_id
+        // Find peer_id by hostname
         $peer = Database::fetch("SELECT id FROM cache_peers WHERE hostname = ?", [$hostname]);
-        if (!$peer) return null;
+        if (!$peer) {
+            // Try to find by hostname in options or other fields
+            $peer = Database::fetch("SELECT id FROM cache_peers WHERE hostname LIKE ?", ['%' . $hostname . '%']);
+        }
+        if (!$peer) {
+            // Create a placeholder peer if it doesn't exist (orphan access rule)
+            // This handles cases where cache_peer uses IP but access uses hostname
+            return [
+                'peer_id' => null,
+                'hostname' => $hostname,
+                'action' => $action,
+                'acl_name' => $aclName,
+            ];
+        }
 
         return [
             'peer_id' => $peer['id'],
@@ -277,6 +290,10 @@ class SquidConfigParser {
     }
 
     private static function importCachePeerAccess($rule) {
+        if (empty($rule['peer_id'])) {
+            // Skip orphan rules where peer doesn't exist
+            return;
+        }
         $maxOrder = Database::fetch(
             "SELECT MAX(sort_order) as max FROM cache_peer_access_rules WHERE peer_id = ?",
             [$rule['peer_id']]

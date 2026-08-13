@@ -106,6 +106,16 @@ class PrivilegedExecutor {
                 }
                 return ['status' => $status, 'raw' => $result['stdout']];
             }
+            // Fallback: try pgrep / ps
+            $pgrep = @shell_exec('pgrep -x squid 2>/dev/null');
+            if (!empty(trim($pgrep))) {
+                return ['status' => 'running', 'raw' => 'squid process found via pgrep'];
+            }
+            $ps = @shell_exec('ps aux | grep "[s]quid" 2>/dev/null');
+            if (!empty(trim($ps))) {
+                return ['status' => 'running', 'raw' => "squid process found:
+" . $ps];
+            }
             $errorDetail = $result['stderr'] ?: $result['stdout'];
             if (empty($errorDetail)) {
                 $errorDetail = 'Command returned no output. Check if squid is installed and sudoers configured.';
