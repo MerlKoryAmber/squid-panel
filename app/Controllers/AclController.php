@@ -38,7 +38,7 @@ class AclController {
         }
 
         Database::query(
-            "INSERT INTO acls (name, type, `values`, description, group_name, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+            "INSERT INTO acls (name, type, entries, description, group_name, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
             [$name, $type, json_encode(array_values($values)), $description, $group]
         );
 
@@ -82,7 +82,7 @@ class AclController {
         }
 
         Database::query(
-            "UPDATE acls SET `values` = ?, description = ?, group_name = ? WHERE id = ?",
+            "UPDATE acls SET entries = ?, description = ?, group_name = ? WHERE id = ?",
             [json_encode(array_values($values)), $description, $group, $id]
         );
 

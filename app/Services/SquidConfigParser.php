@@ -141,7 +141,7 @@ class SquidConfigParser {
         return [
             'name' => $name,
             'type' => $type,
-            'values' => $cleanValues,
+            'entries' => $cleanValues,
         ];
     }
 
@@ -150,17 +150,17 @@ class SquidConfigParser {
         $existing = Database::fetch("SELECT id FROM acls WHERE name = ? AND type = ?", [$acl['name'], $acl['type']]);
         if ($existing) {
             // Merge values
-            $current = Database::fetch("SELECT `values` FROM acls WHERE id = ?", [$existing['id']]);
-            $currentValues = json_decode($current['values'], true) ?: [];
-            $merged = array_unique(array_merge($currentValues, $acl['values']));
+            $current = Database::fetch("SELECT entries FROM acls WHERE id = ?", [$existing['id']]);
+            $currentValues = json_decode($current['entries'], true) ?: [];
+            $merged = array_unique(array_merge($currentValues, $acl['entries']));
             Database::query(
-                "UPDATE acls SET `values` = ? WHERE id = ?",
+                "UPDATE acls SET entries = ? WHERE id = ?",
                 [json_encode(array_values($merged)), $existing['id']]
             );
         } else {
             Database::query(
-                "INSERT INTO acls (name, type, `values`, description, group_name, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
-                [$acl['name'], $acl['type'], json_encode($acl['values']), 'Imported from squid.conf', '']
+                "INSERT INTO acls (name, type, entries, description, group_name, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+                [$acl['name'], $acl['type'], json_encode($acl['entries']), 'Imported from squid.conf', '']
             );
         }
     }

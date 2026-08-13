@@ -241,7 +241,7 @@ systemctl enable nginx php-fpm 2>/dev/null || true
 
 # Detect correct php-fpm service name
 PHP_FPM_SERVICE="php-fpm"
-if systemctl list-unit-files | grep -q "^php[0-9]\+\.[0-9]\+-fpm\.service"; then
+if systemctl list-unit-files | grep -qE '^php[0-9]+\.[0-9]+-fpm\.service'; then
     PHP_FPM_SERVICE=$(systemctl list-unit-files | grep "^php[0-9]\+\.[0-9]\+-fpm\.service" | head -1 | awk '{print $1}' | sed 's/\.service$//')
 fi
 

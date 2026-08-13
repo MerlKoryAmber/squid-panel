@@ -61,7 +61,7 @@ rm -f /etc/php-fpm.d/spm.conf
 
 # Reload php-fpm to apply changes
 PHP_FPM_SERVICE="php-fpm"
-if systemctl list-unit-files | grep -q "^php[0-9]\+\.[0-9]\+-fpm\.service"; then
+if systemctl list-unit-files | grep -qE '^php[0-9]+\.[0-9]+-fpm\.service'; then
     PHP_FPM_SERVICE=$(systemctl list-unit-files | grep "^php[0-9]\+\.[0-9]\+-fpm\.service" | head -1 | awk '{print $1}' | sed 's/\.service$//')
 fi
 systemctl reload "$PHP_FPM_SERVICE" 2>/dev/null || true
@@ -70,7 +70,7 @@ echo "[5/7] Removing sudoers rules..."
 rm -f /etc/sudoers.d/spm
 
 echo "[6/7] Restoring squid.conf from backup (if available)..."
-LATEST_BACKUP=$(ls -t "$SQUID_CONF.bak."* 2>/dev/null | head -1)
+LATEST_BACKUP=$(ls -t ${SQUID_CONF}.bak.* 2>/dev/null | head -1)
 if [ -n "$LATEST_BACKUP" ] && [ -f "$LATEST_BACKUP" ]; then
     echo "Found backup: $LATEST_BACKUP"
     read -p "Restore squid.conf from this backup? (yes/no): " RESTORE
