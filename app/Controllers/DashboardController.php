@@ -23,6 +23,9 @@ class DashboardController {
 
         $stats = LogParser::getStats(SQUID_ACCESS_LOG, 24);
 
+        $acls = Database::fetchAll("SELECT * FROM acls");
+        $peers = Database::fetchAll("SELECT * FROM cache_peers");
+
         echo View::render('dashboard', [
             'title' => 'Dashboard',
             'status' => $status,
@@ -31,6 +34,8 @@ class DashboardController {
             'recentLogs' => $recentLogs,
             'auditLogs' => $auditLogs,
             'stats' => $stats,
+            'acls' => $acls,
+            'peers' => $peers,
         ]);
     }
 

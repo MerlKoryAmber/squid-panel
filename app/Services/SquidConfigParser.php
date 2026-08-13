@@ -205,7 +205,7 @@ class SquidConfigParser {
         $noQuery = 0;
         $noDigest = 0;
 
-        $remaining = array_slice($tokens, $icpPort > 0 ? 5 : 4);
+        $remaining = array_slice($tokens, 5);
 
         foreach ($remaining as $token) {
             if (strpos($token, 'login=') === 0) {
