@@ -47,13 +47,17 @@ echo "[3/7] Removing Nginx configuration..."
 rm -f "$NGINX_SPM_CONF"
 
 # Reload nginx to apply changes (don't stop if other sites exist)
-if systemctl is-active nginx &>/dev/null; then
-    if nginx -t 2>/dev/null; then
-        systemctl reload nginx 2>/dev/null || systemctl restart nginx
-    else
-        echo "WARNING: Nginx config test failed after removing SPM config."
-        echo "You may need to manually fix /etc/nginx/conf.d/ configuration."
+if systemctl list-unit-files | grep -q '^nginx.service'; then
+    if systemctl is-active nginx &>/dev/null; then
+        if nginx -t 2>/dev/null; then
+            systemctl reload nginx 2>/dev/null || systemctl restart nginx
+        else
+            echo "WARNING: Nginx config test failed after removing SPM config."
+            echo "You may need to manually fix /etc/nginx/conf.d/ configuration."
+        fi
     fi
+else
+    echo "INFO: nginx.service not found, skipping nginx reload."
 fi
 
 echo "[4/7] Removing PHP-FPM pool..."

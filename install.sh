@@ -237,22 +237,42 @@ fi
 
 echo ""
 echo "[9/9] Starting services..."
-systemctl enable nginx php-fpm 2>/dev/null || true
 
 # Detect correct php-fpm service name
 PHP_FPM_SERVICE="php-fpm"
 if systemctl list-unit-files | grep -qE '^php[0-9]+\.[0-9]+-fpm\.service'; then
-    PHP_FPM_SERVICE=$(systemctl list-unit-files | grep "^php[0-9]\+\.[0-9]\+-fpm\.service" | head -1 | awk '{print $1}' | sed 's/\.service$//')
+    PHP_FPM_SERVICE=$(systemctl list-unit-files | grep -E '^php[0-9]+\.[0-9]+-fpm\.service' | head -1 | awk '{print $1}' | sed 's/\.service$//')
 fi
 
-# Test nginx config before restart
-if nginx -t 2>/dev/null; then
-    systemctl restart nginx
+# Enable services only if unit files exist
+if systemctl list-unit-files | grep -q '^nginx.service'; then
+    systemctl enable nginx 2>/dev/null || true
 else
-    echo "WARNING: Nginx config test failed. Please check /etc/nginx/conf.d/spm.conf"
+    echo "WARNING: nginx.service not found. Nginx may not be installed or systemd is unavailable."
 fi
 
-systemctl restart "$PHP_FPM_SERVICE" || systemctl restart php-fpm
+if systemctl list-unit-files | grep -q "^${PHP_FPM_SERVICE}.service"; then
+    systemctl enable "$PHP_FPM_SERVICE" 2>/dev/null || true
+else
+    echo "WARNING: ${PHP_FPM_SERVICE}.service not found. PHP-FPM may not be installed."
+fi
+
+# Restart services only if unit files exist
+if systemctl list-unit-files | grep -q '^nginx.service'; then
+    if nginx -t 2>/dev/null; then
+        systemctl restart nginx
+    else
+        echo "WARNING: Nginx config test failed. Please check /etc/nginx/conf.d/spm.conf"
+    fi
+else
+    echo "WARNING: Skipping nginx restart — nginx.service not found."
+fi
+
+if systemctl list-unit-files | grep -q "^${PHP_FPM_SERVICE}.service"; then
+    systemctl restart "$PHP_FPM_SERVICE"
+else
+    echo "WARNING: Skipping PHP-FPM restart — ${PHP_FPM_SERVICE}.service not found."
+fi
 
 # Check services
 sleep 2
