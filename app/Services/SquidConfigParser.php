@@ -73,9 +73,13 @@ class SquidConfigParser {
 
                 case 'cache_peer_access':
                     $results = self::parseCachePeerAccess($tokens);
-                    foreach ($results as $result) {
-                        self::importCachePeerAccess($result);
-                        $stats['peer_access']++;
+                    if (is_array($results)) {
+                        foreach ($results as $result) {
+                            if (is_array($result)) {
+                                self::importCachePeerAccess($result);
+                                $stats['peer_access']++;
+                            }
+                        }
                     }
                     break;
 
@@ -83,9 +87,13 @@ class SquidConfigParser {
                 case 'always_direct':
                 case 'prefer_direct':
                     $results = self::parseRouting($tokens);
-                    foreach ($results as $result) {
-                        self::importRouting($result);
-                        $stats['routing']++;
+                    if (is_array($results)) {
+                        foreach ($results as $result) {
+                            if (is_array($result)) {
+                                self::importRouting($result);
+                                $stats['routing']++;
+                            }
+                        }
                     }
                     break;
 
@@ -293,8 +301,8 @@ class SquidConfigParser {
     }
 
     private static function importCachePeerAccess($rule) {
-        if (empty($rule['peer_id'])) {
-            error_log("SPM DEBUG: skipping orphan rule for '{$rule['hostname']}' — no peer_id");
+        if (!is_array($rule) || empty($rule['peer_id'])) {
+            error_log("SPM DEBUG: skipping orphan rule — " . (is_array($rule) ? "peer_id empty for '{$rule['hostname']}'" : "not an array: " . gettype($rule)));
             return;
         }
         $maxOrder = Database::fetch(
