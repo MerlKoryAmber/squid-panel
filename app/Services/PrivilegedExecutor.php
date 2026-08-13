@@ -29,7 +29,7 @@ class PrivilegedExecutor {
 
         // Validate all args against injection
         foreach ($cmd as $arg) {
-            if (strpbrk($arg, ";|&<>$`\") !== false) {
+            if (strpbrk($arg, ';|&<>$`') !== false) {
                 throw new Exception("Invalid character in command argument");
             }
         }

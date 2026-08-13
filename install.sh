@@ -50,12 +50,18 @@ dnf install -y php-json php-mbstring php-xml 2>/dev/null || true
 
 echo "[2/9] Creating system user..."
 if ! id "$WEB_USER" &>/dev/null; then
-    useradd -r -s /sbin/nologin -d "$SPM_DIR" -M "$WEB_USER"
+    if getent group "$WEB_USER" &>/dev/null; then
+        useradd -r -s /sbin/nologin -d "$SPM_DIR" -M -g "$WEB_USER" "$WEB_USER"
+    else
+        useradd -r -s /sbin/nologin -d "$SPM_DIR" -M "$WEB_USER"
+    fi
 fi
 usermod -aG squid "$WEB_USER" 2>/dev/null || true
 
 # Add nginx to web user group so it can read /opt/spm (chmod 750)
-usermod -aG "$WEB_USER" nginx 2>/dev/null || true
+if id nginx &>/dev/null; then
+    usermod -aG "$WEB_USER" nginx 2>/dev/null || true
+fi
 
 echo "[3/9] Setting up SPM directory..."
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
