@@ -304,13 +304,13 @@ class SquidConfigParser {
         $order = ($maxOrder['max'] ?? 0) + 1;
 
         Database::query(
-            "INSERT INTO cache_peer_access_rules (peer_id, acl_name, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
-            [$rule['peer_id'], $rule['acl_name'], $rule['action'], $rule['negated'] ?? 0, $order]
+            "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
+            [$rule['peer_id'], $rule['hostname'], $rule['acl_name'], $rule['action'], $rule['negated'] ?? 0, $order]
         );
     }
 
     private static function parseRouting($tokens) {
-        if (count($tokens) < 4) return [];
+        if (count($tokens) < 3) return [];
 
         $directive = $tokens[0];
         $action = $tokens[2]; // never_direct allow ACL1 ACL2

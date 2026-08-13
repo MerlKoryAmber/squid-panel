@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS cache_peers (
 CREATE TABLE IF NOT EXISTS cache_peer_access_rules (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     peer_id INTEGER NOT NULL,
+    hostname TEXT NOT NULL,
     acl_name TEXT NOT NULL,
     action TEXT NOT NULL CHECK(action IN ('allow', 'deny')),
     negated INTEGER DEFAULT 0,
