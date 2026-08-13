@@ -29,7 +29,7 @@ class PrivilegedExecutor {
 
         // Validate all args against injection
         foreach ($cmd as $arg) {
-            if (preg_match('/[;&|<>$`\\]/', $arg)) {
+            if (strpbrk($arg, ";|&<>$`\") !== false) {
                 throw new Exception("Invalid character in command argument");
             }
         }
@@ -73,32 +73,16 @@ class PrivilegedExecutor {
     }
 
     private static function executeViaSudo($cmd) {
-        $descriptors = [
-            0 => ['pipe', 'r'],
-            1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
-        ];
-
-        $fullCmd = array_merge(['/usr/bin/sudo', '-n'], $cmd);
-        $process = proc_open($fullCmd, $descriptors, $pipes);
-
-        if (!is_resource($process)) {
-            throw new Exception("Failed to execute command");
-        }
-
-        fclose($pipes[0]);
-        $stdout = stream_get_contents($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-
-        $exitCode = proc_close($process);
+        $escaped = array_map('escapeshellarg', $cmd);
+        $fullCmd = '/usr/bin/sudo -n ' . implode(' ', $escaped) . ' 2>&1';
+        $stdout = shell_exec($fullCmd);
+        $exitCode = ($stdout === null) ? 1 : 0;
 
         return [
             'success' => $exitCode === 0,
             'exit_code' => $exitCode,
-            'stdout' => $stdout,
-            'stderr' => $stderr,
+            'stdout' => $stdout ?: '',
+            'stderr' => '',
         ];
     }
 

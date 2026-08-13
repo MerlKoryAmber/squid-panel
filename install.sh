@@ -54,6 +54,9 @@ if ! id "$WEB_USER" &>/dev/null; then
 fi
 usermod -aG squid "$WEB_USER" 2>/dev/null || true
 
+# Add nginx to web user group so it can read /opt/spm (chmod 750)
+usermod -aG "$WEB_USER" nginx 2>/dev/null || true
+
 echo "[3/9] Setting up SPM directory..."
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
@@ -185,8 +188,8 @@ pm.start_servers = 3
 pm.min_spare_servers = 2
 pm.max_spare_servers = 5
 pm.max_requests = 500
-php_admin_value[open_basedir] = /opt/spm:/tmp:/var/log/squid:/etc/squid
-php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source
+php_admin_value[open_basedir] = /opt/spm:/tmp:/var/log/squid:/etc/squid:/run
+php_admin_value[disable_functions] = exec,passthru,passthru,system,curl_exec,curl_multi_exec,parse_ini_file,show_source
 php_admin_value[upload_max_filesize] = 10M
 php_admin_value[post_max_size] = 10M
 php_admin_value[max_execution_time] = 300
@@ -229,6 +232,8 @@ setfacl -m u:$WEB_USER:r /var/log/squid/cache.log 2>/dev/null || true
 # SELinux context (if enabled)
 if command -v semanage &>/dev/null; then
     semanage fcontext -a -t httpd_sys_content_t "$SPM_DIR(/.*)?" 2>/dev/null || true
+    semanage fcontext -a -t httpd_sys_rw_content_t "$SPM_DIR/database(/.*)?" 2>/dev/null || true
+    semanage fcontext -a -t httpd_sys_rw_content_t "$SPM_DIR/storage(/.*)?" 2>/dev/null || true
     restorecon -Rv "$SPM_DIR" 2>/dev/null || true
     setsebool -P httpd_can_network_connect 1 2>/dev/null || true
 fi
@@ -239,6 +244,12 @@ if [ -f "$SQUID_CONF" ] && [ -s "$SQUID_CONF" ]; then
 else
     echo "No existing squid.conf found or file is empty. Starting with default configuration."
     php "$SPM_DIR/install/defaults.php"
+fi
+
+# Fix database ownership — import.php runs as root, so spm.db may be root-owned
+if [ -f "$SPM_DIR/database/spm.db" ]; then
+    chown "$WEB_USER:$WEB_USER" "$SPM_DIR/database/spm.db"
+    chmod 660 "$SPM_DIR/database/spm.db"
 fi
 
 echo ""
