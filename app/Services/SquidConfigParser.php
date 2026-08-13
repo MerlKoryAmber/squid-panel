@@ -294,7 +294,7 @@ class SquidConfigParser {
 
     private static function importCachePeerAccess($rule) {
         if (empty($rule['peer_id'])) {
-            // Skip orphan rules where peer doesn't exist
+            error_log("SPM DEBUG: skipping orphan rule for '{$rule['hostname']}' — no peer_id");
             return;
         }
         $maxOrder = Database::fetch(
@@ -303,10 +303,12 @@ class SquidConfigParser {
         );
         $order = ($maxOrder['max'] ?? 0) + 1;
 
+        error_log("SPM DEBUG: inserting peer_access peer_id={$rule['peer_id']} hostname={$rule['hostname']} action={$rule['action']} acl={$rule['acl_name']}");
         Database::query(
             "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
             [$rule['peer_id'], $rule['hostname'], $rule['acl_name'], $rule['action'], $rule['negated'] ?? 0, $order]
         );
+        error_log("SPM DEBUG: inserted OK");
     }
 
     private static function parseRouting($tokens) {
