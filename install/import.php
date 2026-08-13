@@ -1,42 +1,60 @@
 <?php
-/**
- * SPM Installation — Import existing squid.conf
- */
-
-define('SPM_ROOT', '/opt/spm');
-define('SPM_STORAGE', '/opt/spm/storage');
-define('SPM_CONFIG', '/opt/spm/config');
-define('DB_PATH', '/opt/spm/database/spm.db');
-define('SQUID_CONF', '/etc/squid/squid.conf');
-define('SQUID_CONF_DIR', '/etc/squid');
-define('SQUID_LOG_DIR', '/var/log/squid');
-define('SQUID_ACCESS_LOG', '/var/log/squid/access.log');
-define('SQUID_CACHE_LOG', '/var/log/squid/cache.log');
-define('SQUID_BINARY', '/usr/sbin/squid');
-define('AGENT_SOCKET', '/run/spmd.sock');
-define('AGENT_ENABLED', true);
-define('SESSION_LIFETIME', 3600);
-define('CSRF_TOKEN_NAME', 'spm_csrf_token');
-define('AUDIT_RETENTION_DAYS', 30);
-define('DEFAULT_LANG', 'ru');
-
-require_once SPM_ROOT . '/app/Core/Database.php';
-require_once SPM_ROOT . '/app/Services/SquidConfigParser.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../config/app.php';
+require_once __DIR__ . '/../config/squid.php';
+require_once __DIR__ . '/../app/Core/Database.php';
+require_once __DIR__ . '/../app/Services/SquidConfigParser.php';
 
 Database::init();
 
-echo "Importing configuration from " . SQUID_CONF . "...
+if (!file_exists(SQUID_CONF)) {
+    echo "No squid.conf found at " . SQUID_CONF . "
 ";
+    exit(1);
+}
+
 $result = SquidConfigParser::parseAndImport(SQUID_CONF);
 
 if ($result['success']) {
-    echo "Import successful!
+    echo "Import completed successfully.
+";
+    echo "Stats:
 ";
     foreach ($result['stats'] as $key => $count) {
-        echo "  - $key: $count
+        echo "  {$key}: {$count}
+";
+    }
+
+    // Debug: show imported peers and access rules
+    $peers = Database::fetchAll("SELECT id, hostname FROM cache_peers");
+    echo "
+Imported peers (" . count($peers) . "):
+";
+    foreach ($peers as $p) {
+        echo "  - {$p['hostname']} (id={$p['id']})
+";
+    }
+
+    $access = Database::fetchAll("SELECT peer_id, hostname, acl_name, action, negated FROM cache_peer_access_rules");
+    echo "
+Imported peer access rules (" . count($access) . "):
+";
+    foreach ($access as $a) {
+        $neg = $a['negated'] ? '!' : '';
+        echo "  - peer_id={$a['peer_id']} {$a['action']} {$neg}{$a['acl_name']}
+";
+    }
+
+    $routing = Database::fetchAll("SELECT directive, action, acl_name, negated FROM routing_rules");
+    echo "
+Imported routing rules (" . count($routing) . "):
+";
+    foreach ($routing as $r) {
+        $neg = $r['negated'] ? '!' : '';
+        echo "  - {$r['directive']} {$r['action']} {$neg}{$r['acl_name']}
 ";
     }
 } else {
-    echo "WARNING: Import failed: " . $result['error'] . "
+    echo "Import failed: " . $result['error'] . "
 ";
 }

@@ -3,6 +3,7 @@
 
 squidmgr ALL=(root) NOPASSWD: /usr/sbin/squid -k reconfigure
 squidmgr ALL=(root) NOPASSWD: /usr/sbin/squid -k parse
+squidmgr ALL=(root) NOPASSWD: /usr/sbin/squid -v
 squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl start squid
 squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl stop squid
 squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl restart squid
