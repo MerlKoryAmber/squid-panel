@@ -320,7 +320,11 @@ class SquidConfigParser {
     }
 
     private static function parseRouting($tokens) {
-        if (count($tokens) < 3) return [];
+        error_log("SPM DEBUG parseRouting tokens: " . implode(" | ", $tokens));
+        if (count($tokens) < 3) {
+            error_log("SPM DEBUG parseRouting: too few tokens (" . count($tokens) . "), skipping");
+            return [];
+        }
 
         $directive = $tokens[0];
         $action = $tokens[2]; // never_direct allow ACL1 ACL2
