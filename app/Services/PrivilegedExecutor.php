@@ -36,7 +36,11 @@ class PrivilegedExecutor {
 
         // Try agent first
         if (AGENT_ENABLED && file_exists(AGENT_SOCKET)) {
-            return self::executeViaAgent($commandKey, $extraArgs);
+            $result = self::executeViaAgent($commandKey, $extraArgs);
+            if ($result !== null) {
+                return $result;
+            }
+            // Agent failed, fall through to sudo
         }
 
         // Fallback to sudo
@@ -50,23 +54,24 @@ class PrivilegedExecutor {
             'timestamp' => time(),
         ]);
 
-        $socket = socket_create(AF_UNIX, SOCK_STREAM, 0);
-        if (!@socket_connect($socket, AGENT_SOCKET)) {
-            throw new Exception("Cannot connect to agent");
+        $socket = @socket_create(AF_UNIX, SOCK_STREAM, 0);
+        if (!$socket || !@socket_connect($socket, AGENT_SOCKET)) {
+            return null; // Fallback to sudo
         }
 
-        socket_write($socket, $payload);
-        socket_shutdown($socket, SHUT_WR);
+        @socket_write($socket, $payload);
+        @socket_shutdown($socket, SHUT_WR);
 
         $response = '';
-        while ($buf = socket_read($socket, 4096)) {
+        while ($buf = @socket_read($socket, 4096)) {
+            if ($buf === false) break;
             $response .= $buf;
         }
-        socket_close($socket);
+        @socket_close($socket);
 
         $result = json_decode($response, true);
         if (!$result || !isset($result['success'])) {
-            throw new Exception("Invalid agent response");
+            return null; // Fallback to sudo
         }
 
         return $result;

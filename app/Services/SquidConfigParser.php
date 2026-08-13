@@ -72,8 +72,8 @@ class SquidConfigParser {
                     break;
 
                 case 'cache_peer_access':
-                    $result = self::parseCachePeerAccess($tokens);
-                    if ($result) {
+                    $results = self::parseCachePeerAccess($tokens);
+                    foreach ($results as $result) {
                         self::importCachePeerAccess($result);
                         $stats['peer_access']++;
                     }
@@ -82,8 +82,8 @@ class SquidConfigParser {
                 case 'never_direct':
                 case 'always_direct':
                 case 'prefer_direct':
-                    $result = self::parseRouting($tokens);
-                    if ($result) {
+                    $results = self::parseRouting($tokens);
+                    foreach ($results as $result) {
                         self::importRouting($result);
                         $stats['routing']++;
                     }
@@ -204,6 +204,7 @@ class SquidConfigParser {
         $proxyOnly = 0;
         $noQuery = 0;
         $noDigest = 0;
+        $peerName = '';
 
         $remaining = array_slice($tokens, 5);
 
@@ -214,6 +215,8 @@ class SquidConfigParser {
                 $weight = (int)substr($token, 7);
             } elseif (strpos($token, 'connect-timeout=') === 0) {
                 $connectTimeout = (int)substr($token, 16);
+            } elseif (strpos($token, 'name=') === 0) {
+                $peerName = substr($token, 5);
             } elseif ($token === 'proxy-only') {
                 $proxyOnly = 1;
             } elseif ($token === 'no-query') {
@@ -226,7 +229,7 @@ class SquidConfigParser {
         }
 
         return [
-            'hostname' => $hostname,
+            'hostname' => $peerName ?: $hostname,
             'peer_type' => $peerType,
             'http_port' => $httpPort,
             'icp_port' => $icpPort,
@@ -307,19 +310,25 @@ class SquidConfigParser {
     }
 
     private static function parseRouting($tokens) {
-        if (count($tokens) < 4) return null;
+        if (count($tokens) < 4) return [];
 
         $directive = $tokens[0];
-        $action = $tokens[1];
-        $aclName = $tokens[2];
+        $action = $tokens[2]; // never_direct allow ACL1 ACL2
 
-        if (!in_array($action, ['allow', 'deny'])) return null;
+        if (!in_array($action, ['allow', 'deny'])) return [];
 
-        return [
-            'directive' => $directive,
-            'action' => $action,
-            'acl_name' => $aclName,
-        ];
+        $rules = [];
+        for ($i = 3; $i < count($tokens); $i++) {
+            $aclName = $tokens[$i];
+            if ($aclName === 'all') continue;
+            $rules[] = [
+                'directive' => $directive,
+                'action' => $action,
+                'acl_name' => $aclName,
+            ];
+        }
+
+        return $rules;
     }
 
     private static function importRouting($rule) {
