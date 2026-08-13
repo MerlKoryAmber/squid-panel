@@ -106,7 +106,11 @@ class PrivilegedExecutor {
                 }
                 return ['status' => $status, 'raw' => $result['stdout']];
             }
-            return ['status' => 'error', 'raw' => $result['stderr']];
+            $errorDetail = $result['stderr'] ?: $result['stdout'];
+            if (empty($errorDetail)) {
+                $errorDetail = 'Command returned no output. Check if squid is installed and sudoers configured.';
+            }
+            return ['status' => 'error', 'raw' => $errorDetail];
         } catch (Exception $e) {
             return ['status' => 'error', 'raw' => $e->getMessage()];
         }

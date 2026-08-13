@@ -20,7 +20,10 @@ class Router {
 
     public function dispatch() {
         $url = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        $url = str_replace(dirname($_SERVER['SCRIPT_NAME']), '', $url);
+        $scriptName = dirname($_SERVER['SCRIPT_NAME']);
+        if ($scriptName !== '/' && $scriptName !== '' && strpos($url, $scriptName) === 0) {
+            $url = substr($url, strlen($scriptName));
+        }
         $url = '/' . ltrim($url, '/');
         $method = $_SERVER['REQUEST_METHOD'];
 
