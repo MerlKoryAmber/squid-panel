@@ -82,28 +82,22 @@ class SquidConfigParser {
                     break;
 
                 case 'cache_peer_access':
-                    echo "DEBUG: processing cache_peer_access: " . implode(' | ', $tokens) . "\n";
-                    $results = self::parseCachePeerAccess($tokens);
-                    if (is_array($results)) {
-                        foreach ($results as $result) {
-                            if (is_array($result)) {
-                                self::importCachePeerAccess($result);
-                                $stats['peer_access']++;
-                            }
-                        }
-                    }
-                    break;
-
-                case 'never_direct':
-                case 'always_direct':
-                case 'prefer_direct':
-                    $results = self::parseRouting($tokens);
-                    if (is_array($results)) {
-                        foreach ($results as $result) {
-                            if (is_array($result)) {
-                                self::importRouting($result);
-                                $stats['routing']++;
-                            }
+                    $hostname = $tokens[1] ?? '';
+                    $action = $tokens[2] ?? '';
+                    if (!in_array($action, ['allow', 'deny'])) break;
+                    $peer = Database::fetch("SELECT id FROM cache_peers WHERE hostname = ?", [$hostname]);
+                    $peerId = $peer ? $peer['id'] : null;
+                    for ($j = 3; $j < count($tokens); $j++) {
+                        $aclName = $tokens[$j];
+                        if ($aclName === 'all' || $aclName[0] === '#') continue;
+                        $isNegated = (strpos($aclName, '!') === 0);
+                        if ($isNegated) $aclName = substr($aclName, 1);
+                        if ($peerId) {
+                            Database::query(
+                                "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
+                                [$peerId, $hostname, $aclName, $action, $isNegated ? 1 : 0, $j - 2]
+                            );
+                            $stats['peer_access']++;
                         }
                     }
                     break;
