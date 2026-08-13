@@ -302,7 +302,7 @@ class SquidConfigParser {
 
     private static function importCachePeerAccess($rule) {
         if (!is_array($rule) || empty($rule['peer_id'])) {
-            error_log("SPM DEBUG: skipping orphan rule — " . (is_array($rule) ? "peer_id empty for '{$rule['hostname']}'" : "not an array: " . gettype($rule)));
+            echo "DEBUG: skipping orphan rule\n";
             return;
         }
         $maxOrder = Database::fetch(
@@ -311,18 +311,18 @@ class SquidConfigParser {
         );
         $order = ($maxOrder['max'] ?? 0) + 1;
 
-        error_log("SPM DEBUG: inserting peer_access peer_id={$rule['peer_id']} hostname={$rule['hostname']} action={$rule['action']} acl={$rule['acl_name']}");
+        echo "DEBUG: inserting peer_access peer_id={$rule['peer_id']} hostname={$rule['hostname']} action={$rule['action']} acl={$rule['acl_name']}\n";
         Database::query(
             "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
             [$rule['peer_id'], $rule['hostname'], $rule['acl_name'], $rule['action'], $rule['negated'] ?? 0, $order]
         );
-        error_log("SPM DEBUG: inserted OK");
+        echo "DEBUG: inserted OK\n";
     }
 
     private static function parseRouting($tokens) {
-        error_log("SPM DEBUG parseRouting tokens: " . implode(" | ", $tokens));
+        echo "DEBUG parseRouting tokens: " . implode(" | ", $tokens) . "\n";
         if (count($tokens) < 3) {
-            error_log("SPM DEBUG parseRouting: too few tokens (" . count($tokens) . "), skipping");
+            echo "DEBUG: routing too few tokens (" . count($tokens) . "), skipping\n";
             return [];
         }
 
@@ -334,7 +334,7 @@ class SquidConfigParser {
         $rules = [];
         for ($i = 3; $i < count($tokens); $i++) {
             $aclName = $tokens[$i];
-            if ($aclName === 'all') continue;
+            if ($aclName === 'all' || $aclName[0] === '#') continue;
             // Handle negations: !ACLname
             $isNegated = false;
             if (strpos($aclName, '!') === 0) {
