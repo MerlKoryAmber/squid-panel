@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS cache_peer_access_rules (
     peer_id INTEGER NOT NULL,
     acl_name TEXT NOT NULL,
     action TEXT NOT NULL CHECK(action IN ('allow', 'deny')),
+    negated INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 0,
     created_at TEXT,
     FOREIGN KEY (peer_id) REFERENCES cache_peers(id) ON DELETE CASCADE
@@ -65,6 +66,7 @@ CREATE TABLE IF NOT EXISTS routing_rules (
     directive TEXT NOT NULL CHECK(directive IN ('never_direct', 'always_direct', 'prefer_direct')),
     action TEXT NOT NULL CHECK(action IN ('allow', 'deny')),
     acl_name TEXT NOT NULL,
+    negated INTEGER DEFAULT 0,
     created_at TEXT
 );
 

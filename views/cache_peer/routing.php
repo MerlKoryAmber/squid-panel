@@ -43,6 +43,7 @@
                             </select>
                         </td>
                         <td>
+                            <span style="color:var(--interros-danger); font-weight:bold;"><?= ($rule['negated'] ?? 0) ? '!' : '' ?></span>
                             <select name="acl_name[]" required>
                                 <option value="">Select ACL...</option>
                                 <?php foreach ($acls as $acl): ?>

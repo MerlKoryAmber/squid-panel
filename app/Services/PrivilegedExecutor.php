@@ -136,11 +136,16 @@ class PrivilegedExecutor {
             $result = self::execute('squid_version');
             if ($result['success']) {
                 preg_match('/Version\s+([0-9.]+)/', $result['stdout'], $matches);
-                return $matches[1] ?? 'unknown';
+                if (!empty($matches[1])) {
+                    return $matches[1];
+                }
+                // Debug: if regex fails, return raw output for inspection
+                return 'raw:' . substr($result['stdout'], 0, 100);
             }
-            return 'unknown';
+            // Debug: return error info
+            return 'err:' . substr($result['stdout'] . $result['stderr'], 0, 100);
         } catch (Exception $e) {
-            return 'unknown';
+            return 'exc:' . substr($e->getMessage(), 0, 100);
         }
     }
 }
