@@ -21,7 +21,19 @@ class DashboardController {
         $recentLogs = LogParser::tail(SQUID_ACCESS_LOG, 10);
         $auditLogs = Audit::getRecent(5);
 
-        $stats = LogParser::getStats(SQUID_ACCESS_LOG, 24);
+        $logStats = LogParser::getStats(SQUID_ACCESS_LOG, 24);
+
+        // Database counters for dashboard cards
+        $stats = [
+            'http_access' => Database::fetch("SELECT COUNT(*) as c FROM http_access_rules")['c'] ?? 0,
+            'acls'        => Database::fetch("SELECT COUNT(*) as c FROM acls")['c'] ?? 0,
+            'peers'       => Database::fetch("SELECT COUNT(*) as c FROM cache_peers")['c'] ?? 0,
+            'peer_access' => Database::fetch("SELECT COUNT(*) as c FROM cache_peer_access_rules")['c'] ?? 0,
+            'auth'        => Database::fetch("SELECT COUNT(*) as c FROM auth_settings")['c'] ?? 0,
+            'scheduler'   => Database::fetch("SELECT COUNT(*) as c FROM scheduler_tasks")['c'] ?? 0,
+            'hourly'      => $logStats['hourly'] ?? [],
+            'topDomains'  => $logStats['domains'] ?? [],
+        ];
 
         $acls = Database::fetchAll("SELECT * FROM acls");
         $peers = Database::fetchAll("SELECT * FROM cache_peers");

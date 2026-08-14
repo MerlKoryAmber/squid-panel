@@ -46,7 +46,10 @@
         <!-- Main Content -->
         <div class="main-content">
             <header class="top-header">
-                <h2><?= htmlspecialchars($title ?? 'Dashboard') ?></h2>
+                <div style="display:flex; align-items:center;">
+                    <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+                    <h2><?= htmlspecialchars($title ?? 'Dashboard') ?></h2>
+                </div>
                 <div class="top-header-actions">
                     <?php if (Auth::check()): ?>
                     <div class="user-badge">
@@ -61,5 +64,12 @@
             </main>
         </div>
     </div>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <script>
+    function toggleSidebar() {
+        document.querySelector('.sidebar').classList.toggle('open');
+        document.getElementById('sidebarOverlay').classList.toggle('show');
+    }
+    </script>
 </body>
 </html>

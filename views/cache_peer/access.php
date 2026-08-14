@@ -25,7 +25,7 @@
                     <th>ACL Entries</th>
                     <th>Action</th>
                     <th>Preview</th>
-                    <th style="width:140px;">Actions</th>
+                    <th style="width:180px; white-space:nowrap;">Actions</th>
                 </tr>
             </thead>
             <tbody>

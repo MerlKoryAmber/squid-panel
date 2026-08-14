@@ -24,7 +24,7 @@
                     <th>Action</th>
                     <th>ACLs</th>
                     <th>Description</th>
-                    <th style="width:140px;">Actions</th>
+                    <th style="width:180px; white-space:nowrap;">Actions</th>
                 </tr>
             </thead>
             <tbody>

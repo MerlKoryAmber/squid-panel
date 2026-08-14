@@ -24,7 +24,7 @@
                     <th>Port</th>
                     <th>Options</th>
                     <th>Status</th>
-                    <th style="width:200px;">Actions</th>
+                    <th style="width:180px; white-space:nowrap;">Actions</th>
                 </tr>
             </thead>
             <tbody>
