@@ -29,7 +29,7 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="/assets/js/chart.js"></script>
 <script>
 const hourly = <?= json_encode($stats['hourly'] ?? []) ?>;
 new Chart(document.getElementById('hourly-chart'), {
