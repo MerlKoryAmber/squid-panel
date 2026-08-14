@@ -34,13 +34,12 @@ Imported peers (" . count($peers) . "):
 ";
     }
 
-    $access = Database::fetchAll("SELECT peer_id, hostname, acl_name, action, negated FROM cache_peer_access_rules");
+    $access = Database::fetchAll("SELECT peer_id, hostname, acl_entries, action FROM cache_peer_access_rules");
     echo "
 Imported peer access rules (" . count($access) . "):
 ";
     foreach ($access as $a) {
-        $neg = $a['negated'] ? '!' : '';
-        echo "  - peer_id={$a['peer_id']} {$a['action']} {$neg}{$a['acl_name']}
+        echo "  - peer_id={$a['peer_id']} {$a['action']} {$a['acl_entries']}
 ";
     }
 

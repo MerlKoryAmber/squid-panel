@@ -91,8 +91,7 @@ class SquidConfigBuilder {
             if (!empty($peerAccessRules)) {
                 $lines[] = "# === Cache Peer Access Rules ===";
                 foreach ($peerAccessRules as $rule) {
-                    $aclName = ($rule['negated'] ?? 0) ? "!" . $rule['acl_name'] : $rule['acl_name'];
-                    $lines[] = "cache_peer_access " . $rule['hostname'] . " " . $rule['action'] . " " . $aclName;
+                    $lines[] = "cache_peer_access " . $rule['hostname'] . " " . $rule['action'] . " " . $rule['acl_entries'];
                 }
                 $lines[] = "";
             }

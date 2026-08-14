@@ -22,9 +22,9 @@
                 <?php foreach ($rules as $rule): ?>
                 <tr data-id="<?= $rule['id'] ?>">
                     <td class="drag-handle" style="cursor: grab; color: var(--kimi-color-text-quaternary);">⋮⋮</td>
-                    <td><code><?= ($rule['negated'] ?? 0) ? '!' : '' ?><?= htmlspecialchars($rule['acl_name']) ?></code></td>
+                    <td><code><?= htmlspecialchars($rule['acl_entries']) ?></code></td>
                     <td><span class="badge badge-<?= $rule['action'] === 'allow' ? 'success' : 'danger' ?>"><?= $rule['action'] ?></span></td>
-                    <td><code class="code-inline">cache_peer_access <?= htmlspecialchars($peer['hostname']) ?> <?= $rule['action'] ?> <?= ($rule['negated'] ?? 0) ? '!' : '' ?><?= htmlspecialchars($rule['acl_name']) ?></code></td>
+                    <td><code class="code-inline">cache_peer_access <?= htmlspecialchars($peer['hostname']) ?> <?= $rule['action'] ?> <?= htmlspecialchars($rule['acl_entries']) ?></code></td>
                     <?php if (Auth::isAdmin()): ?>
                     <td>
                         <form method="POST" action="/peers/access/delete" style="display:inline" onsubmit="return confirm('Delete this rule?')">
@@ -50,14 +50,10 @@
             <?= View::csrf() ?>
             <input type="hidden" name="peer_id" value="<?= $peer['id'] ?>">
             <div class="form-row">
-                <div class="form-group">
-                    <label>ACL</label>
-                    <select name="acl_name" required>
-                        <option value="">Select ACL...</option>
-                        <?php foreach ($acls as $acl): ?>
-                        <option value="<?= htmlspecialchars($acl['name']) ?>"><?= htmlspecialchars($acl['name']) ?> (<?= $acl['type'] ?>)</option>
-                        <?php endforeach; ?>
-                    </select>
+                <div class="form-group" style="flex: 2;">
+                    <label>ACL Entries <span class="text-muted">(space separated, e.g. <code>HCIITVM2127 !CYPInet</code>)</span></label>
+                    <input type="text" name="acl_entries" placeholder="ACL1 !ACL2 ACL3" required style="width: 100%; font-family: monospace;">
+                    <small class="text-muted">Multiple ACLs are combined with AND logic</small>
                 </div>
                 <div class="form-group">
                     <label>Action</label>
@@ -80,7 +76,7 @@
     <div class="panel-header"><h3>Peer Configuration Preview</h3></div>
     <div class="panel-body">
         <pre class="code-block">cache_peer <?= htmlspecialchars($peer['hostname']) ?> <?= $peer['peer_type'] ?> <?= $peer['http_port'] ?><?= $peer['icp_port'] ? ' ' . $peer['icp_port'] : '' ?><?= $peer['proxy_only'] ? ' proxy-only' : '' ?><?= $peer['no_query'] ? ' no-query' : '' ?><?= $peer['weight'] ? ' weight=' . $peer['weight'] : '' ?><?= $peer['login'] ? ' login=' . $peer['login'] : '' ?>
-<?php foreach ($rules as $rule): ?>cache_peer_access <?= htmlspecialchars($peer['hostname']) ?> <?= $rule['action'] ?> <?= ($rule['negated'] ?? 0) ? '!' : '' ?><?= htmlspecialchars($rule['acl_name']) ?>
+<?php foreach ($rules as $rule): ?>cache_peer_access <?= htmlspecialchars($peer['hostname']) ?> <?= $rule['action'] ?> <?= htmlspecialchars($rule['acl_entries']) ?>
 <?php endforeach; ?></pre>
     </div>
 </div>

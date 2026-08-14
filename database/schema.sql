@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS cache_peer_access_rules (
     peer_id INTEGER NOT NULL,
     hostname TEXT NOT NULL,
     acl_name TEXT NOT NULL,
+    acl_entries TEXT NOT NULL DEFAULT '',
     action TEXT NOT NULL CHECK(action IN ('allow', 'deny')),
     negated INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 0,

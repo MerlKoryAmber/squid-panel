@@ -139,13 +139,16 @@ class CachePeerController {
         View::verifyCsrf();
 
         $peerId = (int)($_POST['peer_id'] ?? 0);
-        $aclName = $_POST['acl_name'] ?? '';
+        $aclEntries = trim($_POST['acl_entries'] ?? '');
         $action = in_array($_POST['action'] ?? '', ['allow', 'deny']) ? $_POST['action'] : 'allow';
 
-        if (empty($aclName)) {
+        if (empty($aclEntries)) {
             http_response_code(400);
-            die('ACL is required');
+            die('ACL entries are required');
         }
+
+        $peer = Database::fetch("SELECT hostname FROM cache_peers WHERE id = ?", [$peerId]);
+        $hostname = $peer['hostname'] ?? '';
 
         $maxOrder = Database::fetch(
             "SELECT MAX(sort_order) as max FROM cache_peer_access_rules WHERE peer_id = ?",
@@ -153,12 +156,18 @@ class CachePeerController {
         );
         $order = ($maxOrder['max'] ?? 0) + 1;
 
+        // First ACL for display/compatibility
+        $tokens = preg_split('/\s+/', $aclEntries);
+        $firstAcl = $tokens[0] ?? '';
+        $isNegated = (strpos($firstAcl, '!') === 0);
+        if ($isNegated) $firstAcl = substr($firstAcl, 1);
+
         Database::query(
-            "INSERT INTO cache_peer_access_rules (peer_id, acl_name, action, sort_order, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
-            [$peerId, $aclName, $action, $order]
+            "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, acl_entries, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+            [$peerId, $hostname, $firstAcl, $aclEntries, $action, $isNegated ? 1 : 0, $order]
         );
 
-        Audit::log('peer_access_create', "Added {$action} {$aclName} to peer {$peerId}");
+        Audit::log('peer_access_create', "Added {$action} {$aclEntries} to peer {$peerId}");
         View::redirect('/peers/access?peer_id=' . $peerId);
     }
 

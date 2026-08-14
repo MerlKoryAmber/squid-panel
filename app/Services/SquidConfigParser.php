@@ -87,18 +87,28 @@ class SquidConfigParser {
                     if (!in_array($action, ['allow', 'deny'])) break;
                     $peer = Database::fetch("SELECT id FROM cache_peers WHERE hostname = ?", [$hostname]);
                     $peerId = $peer ? $peer['id'] : null;
-                    for ($j = 3; $j < count($tokens); $j++) {
-                        $aclName = $tokens[$j];
-                        if ($aclName === 'all' || $aclName[0] === '#') continue;
-                        $isNegated = (strpos($aclName, '!') === 0);
-                        if ($isNegated) $aclName = substr($aclName, 1);
-                        if ($peerId) {
-                            Database::query(
-                                "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
-                                [$peerId, $hostname, $aclName, $action, $isNegated ? 1 : 0, $j - 2]
-                            );
-                            $stats['peer_access']++;
-                        }
+
+                    // Collect all ACL tokens (AND logic — space separated)
+                    $aclTokens = array_slice($tokens, 3);
+                    $aclEntries = implode(' ', $aclTokens);
+                    if (empty($aclEntries) || $aclEntries === 'all') break;
+
+                    // First ACL for display/compatibility
+                    $firstAcl = $aclTokens[0] ?? '';
+                    $isNegated = (strpos($firstAcl, '!') === 0);
+                    if ($isNegated) $firstAcl = substr($firstAcl, 1);
+
+                    if ($peerId) {
+                        $sortOrder = Database::fetch(
+                            "SELECT MAX(sort_order) as max FROM cache_peer_access_rules WHERE peer_id = ?",
+                            [$peerId]
+                        );
+                        $order = ($sortOrder['max'] ?? 0) + 1;
+                        Database::query(
+                            "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, acl_entries, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+                            [$peerId, $hostname, $firstAcl, $aclEntries, $action, $isNegated ? 1 : 0, $order]
+                        );
+                        $stats['peer_access']++;
                     }
                     break;
 
