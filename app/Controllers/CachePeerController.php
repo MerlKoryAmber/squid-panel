@@ -183,6 +183,55 @@ class CachePeerController {
         View::redirect('/peers/access?peer_id=' . $peerId);
     }
 
+    public function editAccess($params = []) {
+        Auth::requireAuth();
+        $id = (int)($_GET['id'] ?? 0);
+        $rule = Database::fetch("SELECT * FROM cache_peer_access_rules WHERE id = ?", [$id]);
+        if (!$rule) {
+            http_response_code(404);
+            die('Rule not found');
+        }
+        $peer = Database::fetch("SELECT * FROM cache_peers WHERE id = ?", [$rule['peer_id']]);
+        echo View::render('cache_peer.access_edit', [
+            'title' => 'Edit Peer Access Rule',
+            'rule' => $rule,
+            'peer' => $peer
+        ]);
+    }
+
+    public function updateAccess($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+
+        $id = (int)($_POST['id'] ?? 0);
+        $rule = Database::fetch("SELECT * FROM cache_peer_access_rules WHERE id = ?", [$id]);
+        if (!$rule) {
+            http_response_code(404);
+            die('Rule not found');
+        }
+
+        $aclEntries = trim($_POST['acl_entries'] ?? '');
+        $action = in_array($_POST['action'] ?? '', ['allow', 'deny']) ? $_POST['action'] : $rule['action'];
+
+        if (empty($aclEntries)) {
+            http_response_code(400);
+            die('ACL entries are required');
+        }
+
+        $tokens = preg_split('/\s+/', $aclEntries);
+        $firstAcl = $tokens[0] ?? '';
+        $isNegated = (strpos($firstAcl, '!') === 0);
+        if ($isNegated) $firstAcl = substr($firstAcl, 1);
+
+        Database::query(
+            "UPDATE cache_peer_access_rules SET acl_name = ?, acl_entries = ?, action = ?, negated = ?, updated_at = datetime('now') WHERE id = ?",
+            [$firstAcl, $aclEntries, $action, $isNegated ? 1 : 0, $id]
+        );
+
+        Audit::log('peer_access_update', "Updated peer access rule {$id}");
+        View::redirect('/peers/access?peer_id=' . $rule['peer_id']);
+    }
+
     public function reorderAccess($params = []) {
         Auth::requireAdmin();
         View::verifyCsrf();

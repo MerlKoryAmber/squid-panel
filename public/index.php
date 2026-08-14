@@ -69,6 +69,8 @@ $router->post('/acl/delete', 'AclController@delete');
 
 // HTTP Access Rules
 $router->get('/http_access', 'HttpAccessController@index');
+$router->get('/http_access/edit', 'HttpAccessController@edit');
+$router->post('/http_access/update', 'HttpAccessController@update');
 $router->post('/http_access/reorder', 'HttpAccessController@reorder');
 $router->post('/http_access/store', 'HttpAccessController@store');
 $router->post('/http_access/delete', 'HttpAccessController@delete');
@@ -130,6 +132,8 @@ $router->post('/settings/save', 'SettingsController@save');
 
 // Cache Peer Access Rules
 $router->get('/peers/access', 'CachePeerController@access');
+$router->get('/peers/access/edit', 'CachePeerController@editAccess');
+$router->post('/peers/access/update', 'CachePeerController@updateAccess');
 $router->post('/peers/access/store', 'CachePeerController@storeAccess');
 $router->post('/peers/access/delete', 'CachePeerController@deleteAccess');
 $router->post('/peers/access/reorder', 'CachePeerController@reorderAccess');

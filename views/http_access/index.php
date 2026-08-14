@@ -57,6 +57,7 @@
                 <td><?= htmlspecialchars($rule['description'] ?? '') ?></td>
                 <?php if (Auth::isAdmin()): ?>
                 <td>
+                    <a href="/http_access/edit?id=<?= $rule['id'] ?>" class="btn-sm">Edit</a>
                     <form method="POST" action="/http_access/delete" style="display:inline" onsubmit="return confirm('Delete this rule?')">
                         <?= View::csrf() ?>
                         <input type="hidden" name="id" value="<?= $rule['id'] ?>">

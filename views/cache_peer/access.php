@@ -27,6 +27,7 @@
                     <td><code class="code-inline">cache_peer_access <?= htmlspecialchars($peer['hostname']) ?> <?= $rule['action'] ?> <?= htmlspecialchars($rule['acl_entries']) ?></code></td>
                     <?php if (Auth::isAdmin()): ?>
                     <td>
+                        <a href="/peers/access/edit?id=<?= $rule['id'] ?>" class="btn-sm">Edit</a>
                         <form method="POST" action="/peers/access/delete" style="display:inline" onsubmit="return confirm('Delete this rule?')">
                             <?= View::csrf() ?>
                             <input type="hidden" name="id" value="<?= $rule['id'] ?>">

@@ -46,6 +46,51 @@ class HttpAccessController {
         echo json_encode(['success' => true]);
     }
 
+    public function edit($params = []) {
+        Auth::requireAuth();
+        $id = (int)($_GET['id'] ?? 0);
+        $rule = Database::fetch("SELECT * FROM http_access_rules WHERE id = ?", [$id]);
+        if (!$rule) {
+            http_response_code(404);
+            die('Rule not found');
+        }
+        $acls = Database::fetchAll("SELECT name, type FROM acls ORDER BY name");
+        echo View::render('http_access.edit', [
+            'title' => 'Edit HTTP Access Rule',
+            'rule' => $rule,
+            'acls' => $acls
+        ]);
+    }
+
+    public function update($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+
+        $id = (int)($_POST['id'] ?? 0);
+        $rule = Database::fetch("SELECT * FROM http_access_rules WHERE id = ?", [$id]);
+        if (!$rule) {
+            http_response_code(404);
+            die('Rule not found');
+        }
+
+        $action = in_array($_POST['action'] ?? '', ['allow', 'deny']) ? $_POST['action'] : $rule['action'];
+        $acls = $_POST['acls'] ?? [];
+        $description = $_POST['description'] ?? '';
+
+        if (empty($acls)) {
+            http_response_code(400);
+            die('At least one ACL required');
+        }
+
+        Database::query(
+            "UPDATE http_access_rules SET action = ?, acls = ?, description = ?, updated_at = datetime('now') WHERE id = ?",
+            [$action, json_encode($acls), $description, $id]
+        );
+
+        Audit::log('http_access_update', "Updated http_access rule {$id}");
+        View::redirect('/http_access');
+    }
+
     public function delete($params = []) {
         Auth::requireAdmin();
         View::verifyCsrf();
