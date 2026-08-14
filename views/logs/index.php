@@ -5,6 +5,49 @@
 
 <div class="card">
     <div class="card-header">
+        <h3>Filters</h3>
+        <span class="subtitle">Narrow down log entries</span>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="/logs" id="logFilterForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Client IP</label>
+                    <input type="text" name="ip" value="<?= htmlspecialchars($filters['ip'] ?? '') ?>" placeholder="192.168.1.1">
+                </div>
+                <div class="form-group">
+                    <label>User</label>
+                    <input type="text" name="user" value="<?= htmlspecialchars($filters['user'] ?? '') ?>" placeholder="username">
+                </div>
+                <div class="form-group">
+                    <label>Status Code</label>
+                    <input type="text" name="status" value="<?= htmlspecialchars($filters['status'] ?? '') ?>" placeholder="200, 404, TCP_MISS">
+                </div>
+                <div class="form-group" style="flex: 2;">
+                    <label>URL Contains</label>
+                    <input type="text" name="url" value="<?= htmlspecialchars($filters['url'] ?? '') ?>" placeholder="example.com">
+                </div>
+                <div class="form-group">
+                    <label>Method</label>
+                    <select name="method">
+                        <option value="">All</option>
+                        <option value="GET" <?= ($filters['method'] ?? '') === 'GET' ? 'selected' : '' ?>>GET</option>
+                        <option value="POST" <?= ($filters['method'] ?? '') === 'POST' ? 'selected' : '' ?>>POST</option>
+                        <option value="CONNECT" <?= ($filters['method'] ?? '') === 'CONNECT' ? 'selected' : '' ?>>CONNECT</option>
+                        <option value="HEAD" <?= ($filters['method'] ?? '') === 'HEAD' ? 'selected' : '' ?>>HEAD</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+                <a href="/logs" class="btn btn-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
         <h3>Access Log Entries</h3>
         <span class="subtitle"><?= count($logs) ?> entries shown</span>
     </div>

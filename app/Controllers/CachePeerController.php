@@ -19,28 +19,25 @@ class CachePeerController {
         View::verifyCsrf();
 
         $data = [
+            'name' => $_POST['name'] ?? '',
             'hostname' => $_POST['hostname'] ?? '',
             'peer_type' => $_POST['peer_type'] ?? 'parent',
-            'http_port' => (int)($_POST['http_port'] ?? 3128),
-            'icp_port' => (int)($_POST['icp_port'] ?? 0),
-            'proxy_only' => isset($_POST['proxy_only']) ? 1 : 0,
-            'no_query' => isset($_POST['no_query']) ? 1 : 0,
-            'no_digest' => isset($_POST['no_digest']) ? 1 : 0,
-            'weight' => (int)($_POST['weight'] ?? 0),
-            'login' => $_POST['login'] ?? '',
-            'connect_timeout' => (int)($_POST['connect_timeout'] ?? 0),
-            'access_acl' => $_POST['access_acl'] ?? '',
+            'port' => (int)($_POST['port'] ?? 3128),
             'options' => $_POST['options'] ?? '',
+            'status' => $_POST['status'] ?? 'active',
         ];
 
         if (empty($data['hostname'])) {
             http_response_code(400);
             die('Hostname is required');
         }
+        if (empty($data['name'])) {
+            $data['name'] = $data['hostname'];
+        }
 
         Database::query(
-            "INSERT INTO cache_peers (hostname, peer_type, http_port, icp_port, proxy_only, no_query, no_digest, weight, login, connect_timeout, access_acl, options, created_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+            "INSERT INTO cache_peers (name, hostname, peer_type, port, options, status, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
             array_values($data)
         );
 
@@ -73,20 +70,14 @@ class CachePeerController {
         }
 
         Database::query(
-            "UPDATE cache_peers SET hostname=?, peer_type=?, http_port=?, icp_port=?, proxy_only=?, no_query=?, no_digest=?, weight=?, login=?, connect_timeout=?, access_acl=?, options=? WHERE id=?",
+            "UPDATE cache_peers SET name=?, hostname=?, peer_type=?, port=?, options=?, status=? WHERE id=?",
             [
+                $_POST['name'] ?? $peer['name'],
                 $_POST['hostname'] ?? $peer['hostname'],
                 $_POST['peer_type'] ?? $peer['peer_type'],
-                (int)($_POST['http_port'] ?? $peer['http_port']),
-                (int)($_POST['icp_port'] ?? $peer['icp_port']),
-                isset($_POST['proxy_only']) ? 1 : 0,
-                isset($_POST['no_query']) ? 1 : 0,
-                isset($_POST['no_digest']) ? 1 : 0,
-                (int)($_POST['weight'] ?? $peer['weight']),
-                $_POST['login'] ?? $peer['login'],
-                (int)($_POST['connect_timeout'] ?? $peer['connect_timeout']),
-                $_POST['access_acl'] ?? $peer['access_acl'],
+                (int)($_POST['port'] ?? $peer['port']),
                 $_POST['options'] ?? $peer['options'],
+                $_POST['status'] ?? $peer['status'],
                 $id
             ]
         );

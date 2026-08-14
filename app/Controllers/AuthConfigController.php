@@ -1,5 +1,10 @@
 <?php
 class AuthConfigController {
+    public function index($params = []) {
+        Auth::requireAuth();
+        echo View::render('auth.index', ['title' => 'Authentication']);
+    }
+
     public function kerberos($params = []) {
         Auth::requireAuth();
         $config = Database::fetch("SELECT * FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];

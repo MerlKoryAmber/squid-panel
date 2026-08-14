@@ -86,6 +86,7 @@ $router->get('/peers/routing', 'CachePeerController@routing');
 $router->post('/peers/routing/update', 'CachePeerController@updateRouting');
 
 // Authentication (Kerberos/NTLM/Basic)
+$router->get('/auth', 'AuthConfigController@index');
 $router->get('/auth/kerberos', 'AuthConfigController@kerberos');
 $router->post('/auth/kerberos/save', 'AuthConfigController@saveKerberos');
 $router->post('/auth/kerberos/test', 'AuthConfigController@testKerberos');
