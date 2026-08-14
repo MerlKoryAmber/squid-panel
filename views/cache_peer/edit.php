@@ -1,83 +1,54 @@
 <div class="page-header">
-    <h2><?= $peer ? 'Edit Peer' : 'Add Peer' ?></h2>
+    <h2><?= isset($peer) ? 'Edit' : 'Add' ?> Cache Peer</h2>
+    <a href="/peers" class="btn btn-secondary">← Back to Peers</a>
 </div>
 
-<div class="panel">
-    <form method="POST" action="<?= $peer ? '/peers/update' : '/peers/store' ?>">
-        <?= View::csrf() ?>
-        <?php if ($peer): ?><input type="hidden" name="id" value="<?= $peer['id'] ?>"><?php endif; ?>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label>Hostname / IP</label>
-                <input type="text" name="hostname" value="<?= htmlspecialchars($peer['hostname'] ?? '') ?>" required placeholder="proxy2.example.com">
+<div class="card">
+    <div class="card-header">
+        <h3><?= isset($peer) ? 'Edit ' . htmlspecialchars($peer['name']) : 'New Peer' ?></h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="/peers/<?= isset($peer) ? 'update' : 'store' ?>">
+            <?= View::csrf() ?>
+            <?php if (isset($peer)): ?><input type="hidden" name="id" value="<?= $peer['id'] ?>"><?php endif; ?>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" name="name" value="<?= htmlspecialchars($peer['name'] ?? '') ?>" placeholder="e.g. ksmg" required>
+                </div>
+                <div class="form-group">
+                    <label>Hostname / IP</label>
+                    <input type="text" name="hostname" value="<?= htmlspecialchars($peer['hostname'] ?? '') ?>" placeholder="e.g. 172.26.13.230" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Type</label>
+                    <select name="peer_type" required>
+                        <option value="parent" <?= ($peer['peer_type'] ?? '') === 'parent' ? 'selected' : '' ?>>parent</option>
+                        <option value="sibling" <?= ($peer['peer_type'] ?? '') === 'sibling' ? 'selected' : '' ?>>sibling</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Port</label>
+                    <input type="number" name="port" value="<?= $peer['port'] ?? 3128 ?>" required>
+                </div>
             </div>
             <div class="form-group">
-                <label>Type</label>
-                <select name="peer_type" required>
-                    <?php foreach ($types as $key => $label): ?>
-                    <option value="<?= $key ?>" <?= ($peer['peer_type'] ?? '') === $key ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                    <?php endforeach; ?>
+                <label>Options</label>
+                <input type="text" name="options" value="<?= htmlspecialchars($peer['options'] ?? '') ?>" placeholder="e.g. no-query proxy-only login=PASSTHRU">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select name="status">
+                    <option value="active" <?= ($peer['status'] ?? 'active') === 'active' ? 'selected' : '' ?>>Active</option>
+                    <option value="disabled" <?= ($peer['status'] ?? '') === 'disabled' ? 'selected' : '' ?>>Disabled</option>
                 </select>
             </div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label>HTTP Port</label>
-                <input type="number" name="http_port" value="<?= htmlspecialchars($peer['http_port'] ?? '3128') ?>" required>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Peer</button>
+                <a href="/peers" class="btn btn-secondary">Cancel</a>
             </div>
-            <div class="form-group">
-                <label>ICP Port (optional)</label>
-                <input type="number" name="icp_port" value="<?= htmlspecialchars($peer['icp_port'] ?? '0') ?>">
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label>Weight</label>
-                <input type="number" name="weight" value="<?= htmlspecialchars($peer['weight'] ?? '0') ?>" min="0" placeholder="0">
-                <div class="help-text">Higher weight = preferred peer for load balancing</div>
-            </div>
-            <div class="form-group">
-                <label>Connect Timeout (seconds)</label>
-                <input type="number" name="connect_timeout" value="<?= htmlspecialchars($peer['connect_timeout'] ?? '0') ?>" min="0">
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label>Login</label>
-            <input type="text" name="login" value="<?= htmlspecialchars($peer['login'] ?? '') ?>" placeholder="PASS, *:password, or NEGOTIATE">
-            <div class="help-text">
-                <code>PASS</code> — pass client credentials | 
-                <code>*:password</code> — fixed password | 
-                <code>NEGOTIATE</code> — Kerberos/NTLM forwarding
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label>Options</label>
-            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400; cursor: pointer;">
-                    <input type="checkbox" name="proxy_only" <?= ($peer['proxy_only'] ?? 0) ? 'checked' : '' ?>> proxy-only
-                </label>
-                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400; cursor: pointer;">
-                    <input type="checkbox" name="no_query" <?= ($peer['no_query'] ?? 0) ? 'checked' : '' ?>> no-query
-                </label>
-                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400; cursor: pointer;">
-                    <input type="checkbox" name="no_digest" <?= ($peer['no_digest'] ?? 0) ? 'checked' : '' ?>> no-digest
-                </label>
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label>Additional Options</label>
-            <input type="text" name="options" value="<?= htmlspecialchars($peer['options'] ?? '') ?>" placeholder="allow-miss, no-tproxy, ...">
-        </div>
-
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Save Peer</button>
-            <a href="/peers" class="btn">Cancel</a>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>

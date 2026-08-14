@@ -1,49 +1,40 @@
 <div class="page-header">
-    <h2><?= $acl ? 'Edit ACL' : 'Create ACL' ?></h2>
+    <h2><?= isset($acl) ? 'Edit' : 'Add' ?> ACL</h2>
+    <a href="/acl" class="btn btn-secondary">← Back to ACLs</a>
 </div>
 
-<div class="panel">
-    <form method="POST" action="<?= $acl ? '/acl/update' : '/acl/store' ?>">
-        <?= View::csrf() ?>
-        <?php if ($acl): ?><input type="hidden" name="id" value="<?= $acl['id'] ?>"><?php endif; ?>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label>Name</label>
-                <input type="text" name="name" value="<?= htmlspecialchars($acl['name'] ?? '') ?>" <?= $acl ? 'readonly' : '' ?> required pattern="[a-zA-Z0-9_-]+">
+<div class="card">
+    <div class="card-header">
+        <h3><?= isset($acl) ? 'Edit ' . htmlspecialchars($acl['name']) : 'New ACL' ?></h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="/acl/<?= isset($acl) ? 'update' : 'store' ?>">
+            <?= View::csrf() ?>
+            <?php if (isset($acl)): ?><input type="hidden" name="id" value="<?= $acl['id'] ?>"><?php endif; ?>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" name="name" value="<?= htmlspecialchars($acl['name'] ?? '') ?>" placeholder="e.g. localnet" required>
+                </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <select name="type" required>
+                        <?php $types = ['src','dst','dstdomain','srcdomain','url_regex','urlpath_regex','port','proto','method','time','req_header','rep_header','external']; ?>
+                        <?php foreach ($types as $t): ?>
+                        <option value="<?= $t ?>" <?= ($acl['type'] ?? '') === $t ? 'selected' : '' ?>><?= $t ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
             </div>
             <div class="form-group">
-                <label>Type</label>
-                <select name="type" <?= $acl ? 'disabled' : '' ?> required>
-                    <?php foreach ($types as $key => $label): ?>
-                    <option value="<?= $key ?>" <?= ($acl['type'] ?? '') === $key ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <?php if ($acl): ?><input type="hidden" name="type" value="<?= $acl['type'] ?>"><?php endif; ?>
+                <label>Values (one per line)</label>
+                <textarea name="values" rows="6" placeholder="192.168.1.0/24&#10;10.0.0.0/8"><?= isset($acl) ? htmlspecialchars(implode("
+", json_decode($acl['values'], true) ?? [])) : '' ?></textarea>
             </div>
-        </div>
-
-        <div class="form-group">
-            <label>Values (one per line)</label>
-            <textarea name="values" rows="6" required><?= htmlspecialchars(implode("
-", json_decode($acl['entries'] ?? '[]', true) ?: [])) ?></textarea>
-            <div class="help-text">Enter one value per line. For IPs: 192.168.1.0/24. For time: MTWHF 08:00-18:00</div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label>Group</label>
-                <input type="text" name="group_name" value="<?= htmlspecialchars($acl['group_name'] ?? '') ?>">
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save ACL</button>
+                <a href="/acl" class="btn btn-secondary">Cancel</a>
             </div>
-            <div class="form-group">
-                <label>Description</label>
-                <input type="text" name="description" value="<?= htmlspecialchars($acl['description'] ?? '') ?>">
-            </div>
-        </div>
-
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Save</button>
-            <a href="/acl" class="btn">Cancel</a>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>

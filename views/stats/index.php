@@ -1,50 +1,56 @@
-<div class="page-header"><h2>Statistics</h2></div>
+<div class="page-header">
+    <h2>Statistics</h2>
+</div>
 
-<div class="dashboard-grid">
-    <div class="panel">
-        <div class="panel-header"><h3>Top Domains (24h)</h3></div>
-        <div class="panel-body">
-            <?php if (!empty($stats['domains'])): ?>
-            <?php foreach ($stats['domains'] as $domain => $count): ?>
-            <div class="bar-item" style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--interros-border);">
-                <span><?= htmlspecialchars($domain) ?></span>
-                <span class="badge"><?= number_format($count) ?></span>
-            </div>
-            <?php endforeach; ?>
-            <?php else: ?>
-            <p class="log-empty">No data available. Squid access log may be empty or not configured.</p>
-            <?php endif; ?>
-        </div>
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Requests (24h)</div>
+        <div class="stat-value"><?= number_format($stats['total_requests'] ?? 0) ?></div>
     </div>
-    <div class="panel">
-        <div class="panel-header"><h3>Top Users by Traffic (24h)</h3></div>
-        <div class="panel-body">
-            <?php if (!empty($stats['users'])): ?>
-            <?php foreach ($stats['users'] as $user => $bytes): ?>
-            <div class="bar-item" style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--interros-border);">
-                <span><?= htmlspecialchars($user) ?></span>
-                <span class="badge"><?= number_format($bytes / 1024 / 1024, 1) ?> MB</span>
-            </div>
-            <?php endforeach; ?>
-            <?php else: ?>
-            <p class="log-empty">No user traffic data.</p>
-            <?php endif; ?>
-        </div>
+    <div class="stat-card">
+        <div class="stat-label">Cache Hits</div>
+        <div class="stat-value success"><?= number_format($stats['cache_hits'] ?? 0) ?></div>
+        <div class="stat-meta"><?= $stats['hit_ratio'] ?? '0%' ?> hit ratio</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Cache Misses</div>
+        <div class="stat-value warning"><?= number_format($stats['cache_misses'] ?? 0) ?></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Errors</div>
+        <div class="stat-value danger"><?= number_format($stats['errors'] ?? 0) ?></div>
     </div>
 </div>
 
-<div class="panel" style="margin-top: 16px;">
-    <div class="panel-header"><h3>Response Codes (24h)</h3></div>
-    <div class="panel-body">
-        <?php if (!empty($stats['codes'])): ?>
-        <?php foreach ($stats['codes'] as $code => $count): ?>
-        <div class="bar-item" style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--interros-border);">
-            <span><code><?= htmlspecialchars($code) ?></code></span>
-            <span class="badge"><?= number_format($count) ?></span>
-        </div>
-        <?php endforeach; ?>
-        <?php else: ?>
-        <p class="log-empty">No response code data.</p>
-        <?php endif; ?>
+<div class="card">
+    <div class="card-header"><h3>Hourly Traffic</h3></div>
+    <div class="card-body">
+        <div id="hourly-chart" style="width:100%; height:300px;"></div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const hourly = <?= json_encode($stats['hourly'] ?? []) ?>;
+new Chart(document.getElementById('hourly-chart'), {
+    type: 'bar',
+    data: {
+        labels: hourly.map(h => h.hour + ':00'),
+        datasets: [{
+            label: 'Requests',
+            data: hourly.map(h => h.count),
+            backgroundColor: '#1a2d4a',
+            borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false }, ticks: { color: '#8a94a3', font: { size: 11 } } },
+            y: { grid: { color: '#e2e5e9' }, ticks: { color: '#8a94a3', font: { size: 11 } } }
+        }
+    }
+});
+</script>

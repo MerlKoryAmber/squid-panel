@@ -1,140 +1,112 @@
 <div class="page-header">
-    <h2>Peer Access Rules: <?= htmlspecialchars($peer['hostname']) ?></h2>
-    <a href="/peers" class="btn">← Back to Peers</a>
+    <h2>Cache Peer Access — <?= htmlspecialchars($peer['name']) ?></h2>
+    <div>
+        <a href="/peers" class="btn btn-secondary">← All Peers</a>
+        <button class="btn btn-primary" onclick="document.getElementById('addRuleForm').style.display='block'">+ Add Rule</button>
+    </div>
 </div>
 
-<div class="panel">
-    <div class="panel-header">
-        <h3>cache_peer_access rules</h3>
-        <span class="text-muted">Controls which requests are sent to this peer</span>
+<div class="card">
+    <div class="card-header">
+        <h3>Access Rules</h3>
+        <span class="subtitle">Drag to reorder · <?= count($rules) ?> rule(s)</span>
     </div>
-    <div class="panel-body">
-        <p class="text-muted" style="margin-bottom: 12px;">
-            Rules are evaluated in order (first match). Use <code>allow</code> to route matching requests to this peer, 
-            <code>deny</code> to bypass it.
-        </p>
-
-        <table class="data-table" id="accessRulesTable">
+    <div class="card-body" style="padding: 0;">
+        <?php if (empty($rules)): ?>
+        <div class="empty-state">
+            <h4>No access rules</h4>
+            <p>Rules control which traffic is routed through this peer.</p>
+        </div>
+        <?php else: ?>
+        <table class="data-table" id="peerAccessTable">
             <thead>
-                <tr><th>Order</th><th>ACL</th><th>Action</th><th>Generated Line</th><?php if (Auth::isAdmin()): ?><th>Actions</th><?php endif; ?></tr>
+                <tr>
+                    <th style="width:40px;"></th>
+                    <th>ACL Entries</th>
+                    <th>Action</th>
+                    <th>Preview</th>
+                    <th style="width:140px;">Actions</th>
+                </tr>
             </thead>
-            <tbody id="rulesTbody">
+            <tbody>
                 <?php foreach ($rules as $rule): ?>
                 <tr data-id="<?= $rule['id'] ?>">
-                    <td class="drag-handle" style="cursor: grab; color: var(--kimi-color-text-quaternary);">⋮⋮</td>
-                    <td><code><?= htmlspecialchars($rule['acl_entries']) ?></code></td>
-                    <td><span class="badge badge-<?= $rule['action'] === 'allow' ? 'success' : 'danger' ?>"><?= $rule['action'] ?></span></td>
-                    <td><code class="code-inline">cache_peer_access <?= htmlspecialchars($peer['hostname']) ?> <?= $rule['action'] ?> <?= htmlspecialchars($rule['acl_entries']) ?></code></td>
-                    <?php if (Auth::isAdmin()): ?>
+                    <td class="drag-handle">⋮⋮</td>
+                    <td><code class="code-inline"><?= htmlspecialchars($rule['acl_entries']) ?></code></td>
                     <td>
-                        <a href="/peers/access/edit?id=<?= $rule['id'] ?>" class="btn-sm">Edit</a>
+                        <span class="badge badge-<?= $rule['action'] === 'allow' ? 'success' : 'danger' ?>">
+                            <?= $rule['action'] ?>
+                        </span>
+                    </td>
+                    <td><code class="code-inline" style="font-size:0.75rem;">cache_peer_access <?= htmlspecialchars($peer['hostname']) ?> <?= $rule['action'] ?> <?= htmlspecialchars($rule['acl_entries']) ?></code></td>
+                    <td>
+                        <a href="/peers/access/edit?id=<?= $rule['id'] ?>" class="btn btn-sm btn-secondary">Edit</a>
                         <form method="POST" action="/peers/access/delete" style="display:inline" onsubmit="return confirm('Delete this rule?')">
                             <?= View::csrf() ?>
                             <input type="hidden" name="id" value="<?= $rule['id'] ?>">
                             <input type="hidden" name="peer_id" value="<?= $peer['id'] ?>">
-                            <button type="submit" class="btn-sm btn-danger">Delete</button>
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                         </form>
                     </td>
-                    <?php endif; ?>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
+        <?php endif; ?>
+    </div>
+</div>
 
-        <?php if (Auth::isAdmin()): ?>
-        <div style="margin-top: 16px;">
-            <button class="btn btn-primary" onclick="document.getElementById('addRuleForm').style.display='block'">+ Add Rule</button>
-            <button class="btn" id="saveOrderBtn" style="display:none;" onclick="saveOrder()">Save Order</button>
-        </div>
-
-        <form method="POST" action="/peers/access/store" id="addRuleForm" style="display:none; margin-top: 16px; padding: 16px; background: var(--kimi-color-surface-secondary); border-radius: var(--radius-md);">
+<div class="card" id="addRuleForm" style="display:none;">
+    <div class="card-header"><h3>Add Access Rule</h3></div>
+    <div class="card-body">
+        <form method="POST" action="/peers/access/store">
             <?= View::csrf() ?>
             <input type="hidden" name="peer_id" value="<?= $peer['id'] ?>">
             <div class="form-row">
                 <div class="form-group" style="flex: 2;">
-                    <label>ACL Entries <span class="text-muted">(space separated, e.g. <code>HCIITVM2127 !CYPInet</code>)</span></label>
-                    <input type="text" name="acl_entries" placeholder="ACL1 !ACL2 ACL3" required style="width: 100%; font-family: monospace;">
-                    <small class="text-muted">Multiple ACLs are combined with AND logic</small>
+                    <label>ACL Entries <span class="text-muted">(space separated)</span></label>
+                    <input type="text" name="acl_entries" placeholder="e.g. HCIITVM2127 !CYPInet" required style="font-family: monospace;">
+                    <small class="text-muted">Multiple ACLs combined with AND logic</small>
                 </div>
                 <div class="form-group">
                     <label>Action</label>
                     <select name="action" required>
-                        <option value="allow">allow — route to this peer</option>
-                        <option value="deny">deny — bypass this peer</option>
+                        <option value="allow">allow — route to peer</option>
+                        <option value="deny">deny — bypass peer</option>
                     </select>
                 </div>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Add Rule</button>
-                <button type="button" class="btn" onclick="document.getElementById('addRuleForm').style.display='none'">Cancel</button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('addRuleForm').style.display='none'">Cancel</button>
             </div>
         </form>
-        <?php endif; ?>
     </div>
 </div>
 
-<div class="panel" style="margin-top: 16px;">
-    <div class="panel-header"><h3>Peer Configuration Preview</h3></div>
-    <div class="panel-body">
-        <pre class="code-block">cache_peer <?= htmlspecialchars($peer['hostname']) ?> <?= $peer['peer_type'] ?> <?= $peer['http_port'] ?><?= $peer['icp_port'] ? ' ' . $peer['icp_port'] : '' ?><?= $peer['proxy_only'] ? ' proxy-only' : '' ?><?= $peer['no_query'] ? ' no-query' : '' ?><?= $peer['weight'] ? ' weight=' . $peer['weight'] : '' ?><?= $peer['login'] ? ' login=' . $peer['login'] : '' ?>
-<?php foreach ($rules as $rule): ?>cache_peer_access <?= htmlspecialchars($peer['hostname']) ?> <?= $rule['action'] ?> <?= htmlspecialchars($rule['acl_entries']) ?>
-<?php endforeach; ?></pre>
+<div class="card">
+    <div class="card-header"><h3>Preview</h3></div>
+    <div class="card-body">
+        <div class="code-block"><?php foreach ($rules as $rule): ?>cache_peer_access <?= htmlspecialchars($peer['hostname']) ?> <?= $rule['action'] ?> <?= htmlspecialchars($rule['acl_entries']) ?>
+<?php endforeach; ?></div>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
-// Simple drag-and-drop reordering
-let draggedRow = null;
-let orderChanged = false;
-
-const tbody = document.getElementById('rulesTbody');
-if (tbody) {
-    tbody.querySelectorAll('tr').forEach(row => {
-        row.draggable = true;
-        row.querySelector('.drag-handle').addEventListener('mousedown', () => row.draggable = true);
-
-        row.addEventListener('dragstart', e => {
-            draggedRow = row;
-            row.style.opacity = '0.5';
-        });
-        row.addEventListener('dragend', e => {
-            row.style.opacity = '1';
-            draggedRow = null;
-            if (orderChanged) {
-                document.getElementById('saveOrderBtn').style.display = 'inline-flex';
-            }
-        });
-        row.addEventListener('dragover', e => {
-            e.preventDefault();
-            if (draggedRow && draggedRow !== row) {
-                const rect = row.getBoundingClientRect();
-                const mid = rect.top + rect.height / 2;
-                if (e.clientY < mid) {
-                    tbody.insertBefore(draggedRow, row);
-                } else {
-                    tbody.insertBefore(draggedRow, row.nextSibling);
-                }
-                orderChanged = true;
-            }
-        });
-    });
-}
-
-function saveOrder() {
-    const rows = tbody.querySelectorAll('tr');
-    const order = Array.from(rows).map(r => r.dataset.id);
-
-    fetch('/peers/access/reorder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'peer_id=<?= $peer['id'] ?>&' + order.map((id, i) => 'order[' + i + ']=' + id).join('&') + '&spm_csrf_token=' + encodeURIComponent(document.querySelector('input[name="spm_csrf_token"]')?.value || '')
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            document.getElementById('saveOrderBtn').style.display = 'none';
-            orderChanged = false;
-            location.reload();
+const table = document.getElementById('peerAccessTable');
+if (table) {
+    new Sortable(table.querySelector('tbody'), {
+        handle: '.drag-handle',
+        animation: 150,
+        onEnd: function() {
+            const rows = table.querySelectorAll('tbody tr');
+            const order = Array.from(rows).map(r => r.dataset.id);
+            fetch('/peers/access/reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '<?= $_SESSION['csrf_token'] ?? '' ?>' },
+                body: JSON.stringify({ peer_id: <?= $peer['id'] ?>, order: order })
+            }).then(() => location.reload());
         }
     });
 }

@@ -1,73 +1,66 @@
 <div class="page-header">
     <h2>Cache Peers</h2>
-    <?php if (Auth::isAdmin()): ?>
     <a href="/peers/create" class="btn btn-primary">+ Add Peer</a>
-    <?php endif; ?>
 </div>
 
-<div class="panel">
-    <table class="data-table">
-        <thead>
-            <tr><th>Hostname</th><th>Type</th><th>HTTP Port</th><th>Options</th><th>Login</th><th>Access Rules</th><?php if (Auth::isAdmin()): ?><th>Actions</th><?php endif; ?></tr>
-        </thead>
-        <tbody>
-            <?php foreach ($peers as $peer): 
-                $ruleCount = Database::fetch("SELECT COUNT(*) as cnt FROM cache_peer_access_rules WHERE peer_id = ?", [$peer['id']])['cnt'] ?? 0;
-            ?>
-            <tr>
-                <td><code><?= htmlspecialchars($peer['hostname']) ?></code></td>
-                <td><span class="badge badge-<?= $peer['peer_type'] ?>"><?= htmlspecialchars($peer['peer_type']) ?></span></td>
-                <td><?= $peer['http_port'] ?></td>
-                <td>
-                    <?php if ($peer['proxy_only']): ?><span class="badge">proxy-only</span><?php endif; ?>
-                    <?php if ($peer['no_query']): ?><span class="badge">no-query</span><?php endif; ?>
-                    <?php if ($peer['weight']): ?><span class="badge">weight=<?= $peer['weight'] ?></span><?php endif; ?>
-                </td>
-                <td><?= htmlspecialchars($peer['login'] ?: '-') ?></td>
-                <td>
-                    <a href="/peers/access?peer_id=<?= $peer['id'] ?>" class="btn-sm">
-                        <?= $ruleCount ?> rule<?= $ruleCount !== 1 ? 's' : '' ?>
-                    </a>
-                </td>
-                <?php if (Auth::isAdmin()): ?>
-                <td>
-                    <a href="/peers/edit?id=<?= $peer['id'] ?>" class="btn-sm">Edit</a>
-                    <form method="POST" action="/peers/delete" style="display:inline" onsubmit="return confirm('Delete peer <?= htmlspecialchars($peer['hostname']) ?>?')">
-                        <?= View::csrf() ?>
-                        <input type="hidden" name="id" value="<?= $peer['id'] ?>">
-                        <button type="submit" class="btn-sm btn-danger">Delete</button>
-                    </form>
-                </td>
-                <?php endif; ?>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-</div>
-
-<div class="panel" style="margin-top: 16px;">
-    <div class="panel-header">
-        <h3>Global Routing</h3>
-        <a href="/peers/routing" class="btn-sm">Configure</a>
+<div class="card">
+    <div class="card-header">
+        <h3>Peers</h3>
+        <span class="subtitle">Upstream proxy configuration</span>
     </div>
-    <div class="panel-body">
-        <p class="text-muted">Configure <code>never_direct</code>, <code>always_direct</code>, <code>prefer_direct</code> rules with ACL matching.</p>
-        <?php 
-        $routing = Database::fetchAll("SELECT * FROM routing_rules ORDER BY id");
-        if (!empty($routing)): 
-        ?>
-        <table class="data-table compact" style="margin-top: 12px;">
-            <thead><tr><th>Directive</th><th>Action</th><th>ACL</th></tr></thead>
-            <tbody>
-                <?php foreach ($routing as $r): ?>
+    <div class="card-body" style="padding: 0;">
+        <?php if (empty($peers)): ?>
+        <div class="empty-state">
+            <h4>No peers configured</h4>
+            <p>Add cache peers to enable upstream proxy routing.</p>
+        </div>
+        <?php else: ?>
+        <table class="data-table">
+            <thead>
                 <tr>
-                    <td><code><?= htmlspecialchars($r['directive']) ?></code></td>
-                    <td><span class="badge badge-<?= $r['action'] === 'allow' ? 'success' : 'danger' ?>"><?= $r['action'] ?></span></td>
-                    <td><code><?= htmlspecialchars($r['acl_name']) ?></code></td>
+                    <th>Name</th>
+                    <th>Hostname</th>
+                    <th>Type</th>
+                    <th>Port</th>
+                    <th>Options</th>
+                    <th>Status</th>
+                    <th style="width:200px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($peers as $peer): ?>
+                <tr>
+                    <td><strong><?= htmlspecialchars($peer['name']) ?></strong></td>
+                    <td><code class="code-inline"><?= htmlspecialchars($peer['hostname']) ?></code></td>
+                    <td><?= htmlspecialchars($peer['peer_type']) ?></td>
+                    <td><?= $peer['port'] ?></td>
+                    <td style="font-size:0.78rem; color:var(--ir-text-muted);"><?= htmlspecialchars($peer['options'] ?? '') ?></td>
+                    <td>
+                        <span class="badge badge-<?= ($peer['status'] ?? 'active') === 'active' ? 'success' : 'default' ?>">
+                            <?= $peer['status'] ?? 'active' ?>
+                        </span>
+                    </td>
+                    <td>
+                        <a href="/peers/access?peer_id=<?= $peer['id'] ?>" class="btn btn-sm btn-secondary">Access</a>
+                        <a href="/peers/edit?id=<?= $peer['id'] ?>" class="btn btn-sm btn-secondary">Edit</a>
+                        <form method="POST" action="/peers/delete" style="display:inline" onsubmit="return confirm('Delete peer <?= htmlspecialchars($peer['name']) ?>?')">
+                            <?= View::csrf() ?>
+                            <input type="hidden" name="id" value="<?= $peer['id'] ?>">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
         <?php endif; ?>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h3>Preview</h3></div>
+    <div class="card-body">
+        <div class="code-block"><?php foreach ($peers as $peer): ?>cache_peer <?= htmlspecialchars($peer['hostname']) ?> <?= $peer['peer_type'] ?> <?= $peer['port'] ?> 0 <?= htmlspecialchars($peer['options'] ?? '') ?> name=<?= htmlspecialchars($peer['name']) ?>
+<?php endforeach; ?></div>
     </div>
 </div>

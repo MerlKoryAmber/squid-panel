@@ -1,72 +1,90 @@
 <div class="page-header">
     <h2>HTTP Access Rules</h2>
-    <?php if (Auth::isAdmin()): ?>
-    <button class="btn btn-primary" onclick="document.getElementById('createForm').style.display='block'">+ Add Rule</button>
-    <?php endif; ?>
+    <a href="/http_access/create" class="btn btn-primary">+ Add Rule</a>
 </div>
 
-<div id="createForm" class="panel" style="display:none; margin-bottom: 16px;">
-    <div class="panel-header"><h3>New HTTP Access Rule</h3></div>
-    <div class="panel-body">
-        <form method="POST" action="/http_access/store">
-            <?= View::csrf() ?>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Action</label>
-                    <select name="action" required>
-                        <option value="allow">Allow</option>
-                        <option value="deny">Deny</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>ACLs (hold Ctrl/Cmd to select multiple)</label>
-                    <select name="acls[]" multiple size="5" required>
-                        <?php foreach ($acls as $acl): ?>
-                        <option value="<?= htmlspecialchars($acl['name']) ?>"><?= htmlspecialchars($acl['name']) ?> (<?= htmlspecialchars($acl['type']) ?>)</option>
+<div class="card">
+    <div class="card-header">
+        <h3>Rules</h3>
+        <span class="subtitle">Drag rows to reorder</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <?php if (empty($rules)): ?>
+        <div class="empty-state">
+            <h4>No rules configured</h4>
+            <p>Add your first HTTP access rule to start filtering traffic.</p>
+            <a href="/http_access/create" class="btn btn-primary" style="margin-top: var(--space-md);">Add Rule</a>
+        </div>
+        <?php else: ?>
+        <table class="data-table" id="rulesTable">
+            <thead>
+                <tr>
+                    <th style="width:40px;"></th>
+                    <th>Order</th>
+                    <th>Action</th>
+                    <th>ACLs</th>
+                    <th>Description</th>
+                    <th style="width:140px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($rules as $rule): ?>
+                <tr data-id="<?= $rule['id'] ?>">
+                    <td class="drag-handle">⋮⋮</td>
+                    <td><?= $rule['sort_order'] ?></td>
+                    <td>
+                        <span class="badge badge-<?= $rule['action'] === 'allow' ? 'success' : 'danger' ?>">
+                            <?= $rule['action'] ?>
+                        </span>
+                    </td>
+                    <td>
+                        <?php
+                        $acls = json_decode($rule['acls'], true) ?? [];
+                        foreach ($acls as $acl): ?>
+                        <span class="badge badge-default" style="margin-right:4px;"><?= htmlspecialchars($acl) ?></span>
                         <?php endforeach; ?>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Description</label>
-                <input type="text" name="description" placeholder="Optional description">
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Save</button>
-                <button type="button" class="btn" onclick="document.getElementById('createForm').style.display='none'">Cancel</button>
-            </div>
-        </form>
+                    </td>
+                    <td style="color: var(--ir-text-secondary);"><?= htmlspecialchars($rule['description'] ?? '') ?></td>
+                    <td>
+                        <a href="/http_access/edit?id=<?= $rule['id'] ?>" class="btn btn-sm btn-secondary">Edit</a>
+                        <form method="POST" action="/http_access/delete" style="display:inline" onsubmit="return confirm('Delete this rule?')">
+                            <?= View::csrf() ?>
+                            <input type="hidden" name="id" value="<?= $rule['id'] ?>">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
     </div>
 </div>
 
-<div class="panel">
-    <table class="data-table">
-        <thead>
-            <tr><th>Order</th><th>Action</th><th>ACLs</th><th>Description</th><?php if (Auth::isAdmin()): ?><th>Actions</th><?php endif; ?></tr>
-        </thead>
-        <tbody>
-            <?php foreach ($rules as $rule): ?>
-            <tr>
-                <td><?= $rule['sort_order'] ?></td>
-                <td><span class="badge badge-<?= $rule['action'] === 'allow' ? 'success' : 'danger' ?>"><?= htmlspecialchars($rule['action']) ?></span></td>
-                <td>
-                    <?php foreach (json_decode($rule['acls'], true) ?? [] as $aclName): ?>
-                    <span class="badge"><?= htmlspecialchars($aclName) ?></span>
-                    <?php endforeach; ?>
-                </td>
-                <td><?= htmlspecialchars($rule['description'] ?? '') ?></td>
-                <?php if (Auth::isAdmin()): ?>
-                <td>
-                    <a href="/http_access/edit?id=<?= $rule['id'] ?>" class="btn-sm">Edit</a>
-                    <form method="POST" action="/http_access/delete" style="display:inline" onsubmit="return confirm('Delete this rule?')">
-                        <?= View::csrf() ?>
-                        <input type="hidden" name="id" value="<?= $rule['id'] ?>">
-                        <button type="submit" class="btn-sm btn-danger">Delete</button>
-                    </form>
-                </td>
-                <?php endif; ?>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+<div class="card">
+    <div class="card-header"><h3>Preview</h3></div>
+    <div class="card-body">
+        <div class="code-block"><?php foreach ($rules as $rule): ?>http_access <?= $rule['action'] ?> <?= implode(' ', json_decode($rule['acls'], true) ?? []) ?>
+<?php endforeach; ?></div>
+    </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+const table = document.getElementById('rulesTable');
+if (table) {
+    new Sortable(table.querySelector('tbody'), {
+        handle: '.drag-handle',
+        animation: 150,
+        onEnd: function() {
+            const rows = table.querySelectorAll('tbody tr');
+            const order = Array.from(rows).map(r => r.dataset.id);
+            fetch('/http_access/reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '<?= $_SESSION['csrf_token'] ?? '' ?>' },
+                body: JSON.stringify({ order: order })
+            }).then(() => location.reload());
+        }
+    });
+}
+</script>

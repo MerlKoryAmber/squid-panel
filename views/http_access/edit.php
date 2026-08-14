@@ -1,11 +1,13 @@
 <div class="page-header">
     <h2>Edit HTTP Access Rule</h2>
-    <a href="/http_access" class="btn">← Back to Rules</a>
+    <a href="/http_access" class="btn btn-secondary">← Back to Rules</a>
 </div>
 
-<div class="panel">
-    <div class="panel-header"><h3>Rule #<?= $rule['id'] ?></h3></div>
-    <div class="panel-body">
+<div class="card">
+    <div class="card-header">
+        <h3>Rule #<?= $rule['id'] ?></h3>
+    </div>
+    <div class="card-body">
         <form method="POST" action="/http_access/update">
             <?= View::csrf() ?>
             <input type="hidden" name="id" value="<?= $rule['id'] ?>">
@@ -17,9 +19,9 @@
                         <option value="deny" <?= $rule['action'] === 'deny' ? 'selected' : '' ?>>Deny</option>
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="flex: 2;">
                     <label>ACLs (hold Ctrl/Cmd to select multiple)</label>
-                    <select name="acls[]" multiple size="5" required>
+                    <select name="acls[]" multiple size="6" required>
                         <?php
                         $selectedAcls = json_decode($rule['acls'], true) ?? [];
                         foreach ($acls as $acl):
@@ -37,7 +39,7 @@
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Save Changes</button>
-                <a href="/http_access" class="btn">Cancel</a>
+                <a href="/http_access" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
     </div>

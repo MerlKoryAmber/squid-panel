@@ -1,45 +1,67 @@
 <!DOCTYPE html>
-<html lang="<?= DEFAULT_LANG ?>">
+<html lang="<?= DEFAULT_LANG ?? 'ru' ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($title ?? 'Squid Proxy Manager') ?> — SPM</title>
     <link rel="stylesheet" href="/assets/css/app.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app">
+    <div class="app-wrapper">
+        <!-- Sidebar -->
         <aside class="sidebar">
-            <div class="logo">
-                <span>Squid Panel</span>
+            <div class="sidebar-brand">
+                <h1>Squid Proxy Manager</h1>
+                <span>Network Security</span>
             </div>
-            <nav class="nav">
-                <a href="/dashboard" class="nav-item<?= (strpos($_SERVER['REQUEST_URI'], '/dashboard') === 0 || $_SERVER['REQUEST_URI'] === '/') ? ' active' : '' ?>">Dashboard</a>
-                <a href="/acl" class="nav-item<?= strpos($_SERVER['REQUEST_URI'], '/acl') === 0 ? ' active' : '' ?>">ACLs</a>
-                <a href="/http_access" class="nav-item<?= strpos($_SERVER['REQUEST_URI'], '/http_access') === 0 ? ' active' : '' ?>">Access Rules</a>
-                <a href="/peers" class="nav-item<?= strpos($_SERVER['REQUEST_URI'], '/peers') === 0 ? ' active' : '' ?>">Cache Peers</a>
-                <a href="/auth/kerberos" class="nav-item<?= strpos($_SERVER['REQUEST_URI'], '/auth') === 0 ? ' active' : '' ?>">Auth</a>
-                <a href="/users" class="nav-item<?= strpos($_SERVER['REQUEST_URI'], '/users') === 0 ? ' active' : '' ?>">Users</a>
-                <a href="/logs" class="nav-item<?= strpos($_SERVER['REQUEST_URI'], '/logs') === 0 ? ' active' : '' ?>">Logs</a>
-                <a href="/stats" class="nav-item<?= strpos($_SERVER['REQUEST_URI'], '/stats') === 0 ? ' active' : '' ?>">Stats</a>
-                <a href="/backup" class="nav-item<?= strpos($_SERVER['REQUEST_URI'], '/backup') === 0 ? ' active' : '' ?>">Backups</a>
-                <a href="/scheduler" class="nav-item<?= strpos($_SERVER['REQUEST_URI'], '/scheduler') === 0 ? ' active' : '' ?>">Scheduler</a>
-                <a href="/audit" class="nav-item<?= strpos($_SERVER['REQUEST_URI'], '/audit') === 0 ? ' active' : '' ?>">Audit</a>
-                <a href="/settings" class="nav-item<?= strpos($_SERVER['REQUEST_URI'], '/settings') === 0 ? ' active' : '' ?>">Settings</a>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="/dashboard" class="<?= ($active ?? '') === 'dashboard' ? 'active' : '' ?>">📊 Dashboard</a></li>
+                    <li><a href="/acl" class="<?= ($active ?? '') === 'acl' ? 'active' : '' ?>">🛡 ACLs</a></li>
+                    <li><a href="/http_access" class="<?= ($active ?? '') === 'http_access' ? 'active' : '' ?>">🔒 HTTP Access</a></li>
+                    <li><a href="/peers" class="<?= ($active ?? '') === 'peers' ? 'active' : '' ?>">🌐 Cache Peers</a></li>
+                    <li><a href="/auth/basic" class="<?= ($active ?? '') === 'auth' ? 'active' : '' ?>">🔑 Authentication</a></li>
+                    <li><a href="/users" class="<?= ($active ?? '') === 'users' ? 'active' : '' ?>">👤 Users</a></li>
+                    <li><a href="/logs" class="<?= ($active ?? '') === 'logs' ? 'active' : '' ?>">📋 Logs</a></li>
+                    <li><a href="/stats" class="<?= ($active ?? '') === 'stats' ? 'active' : '' ?>">📈 Statistics</a></li>
+                    <li><a href="/backup" class="<?= ($active ?? '') === 'backup' ? 'active' : '' ?>">💾 Backup</a></li>
+                    <li><a href="/scheduler" class="<?= ($active ?? '') === 'scheduler' ? 'active' : '' ?>">⏰ Scheduler</a></li>
+                    <li><a href="/audit" class="<?= ($active ?? '') === 'audit' ? 'active' : '' ?>">📜 Audit</a></li>
+                    <li><a href="/settings" class="<?= ($active ?? '') === 'settings' ? 'active' : '' ?>">⚙ Settings</a></li>
+                </ul>
             </nav>
             <div class="sidebar-footer">
-                <span><?= htmlspecialchars(Auth::user()['username'] ?? 'guest') ?></span>
-                <a href="/logout" class="nav-item">Logout</a>
+                <?php if (Auth::check()): ?>
+                <div style="margin-bottom: 8px;">
+                    <strong><?= htmlspecialchars($_SESSION['user'] ?? 'Guest') ?></strong>
+                    <span class="role" style="margin-left: 6px;"><?= htmlspecialchars($_SESSION['role'] ?? '') ?></span>
+                </div>
+                <a href="/logout">Logout →</a>
+                <?php endif; ?>
+                <div style="margin-top: 8px; opacity: 0.6;">v<?= SPM_VERSION ?></div>
             </div>
         </aside>
-        <main class="main">
-            <header class="topbar">
-                <h1><?= htmlspecialchars($title ?? '') ?></h1>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="top-header">
+                <h2><?= htmlspecialchars($title ?? 'Dashboard') ?></h2>
+                <div class="top-header-actions">
+                    <?php if (Auth::check()): ?>
+                    <div class="user-badge">
+                        <span><?= htmlspecialchars($_SESSION['user'] ?? '') ?></span>
+                        <span class="role"><?= htmlspecialchars($_SESSION['role'] ?? '') ?></span>
+                    </div>
+                    <?php endif; ?>
+                </div>
             </header>
-            <div class="content">
+            <main class="content-area">
                 <?= $content ?? '' ?>
-            </div>
-        </main>
+            </main>
+        </div>
     </div>
-    <script src="/assets/js/app.js"></script>
 </body>
 </html>
