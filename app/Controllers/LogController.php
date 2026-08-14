@@ -27,6 +27,10 @@ class LogController {
 
     public function stream($params = []) {
         Auth::requireAuth();
+        // Release session lock immediately — SSE holds connection open
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         header('Content-Type: text/event-stream');
         header('Cache-Control: no-cache');
         header('Connection: keep-alive');

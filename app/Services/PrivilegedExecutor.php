@@ -56,15 +56,32 @@ class PrivilegedExecutor {
 
         $socket = @socket_create(AF_UNIX, SOCK_STREAM, 0);
         if (!$socket || !@socket_connect($socket, AGENT_SOCKET)) {
+            if ($socket) @socket_close($socket);
             return null; // Fallback to sudo
         }
 
-        @socket_write($socket, $payload);
+        // Set send/receive timeouts to prevent hung sockets
+        @socket_set_option($socket, SOL_SOCKET, SO_SNDTIMEO, ['sec' => 5, 'usec' => 0]);
+        @socket_set_option($socket, SOL_SOCKET, SO_RCVTIMEO, ['sec' => 10, 'usec' => 0]);
+
+        // Ensure full payload is sent
+        $sent = 0;
+        $len = strlen($payload);
+        while ($sent < $len) {
+            $n = @socket_write($socket, substr($payload, $sent));
+            if ($n === false) {
+                @socket_close($socket);
+                return null;
+            }
+            $sent += $n;
+        }
+
         @socket_shutdown($socket, SHUT_WR);
 
         $response = '';
-        while ($buf = @socket_read($socket, 4096)) {
-            if ($buf === false) break;
+        while (true) {
+            $buf = @socket_read($socket, 4096);
+            if ($buf === false || $buf === '') break;
             $response .= $buf;
         }
         @socket_close($socket);

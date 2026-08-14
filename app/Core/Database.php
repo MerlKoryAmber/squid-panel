@@ -8,6 +8,9 @@ class Database {
             self::$pdo = new PDO('sqlite:' . DB_PATH);
             self::$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             self::$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            self::$pdo->exec("PRAGMA journal_mode = WAL;");
+            self::$pdo->exec("PRAGMA busy_timeout = 5000;");
+            self::$pdo->exec("PRAGMA synchronous = NORMAL;");
             if (!$exists) {
                 self::migrate();
             }

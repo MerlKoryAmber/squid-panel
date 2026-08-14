@@ -55,10 +55,16 @@ def validate_command(command_key, extra_args):
     return cmd
 
 def handle_client(conn):
+    # Set timeout to prevent hung connections from accumulating
+    conn.settimeout(15)
     try:
         data = b""
         while True:
-            chunk = conn.recv(4096)
+            try:
+                chunk = conn.recv(4096)
+            except socket.timeout:
+                logging.warning("Client socket read timeout")
+                break
             if not chunk:
                 break
             data += chunk
@@ -66,7 +72,17 @@ def handle_client(conn):
         if not data:
             return
 
-        request = json.loads(data.decode('utf-8'))
+        try:
+            request = json.loads(data.decode('utf-8'))
+        except json.JSONDecodeError as e:
+            logging.error(f"Invalid JSON received: {str(e)}")
+            response = {"success": False, "error": "Invalid JSON: " + str(e)}
+            try:
+                conn.sendall(json.dumps(response).encode('utf-8'))
+            except (BrokenPipeError, OSError):
+                pass
+            return
+
         command_key = request.get('command')
         extra_args = request.get('args', [])
 
@@ -90,14 +106,18 @@ def handle_client(conn):
 
         logging.info(f"Result: exit_code={result.returncode}")
 
+        try:
+            conn.sendall(json.dumps(response).encode('utf-8'))
+        except (BrokenPipeError, OSError) as e:
+            logging.warning(f"Failed to send response: {str(e)}")
+
     except Exception as e:
         logging.error(f"Error: {str(e)}")
-        response = {
-            "success": False,
-            "error": str(e)
-        }
-
-    conn.sendall(json.dumps(response).encode('utf-8'))
+        try:
+            response = {"success": False, "error": str(e)}
+            conn.sendall(json.dumps(response).encode('utf-8'))
+        except (BrokenPipeError, OSError):
+            pass
 
 def main():
     setup_logging()
@@ -116,8 +136,9 @@ def main():
         f.write(str(os.getpid()))
 
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(SOCKET_PATH)
-    sock.listen(5)
+    sock.listen(10)
 
     # Set permissions so squidmgr can connect
     os.chmod(SOCKET_PATH, 0o660)

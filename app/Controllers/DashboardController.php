@@ -41,12 +41,19 @@ class DashboardController {
 
     public function apiStatus($params = []) {
         Auth::requireAuth();
+        // Release session lock for AJAX polling endpoints
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         header('Content-Type: application/json');
         echo json_encode(PrivilegedExecutor::getSquidStatus());
     }
 
     public function apiStats($params = []) {
         Auth::requireAuth();
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         header('Content-Type: application/json');
         echo json_encode(LogParser::getStats(SQUID_ACCESS_LOG, 24));
     }
