@@ -86,13 +86,13 @@
                 <h3>Recent Audit Events</h3>
             </div>
             <div class="card-body">
-                <?php if (empty($recentEvents)): ?>
+                <?php if (empty($auditLogs)): ?>
                 <div class="empty-state" style="padding: var(--space-lg);">
                     <p>No recent events</p>
                 </div>
                 <?php else: ?>
                 <div style="display:flex; flex-direction:column; gap:10px;">
-                    <?php foreach (array_slice($recentEvents, 0, 5) as $event): ?>
+                    <?php foreach (array_slice($auditLogs, 0, 5) as $event): ?>
                     <div style="padding: 10px; background: var(--ir-bg); border-radius: var(--radius-sm); font-size: 0.82rem;">
                         <div style="font-weight: 600; color: var(--ir-text);"><?= htmlspecialchars($event['action']) ?></div>
                         <div style="color: var(--ir-text-muted); font-size: 0.75rem; margin-top: 2px;">
