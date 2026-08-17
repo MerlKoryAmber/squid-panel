@@ -5,9 +5,10 @@ class Auth {
             return false;
         }
         if (isset($_SESSION['expires']) && $_SESSION['expires'] < time()) {
-            self::logout();
+            $_SESSION = [];
             return false;
         }
+        $_SESSION['expires'] = time() + SESSION_LIFETIME;
         return true;
     }
 
@@ -43,10 +44,8 @@ class Auth {
     public static function login($username, $password) {
         $user = User::findByUsername($username);
         if ($user && password_verify($password, $user['password_hash'])) {
-            // Regenerate session ID to prevent session fixation
             session_regenerate_id(true);
             $_SESSION['user_id'] = $user['id'];
-            $_SESSION['user'] = $user['username'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['expires'] = time() + SESSION_LIFETIME;
@@ -58,23 +57,26 @@ class Auth {
     }
 
     public static function logout() {
-        $user = self::user();
-        if ($user) {
-            Audit::log('logout', "User {$user['username']} logged out");
+        $username = $_SESSION['username'] ?? null;
+        if ($username) {
+            Audit::log('logout', "User {$username} logged out");
         }
+
         $_SESSION = [];
-        if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', [
-                'expires' => time() - 42000,
-                'path' => $params['path'],
-                'domain' => $params['domain'],
-                'secure' => $params['secure'],
-                'httponly' => $params['httponly'],
-                'samesite' => 'Strict'
-            ]);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            if (ini_get('session.use_cookies')) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', [
+                    'expires' => time() - 42000,
+                    'path' => $params['path'],
+                    'domain' => $params['domain'],
+                    'secure' => $params['secure'],
+                    'httponly' => true,
+                    'samesite' => 'Strict',
+                ]);
+            }
+            session_destroy();
         }
-        session_destroy();
         View::redirect('/login');
     }
 }
