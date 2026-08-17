@@ -28,7 +28,20 @@ foreach (glob(__DIR__ . '/../app/Models/*.php') as $file) {
     require_once $file;
 }
 
-session_start();
+// Session handling — robust start with cleanup of stale/broken sessions
+@ini_set('session.gc_maxlifetime', SESSION_LIFETIME);
+@ini_set('session.cookie_lifetime', 0);
+@ini_set('session.use_strict_mode', 1);
+
+// Try to start session; if the session file is corrupted, destroy and restart
+try {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+} catch (Exception $e) {
+    session_destroy();
+    session_start();
+}
 
 // Initialize database
 Database::init();

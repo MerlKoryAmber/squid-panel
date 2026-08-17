@@ -50,9 +50,16 @@ class View {
     public static function verifyCsrf() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $token = $_POST[CSRF_TOKEN_NAME] ?? '';
-            if (empty($token) || !hash_equals($_SESSION[CSRF_TOKEN_NAME] ?? '', $token)) {
+            $sessionToken = $_SESSION[CSRF_TOKEN_NAME] ?? '';
+            // If session token is missing (stale session), regenerate it and reject this request
+            if (empty($sessionToken)) {
+                $_SESSION[CSRF_TOKEN_NAME] = bin2hex(random_bytes(32));
                 http_response_code(403);
-                die('CSRF token validation failed');
+                die('CSRF token missing. Please refresh the page and try again.');
+            }
+            if (empty($token) || !hash_equals($sessionToken, $token)) {
+                http_response_code(403);
+                die('CSRF token validation failed. Please refresh the page.');
             }
         }
     }

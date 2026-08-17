@@ -34,7 +34,7 @@
             <div class="sidebar-footer">
                 <?php if (Auth::check()): ?>
                 <div style="margin-bottom: 8px;">
-                    <strong><?= htmlspecialchars($_SESSION['user'] ?? 'Guest') ?></strong>
+                    <strong><?= htmlspecialchars($_SESSION['username'] ?? 'Guest') ?></strong>
                     <span class="role" style="margin-left: 6px;"><?= htmlspecialchars($_SESSION['role'] ?? '') ?></span>
                 </div>
                 <a href="/logout">Logout →</a>
@@ -53,7 +53,7 @@
                 <div class="top-header-actions">
                     <?php if (Auth::check()): ?>
                     <div class="user-badge">
-                        <span><?= htmlspecialchars($_SESSION['user'] ?? '') ?></span>
+                        <span><?= htmlspecialchars($_SESSION['username'] ?? '') ?></span>
                         <span class="role"><?= htmlspecialchars($_SESSION['role'] ?? '') ?></span>
                     </div>
                     <?php endif; ?>
