@@ -19,6 +19,8 @@ define('SPM_CONFIG', SPM_ROOT . '/config');
  define('SQUID_ACCESS_LOG', '/var/log/squid/access.log');
  define('SQUID_CACHE_LOG', '/var/log/squid/cache.log');
  define('SQUID_BINARY', '/usr/sbin/squid');
+ // Candidate conf for squid -f ... -k parse (must match sudoers/spmd on CentOS)
+ define('SQUID_PARSE_FILE', '/opt/spm/storage/tmp/squid.conf.parse');
 
 // Agent
  define('AGENT_SOCKET', '/run/spmd.sock');
@@ -33,7 +35,7 @@ define('SPM_CONFIG', SPM_ROOT . '/config');
  define('DEFAULT_LANG', 'ru');
 
 // Ensure storage exists
-$dirs = [SPM_STORAGE, SPM_STORAGE . '/backups', SPM_STORAGE . '/logs', SPM_STORAGE . '/tmp'];
+$dirs = [SPM_STORAGE, SPM_STORAGE . '/logs', SPM_STORAGE . '/tmp'];
 foreach ($dirs as $dir) {
     if (!is_dir($dir)) {
         mkdir($dir, 0750, true);

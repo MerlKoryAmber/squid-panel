@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS http_access_rules (
 
 CREATE TABLE IF NOT EXISTS cache_peers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL DEFAULT '',
     hostname TEXT NOT NULL,
     peer_type TEXT NOT NULL CHECK(peer_type IN ('parent', 'sibling', 'multicast')),
     http_port INTEGER DEFAULT 3128,
@@ -46,6 +47,7 @@ CREATE TABLE IF NOT EXISTS cache_peers (
     connect_timeout INTEGER DEFAULT 0,
     access_acl TEXT DEFAULT '',
     options TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'disabled')),
     created_at TEXT,
     updated_at TEXT
 );
@@ -60,6 +62,7 @@ CREATE TABLE IF NOT EXISTS cache_peer_access_rules (
     negated INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 0,
     created_at TEXT,
+    updated_at TEXT,
     FOREIGN KEY (peer_id) REFERENCES cache_peers(id) ON DELETE CASCADE
 );
 
@@ -69,6 +72,7 @@ CREATE TABLE IF NOT EXISTS routing_rules (
     action TEXT NOT NULL CHECK(action IN ('allow', 'deny')),
     acl_name TEXT NOT NULL,
     negated INTEGER DEFAULT 0,
+    sort_order INTEGER DEFAULT 0,
     created_at TEXT
 );
 
@@ -84,6 +88,10 @@ CREATE TABLE IF NOT EXISTS auth_config (
     dc TEXT,
     backup_dc TEXT,
     keytab_path TEXT,
+    principal TEXT DEFAULT '',
+    kdc TEXT DEFAULT '',
+    admin_server TEXT DEFAULT '',
+    helper TEXT DEFAULT '',
     created_at TEXT,
     updated_at TEXT
 );
@@ -105,17 +113,6 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     details TEXT,
     ip_address TEXT,
     created_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS scheduled_jobs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('log_rotate', 'config_reload', 'backup')),
-    schedule TEXT NOT NULL,
-    enabled INTEGER DEFAULT 1,
-    last_run TEXT,
-    created_at TEXT,
-    updated_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS settings (

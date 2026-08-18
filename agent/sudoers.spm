@@ -1,14 +1,16 @@
 # SPM sudo rules — fallback if agent is not used
-# Install to /etc/sudoers.d/spm
+# Copied by install.sh to /etc/sudoers.d/spm (mode 440)
+# CentOS 9: squid -f <staging> -k parse (never parse the live file by accident)
+# kinit is allowed only with a .keytab under /etc/squid — no path wildcards.
 
 squidmgr ALL=(root) NOPASSWD: /usr/sbin/squid -k reconfigure
-squidmgr ALL=(root) NOPASSWD: /usr/sbin/squid -k parse
+squidmgr ALL=(root) NOPASSWD: /usr/sbin/squid -f /opt/spm/storage/tmp/squid.conf.parse -k parse
 squidmgr ALL=(root) NOPASSWD: /usr/sbin/squid -v
 squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl start squid
 squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl stop squid
 squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl restart squid
 squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl status squid --no-pager -o short
 squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl status winbind --no-pager -o short
-squidmgr ALL=(root) NOPASSWD: /usr/bin/kinit -k -t *
+squidmgr ALL=(root) NOPASSWD: /usr/bin/kinit -k -t /etc/squid/*.keytab
 squidmgr ALL=(root) NOPASSWD: /usr/bin/wbinfo -t
 squidmgr ALL=(root) NOPASSWD: /usr/bin/net ads info

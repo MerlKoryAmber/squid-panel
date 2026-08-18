@@ -20,15 +20,15 @@
                     <li><a href="/dashboard" class="<?= ($active ?? '') === 'dashboard' ? 'active' : '' ?>">📊 Dashboard</a></li>
                     <li><a href="/acl" class="<?= ($active ?? '') === 'acl' ? 'active' : '' ?>">🛡 ACLs</a></li>
                     <li><a href="/http_access" class="<?= ($active ?? '') === 'http_access' ? 'active' : '' ?>">🔒 HTTP Access</a></li>
-                    <li><a href="/peers" class="<?= ($active ?? '') === 'peers' ? 'active' : '' ?>">🌐 Cache Peers</a></li>
+                    <li><a href="/peers" class="<?= ($active ?? '') === 'peers' ? 'active' : '' ?>">Cascade</a></li>
                     <li><a href="/auth" class="<?= ($active ?? '') === 'auth' ? 'active' : '' ?>">🔑 Authentication</a></li>
                     <li><a href="/users" class="<?= ($active ?? '') === 'users' ? 'active' : '' ?>">👤 Users</a></li>
                     <li><a href="/logs" class="<?= ($active ?? '') === 'logs' ? 'active' : '' ?>">📋 Logs</a></li>
                     <li><a href="/stats" class="<?= ($active ?? '') === 'stats' ? 'active' : '' ?>">📈 Statistics</a></li>
-                    <li><a href="/backup" class="<?= ($active ?? '') === 'backup' ? 'active' : '' ?>">💾 Backup</a></li>
-                    <li><a href="/scheduler" class="<?= ($active ?? '') === 'scheduler' ? 'active' : '' ?>">⏰ Scheduler</a></li>
                     <li><a href="/audit" class="<?= ($active ?? '') === 'audit' ? 'active' : '' ?>">📜 Audit</a></li>
+                    <?php if (Auth::isAdmin()): ?>
                     <li><a href="/settings" class="<?= ($active ?? '') === 'settings' ? 'active' : '' ?>">⚙ Settings</a></li>
+                    <?php endif; ?>
                 </ul>
             </nav>
             <div class="sidebar-footer">
@@ -47,7 +47,7 @@
         <div class="main-content">
             <header class="top-header">
                 <div style="display:flex; align-items:center;">
-                    <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+                    <button type="button" class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Menu">☰</button>
                     <h2><?= htmlspecialchars($title ?? 'Dashboard') ?></h2>
                 </div>
                 <div class="top-header-actions">

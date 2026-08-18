@@ -5,7 +5,7 @@
 <div class="card">
     <div class="card-header"><h3>General</h3></div>
     <div class="card-body">
-        <form method="POST" action="/settings/update">
+        <form method="POST" action="/settings/save">
             <?= View::csrf() ?>
             <div class="form-row">
                 <div class="form-group">
@@ -31,12 +31,35 @@
 </div>
 
 <div class="card">
-    <div class="card-header"><h3>Configuration</h3></div>
+    <div class="card-header"><h3>Change password</h3></div>
     <div class="card-body">
-        <div style="display:flex; flex-direction:column; gap:10px;">
-            <a href="/settings/export" class="btn btn-secondary">📥 Export Configuration</a>
-            <a href="/settings/import" class="btn btn-secondary">📤 Import Configuration</a>
-            <a href="/settings/reset" class="btn btn-danger" onclick="return confirm('Reset all settings to defaults?')">↺ Reset to Defaults</a>
-        </div>
+        <?php if (!empty($_SESSION['flash_error'])): ?>
+        <p><?= htmlspecialchars($_SESSION['flash_error']) ?></p>
+        <?php unset($_SESSION['flash_error']); endif; ?>
+        <?php if (!empty($_SESSION['flash_success'])): ?>
+        <p><?= htmlspecialchars($_SESSION['flash_success']) ?></p>
+        <?php unset($_SESSION['flash_success']); endif; ?>
+        <form method="POST" action="/users/password">
+            <?= View::csrf() ?>
+            <input type="hidden" name="id" value="<?= (int)(Auth::user()['id'] ?? 0) ?>">
+            <input type="hidden" name="redirect" value="/settings">
+            <div class="form-group">
+                <label>Current password</label>
+                <input type="password" name="current_password" required autocomplete="current-password">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>New password</label>
+                    <input type="password" name="password" required minlength="8" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label>Confirm new password</label>
+                    <input type="password" name="password_confirm" required minlength="8" autocomplete="new-password">
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Update password</button>
+            </div>
+        </form>
     </div>
 </div>

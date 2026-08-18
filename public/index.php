@@ -65,13 +65,6 @@ $router->post('/service/stop', 'SquidServiceController@stop');
 $router->post('/service/restart', 'SquidServiceController@restart');
 $router->post('/service/reconfigure', 'SquidServiceController@reconfigure');
 
-// Configuration Editor
-$router->get('/config', 'ConfigController@index');
-$router->post('/config/save', 'ConfigController@save');
-$router->post('/config/validate', 'ConfigController@validate');
-$router->get('/config/backup', 'ConfigController@backup');
-$router->post('/config/restore', 'ConfigController@restore');
-
 // ACL Management
 $router->get('/acl', 'AclController@index');
 $router->get('/acl/create', 'AclController@create');
@@ -96,7 +89,9 @@ $router->get('/peers/edit', 'CachePeerController@edit');
 $router->post('/peers/update', 'CachePeerController@update');
 $router->post('/peers/delete', 'CachePeerController@delete');
 $router->get('/peers/routing', 'CachePeerController@routing');
-$router->post('/peers/routing/update', 'CachePeerController@updateRouting');
+$router->post('/peers/routing/store', 'CachePeerController@storeRouting');
+$router->post('/peers/routing/delete', 'CachePeerController@deleteRouting');
+$router->post('/peers/routing/reorder', 'CachePeerController@reorderRouting');
 
 // Authentication (Kerberos/NTLM/Basic)
 $router->get('/auth', 'AuthConfigController@index');
@@ -124,18 +119,6 @@ $router->get('/logs/export', 'LogController@export');
 // Statistics
 $router->get('/stats', 'StatsController@index');
 $router->get('/stats/api/data', 'StatsController@data');
-
-// Backup & Restore
-$router->get('/backup', 'BackupController@index');
-$router->post('/backup/create', 'BackupController@create');
-$router->post('/backup/restore', 'BackupController@restore');
-$router->get('/backup/download', 'BackupController@download');
-
-// Scheduler
-$router->get('/scheduler', 'SchedulerController@index');
-$router->post('/scheduler/store', 'SchedulerController@store');
-$router->post('/scheduler/delete', 'SchedulerController@delete');
-$router->post('/scheduler/toggle', 'SchedulerController@toggle');
 
 // Audit
 $router->get('/audit', 'AuditController@index');

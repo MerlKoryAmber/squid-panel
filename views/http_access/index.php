@@ -81,8 +81,15 @@ if (table) {
             const order = Array.from(rows).map(r => r.dataset.id);
             fetch('/http_access/reorder', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '<?= $_SESSION['csrf_token'] ?? '' ?>' },
-                body: JSON.stringify({ order: order })
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '<?= htmlspecialchars(View::csrfToken(), ENT_QUOTES) ?>'
+                },
+                body: JSON.stringify({
+                    order: order,
+                    <?= json_encode(CSRF_TOKEN_NAME) ?>: <?= json_encode(View::csrfToken()) ?>
+                })
             }).then(() => location.reload());
         }
     });

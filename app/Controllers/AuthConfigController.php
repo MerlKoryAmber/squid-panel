@@ -19,7 +19,13 @@ class AuthConfigController {
         $realm = $_POST['realm'] ?? '';
         $kdc = $_POST['kdc'] ?? '';
         $admin_server = $_POST['admin_server'] ?? '';
-        $keytab_path = $_POST['keytab_path'] ?? '/etc/squid/proxy.keytab';
+        $principal = trim($_POST['principal'] ?? '');
+        try {
+            $keytab_path = PrivilegedExecutor::squidKeytabPath($_POST['keytab_path'] ?? '/etc/squid/proxy.keytab');
+        } catch (Exception $e) {
+            http_response_code(400);
+            die($e->getMessage());
+        }
         $program = $_POST['program'] ?? '/usr/lib64/squid/negotiate_kerberos_auth';
         $children = (int)($_POST['children'] ?? 10);
 
@@ -46,8 +52,8 @@ class AuthConfigController {
         // Save to DB
         Database::query("DELETE FROM auth_config WHERE scheme = 'negotiate'");
         Database::query(
-            "INSERT INTO auth_config (scheme, program, children, realm, keytab_path, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
-            ['negotiate', $program, $children, $realm, $keytab_path]
+            "INSERT INTO auth_config (scheme, program, children, realm, keytab_path, principal, kdc, admin_server, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+            ['negotiate', $program, $children, $realm, $keytab_path, $principal, $kdc, $admin_server]
         );
 
         Audit::log('kerberos_save', "Updated Kerberos config for realm {$realm}");
@@ -58,11 +64,9 @@ class AuthConfigController {
         Auth::requireAdmin();
         View::verifyCsrf();
 
-        $keytab = $_POST['keytab_path'] ?? '/etc/squid/proxy.keytab';
-        $principal = $_POST['principal'] ?? '';
-
         try {
-            $result = PrivilegedExecutor::execute('kinit_test', [$keytab, $principal]);
+            $keytab = PrivilegedExecutor::squidKeytabPath($_POST['keytab_path'] ?? '/etc/squid/proxy.keytab', true);
+            $result = PrivilegedExecutor::execute('kinit_test', [$keytab]);
             header('Content-Type: application/json');
             echo json_encode(['success' => $result['success'], 'output' => $result['stdout'] ?: $result['stderr']]);
         } catch (Exception $e) {
@@ -100,7 +104,12 @@ class AuthConfigController {
         Auth::requireAdmin();
         View::verifyCsrf();
 
-        $program = $_POST['program'] ?? '/usr/bin/ntlm_auth --helper-protocol=squid-2.5-ntlmssp';
+        $helper = $_POST['helper'] ?? 'ntlm_auth';
+        if (!in_array($helper, ['ntlm_auth', 'winbind'], true)) {
+            $helper = 'ntlm_auth';
+        }
+        $defaultProgram = '/usr/bin/ntlm_auth --helper-protocol=squid-2.5-ntlmssp';
+        $program = trim($_POST['program'] ?? '') !== '' ? $_POST['program'] : $defaultProgram;
         $children = (int)($_POST['children'] ?? 10);
         $domain = $_POST['domain'] ?? '';
         $dc = $_POST['dc'] ?? '';
@@ -108,8 +117,8 @@ class AuthConfigController {
 
         Database::query("DELETE FROM auth_config WHERE scheme = 'ntlm'");
         Database::query(
-            "INSERT INTO auth_config (scheme, program, children, domain, dc, backup_dc, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
-            ['ntlm', $program, $children, $domain, $dc, $backup_dc]
+            "INSERT INTO auth_config (scheme, program, children, domain, dc, backup_dc, helper, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+            ['ntlm', $program, $children, $domain, $dc, $backup_dc, $helper]
         );
 
         Audit::log('ntlm_save', "Updated NTLM config for domain {$domain}");
@@ -133,7 +142,7 @@ class AuthConfigController {
 
         Database::query("DELETE FROM auth_config WHERE scheme = 'basic'");
         Database::query(
-            "INSERT INTO auth_config (scheme, program, children, realm, credentialsttl, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+            "INSERT INTO auth_config (scheme, program, children, realm, credentialsttl, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
             ['basic', $program, $children, $realm, $credentialsttl]
         );
 

@@ -1,5 +1,7 @@
 <?php
 class View {
+    private static $jsonInput = null;
+
     public static function render($view, $data = []) {
         extract($data);
 
@@ -40,27 +42,63 @@ class View {
         exit;
     }
 
-    public static function csrf() {
+    public static function csrfToken() {
         if (empty($_SESSION[CSRF_TOKEN_NAME])) {
             $_SESSION[CSRF_TOKEN_NAME] = bin2hex(random_bytes(32));
         }
-        return '<input type="hidden" name="' . CSRF_TOKEN_NAME . '" value="' . htmlspecialchars($_SESSION[CSRF_TOKEN_NAME]) . '">';
+        return $_SESSION[CSRF_TOKEN_NAME];
+    }
+
+    public static function csrf() {
+        return '<input type="hidden" name="' . CSRF_TOKEN_NAME . '" value="' . htmlspecialchars(self::csrfToken()) . '">';
+    }
+
+    public static function jsonInput() {
+        if (self::$jsonInput !== null) {
+            return self::$jsonInput;
+        }
+        self::$jsonInput = [];
+        $ct = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
+        if (stripos($ct, 'application/json') === false) {
+            return self::$jsonInput;
+        }
+        $raw = file_get_contents('php://input');
+        $data = json_decode($raw, true);
+        self::$jsonInput = is_array($data) ? $data : [];
+        return self::$jsonInput;
     }
 
     public static function verifyCsrf() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $token = $_POST[CSRF_TOKEN_NAME] ?? '';
-            $sessionToken = $_SESSION[CSRF_TOKEN_NAME] ?? '';
-            // If session token is missing (stale session), regenerate it and reject this request
-            if (empty($sessionToken)) {
-                $_SESSION[CSRF_TOKEN_NAME] = bin2hex(random_bytes(32));
-                http_response_code(403);
-                die('CSRF token missing. Please refresh the page and try again.');
-            }
-            if (empty($token) || !hash_equals($sessionToken, $token)) {
-                http_response_code(403);
-                die('CSRF token validation failed. Please refresh the page.');
-            }
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return;
         }
+        $sessionToken = $_SESSION[CSRF_TOKEN_NAME] ?? '';
+        if ($sessionToken === '') {
+            $_SESSION[CSRF_TOKEN_NAME] = bin2hex(random_bytes(32));
+            self::csrfFail('CSRF token missing. Please refresh the page and try again.');
+        }
+        $json = self::jsonInput();
+        $token = $_POST[CSRF_TOKEN_NAME]
+            ?? $_SERVER['HTTP_X_CSRF_TOKEN']
+            ?? ($json[CSRF_TOKEN_NAME] ?? '');
+        $token = is_string($token) ? $token : '';
+        if ($token === '' || !hash_equals($sessionToken, $token)) {
+            self::csrfFail('CSRF token validation failed. Please refresh the page.');
+        }
+    }
+
+    private static function csrfFail($message) {
+        http_response_code(403);
+        $ct = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
+        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        if (stripos($ct, 'application/json') !== false
+            || strpos($uri, '/api/') !== false
+            || stripos($accept, 'application/json') !== false) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => $message]);
+            exit;
+        }
+        die($message);
     }
 }

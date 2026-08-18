@@ -9,7 +9,7 @@ class SquidConfigBuilder {
         $this->config['acls'] = Database::fetchAll("SELECT * FROM acls ORDER BY name, id");
         $this->config['http_access'] = Database::fetchAll("SELECT * FROM http_access_rules ORDER BY sort_order, id");
         $this->config['peers'] = Database::fetchAll("SELECT * FROM cache_peers ORDER BY id");
-        $this->config['auth'] = Database::fetch("SELECT * FROM auth_config LIMIT 1") ?: [];
+        $this->config['auth'] = Database::fetchAll("SELECT * FROM auth_config ORDER BY id");
         $this->config['globals'] = Database::fetch("SELECT * FROM squid_globals LIMIT 1") ?: [];
         return $this;
     }
@@ -36,19 +36,32 @@ class SquidConfigBuilder {
         // Authentication
         if (!empty($this->config['auth'])) {
             $lines[] = "# === Authentication ===";
-            $auth = $this->config['auth'];
-            if ($auth['scheme'] === 'basic' && !empty($auth['basic_program'])) {
-                $lines[] = "auth_param basic program " . $auth['basic_program'];
-                $lines[] = "auth_param basic children " . ($auth['children'] ?: 5);
-                $lines[] = "auth_param basic realm " . ($auth['realm'] ?: 'Squid Proxy');
-                $lines[] = "auth_param basic credentialsttl " . ($auth['credentialsttl'] ?: '2 hours');
-            } elseif ($auth['scheme'] === 'negotiate' && !empty($auth['negotiate_program'])) {
-                $lines[] = "auth_param negotiate program " . $auth['negotiate_program'];
-                $lines[] = "auth_param negotiate children " . ($auth['children'] ?: 10);
-                $lines[] = "auth_param negotiate keep_alive " . ($auth['keep_alive'] ?: 'on');
-            } elseif ($auth['scheme'] === 'ntlm' && !empty($auth['ntlm_program'])) {
-                $lines[] = "auth_param ntlm program " . $auth['ntlm_program'];
-                $lines[] = "auth_param ntlm children " . ($auth['children'] ?: 10);
+            foreach ($this->config['auth'] as $auth) {
+                $scheme = $auth['scheme'] ?? '';
+                $program = trim($auth['program'] ?? '');
+                if ($program === '') {
+                    continue;
+                }
+                $children = (int)($auth['children'] ?: 5);
+                if ($scheme === 'basic') {
+                    $lines[] = "auth_param basic program " . $program;
+                    $lines[] = "auth_param basic children " . $children;
+                    $lines[] = "auth_param basic realm " . ($auth['realm'] ?: 'Squid Proxy');
+                    $lines[] = "auth_param basic credentialsttl " . ($auth['credentialsttl'] ?: '2 hours');
+                } elseif ($scheme === 'negotiate') {
+                    $lines[] = "auth_param negotiate program " . $program;
+                    $lines[] = "auth_param negotiate children " . ($children ?: 10);
+                    $lines[] = "auth_param negotiate keep_alive " . ($auth['keep_alive'] ?: 'on');
+                } elseif ($scheme === 'ntlm') {
+                    $lines[] = "auth_param ntlm program " . $program;
+                    $lines[] = "auth_param ntlm children " . ($children ?: 10);
+                } elseif ($scheme === 'digest') {
+                    $lines[] = "auth_param digest program " . $program;
+                    $lines[] = "auth_param digest children " . $children;
+                    if (!empty($auth['realm'])) {
+                        $lines[] = "auth_param digest realm " . $auth['realm'];
+                    }
+                }
             }
             $lines[] = "";
         }
@@ -67,15 +80,23 @@ class SquidConfigBuilder {
         if (!empty($this->config['peers'])) {
             $lines[] = "# === Cache Peers ===";
             foreach ($this->config['peers'] as $peer) {
-                $line = "cache_peer " . $peer['hostname'] . " " . $peer['peer_type'] . " " . $peer['http_port'];
-                if ($peer['icp_port']) $line .= " " . $peer['icp_port'];
+                if (($peer['status'] ?? 'active') === 'disabled') {
+                    continue;
+                }
+                $httpPort = $peer['http_port'] ?? $peer['port'] ?? 3128;
+                $icpPort = $peer['icp_port'] ?? 0;
+                $line = "cache_peer " . $peer['hostname'] . " " . $peer['peer_type'] . " " . $httpPort . " " . (int)$icpPort;
                 $options = [];
-                if ($peer['proxy_only']) $options[] = 'proxy-only';
-                if ($peer['no_query']) $options[] = 'no-query';
-                if ($peer['no_digest']) $options[] = 'no-digest';
-                if ($peer['weight']) $options[] = 'weight=' . $peer['weight'];
-                if ($peer['login']) $options[] = 'login=' . $peer['login'];
-                if ($peer['connect_timeout']) $options[] = 'connect-timeout=' . $peer['connect_timeout'];
+                if (!empty($peer['proxy_only'])) $options[] = 'proxy-only';
+                if (!empty($peer['no_query'])) $options[] = 'no-query';
+                if (!empty($peer['no_digest'])) $options[] = 'no-digest';
+                if (!empty($peer['weight'])) $options[] = 'weight=' . $peer['weight'];
+                if (!empty($peer['login'])) $options[] = 'login=' . $peer['login'];
+                if (!empty($peer['connect_timeout'])) $options[] = 'connect-timeout=' . $peer['connect_timeout'];
+                $peerName = trim($peer['name'] ?? '');
+                if ($peerName !== '') $options[] = 'name=' . $peerName;
+                $extra = trim($peer['options'] ?? '');
+                if ($extra !== '') $options[] = $extra;
                 if (!empty($options)) $line .= " " . implode(' ', $options);
                 $lines[] = $line;
             }
@@ -85,6 +106,7 @@ class SquidConfigBuilder {
             $peerAccessRules = Database::fetchAll(
                 "SELECT cpar.*, cp.hostname FROM cache_peer_access_rules cpar 
                  JOIN cache_peers cp ON cpar.peer_id = cp.id 
+                 WHERE COALESCE(cp.status, 'active') = 'active'
                  ORDER BY cp.id, cpar.sort_order, cpar.id"
             );
 
@@ -99,10 +121,13 @@ class SquidConfigBuilder {
 
         // Global Routing directives
         $lines[] = "# === Global Routing ===";
-        $routing = Database::fetchAll("SELECT * FROM routing_rules ORDER BY id");
+        $routing = Database::fetchAll("SELECT * FROM routing_rules ORDER BY sort_order, id");
         foreach ($routing as $rule) {
-            $aclName = ($rule['negated'] ?? 0) ? "!" . $rule['acl_name'] : $rule['acl_name'];
-            $lines[] = $rule['directive'] . " " . $rule['action'] . " " . $aclName;
+            $acl = $rule['acl_name'] ?? '';
+            if (($rule['negated'] ?? 0) && strpos($acl, ' ') === false && strpos($acl, '!') !== 0) {
+                $acl = '!' . $acl;
+            }
+            $lines[] = $rule['directive'] . " " . $rule['action'] . " " . $acl;
         }
         $lines[] = "";
 
@@ -121,30 +146,8 @@ class SquidConfigBuilder {
     }
 
     public function save($content = null) {
-        if ($content === null) {
-            $content = $this->generate();
-        }
-
-        $backupPath = SQUID_CONF . '.bak.' . date('YmdHis');
-        if (file_exists(SQUID_CONF)) {
-            copy(SQUID_CONF, $backupPath);
-        }
-
-        $newPath = SQUID_CONF . '.new';
-        file_put_contents($newPath, $content, LOCK_EX);
-
-        // Validate syntax
-        $result = SquidSyntaxChecker::validateFile($newPath);
-        if (!$result['valid']) {
-            unlink($newPath);
-            throw new Exception("Syntax error: " . $result['error']);
-        }
-
-        // Atomically replace
-        rename($newPath, SQUID_CONF);
-        chmod(SQUID_CONF, 0644);
-        chown(SQUID_CONF, 'root:root');
-
-        return ['success' => true, 'backup' => $backupPath];
+        throw new Exception(
+            'Refusing to overwrite live squid.conf. The panel generator is a partial preview and is not applied to CentOS Squid.'
+        );
     }
 }

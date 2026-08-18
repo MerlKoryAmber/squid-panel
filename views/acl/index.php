@@ -30,7 +30,13 @@
                     <td><strong><?= htmlspecialchars($acl['name']) ?></strong></td>
                     <td><span class="badge badge-default"><?= htmlspecialchars($acl['type']) ?></span></td>
                     <td style="font-size:0.82rem; color:var(--ir-text-secondary);">
-                        <?php $vals = json_decode($acl['values'], true) ?? []; echo htmlspecialchars(implode(', ', array_slice($vals, 0, 5)) . (count($vals) > 5 ? '...' : '')); ?>
+                        <?php
+                        $vals = json_decode($acl['entries'] ?? $acl['values'] ?? '[]', true);
+                        if (!is_array($vals)) {
+                            $vals = [];
+                        }
+                        echo htmlspecialchars(implode(', ', array_slice($vals, 0, 5)) . (count($vals) > 5 ? '...' : ''));
+                        ?>
                     </td>
                     <td>
                         <a href="/acl/edit?id=<?= $acl['id'] ?>" class="btn btn-sm btn-secondary">Edit</a>

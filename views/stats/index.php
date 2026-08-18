@@ -25,7 +25,9 @@
 <div class="card">
     <div class="card-header"><h3>Hourly Traffic</h3></div>
     <div class="card-body">
-        <div id="hourly-chart" style="width:100%; height:300px;"></div>
+        <div class="chart-wrap">
+            <canvas id="hourly-chart"></canvas>
+        </div>
     </div>
 </div>
 

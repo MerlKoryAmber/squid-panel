@@ -29,6 +29,13 @@ class Auth {
 
     public static function requireAuth() {
         if (!self::check()) {
+            $uri = $_SERVER['REQUEST_URI'] ?? '';
+            if (strpos($uri, '/api/') !== false) {
+                http_response_code(401);
+                header('Content-Type: application/json');
+                echo json_encode(['error' => 'unauthorized']);
+                exit;
+            }
             View::redirect('/login');
         }
     }

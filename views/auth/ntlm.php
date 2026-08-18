@@ -5,7 +5,7 @@
 <div class="card">
     <div class="card-header"><h3>NTLM Settings</h3></div>
     <div class="card-body">
-        <form method="POST" action="/auth/ntlm/update">
+        <form method="POST" action="/auth/ntlm/save">
             <?= View::csrf() ?>
             <div class="form-group">
                 <label>Domain Controller</label>

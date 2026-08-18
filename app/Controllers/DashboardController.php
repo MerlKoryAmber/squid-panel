@@ -3,28 +3,17 @@ class DashboardController {
     public function index($params = []) {
         Auth::requireAuth();
 
-        $status = PrivilegedExecutor::getSquidStatus();
-        $version = PrivilegedExecutor::getSquidVersion();
-
-        // Get connection count (approximate via netstat or ss)
-        $connections = 0;
-        $port = 3128;
-        $globals = Database::fetch("SELECT http_port FROM squid_globals LIMIT 1");
-        if ($globals && !empty($globals['http_port'])) {
-            $port = (int)$globals['http_port'];
-        }
-        $ss = @shell_exec("/usr/sbin/ss -tan | grep :{$port} | wc -l");
-        if ($ss !== null) {
-            $connections = (int)trim($ss);
-        }
-
-        $recentLogs = LogParser::tail(SQUID_ACCESS_LOG, 10);
-        $auditLogs = Audit::getRecent(5);
-
-        $logStats = LogParser::getStats(SQUID_ACCESS_LOG, 24);
-
-        // Database counters for dashboard cards
-        $dbCount = function($table) {
+        $dbCount = function ($table) {
+            $allowed = [
+                'http_access_rules' => true,
+                'acls' => true,
+                'cache_peers' => true,
+                'cache_peer_access_rules' => true,
+                'auth_config' => true,
+            ];
+            if (!isset($allowed[$table])) {
+                return 0;
+            }
             try {
                 $r = Database::fetch("SELECT COUNT(*) as c FROM {$table}");
                 return $r ? (int)($r['c'] ?? 0) : 0;
@@ -32,36 +21,26 @@ class DashboardController {
                 return 0;
             }
         };
+
         $stats = [
             'http_access' => $dbCount('http_access_rules'),
             'acls'        => $dbCount('acls'),
             'peers'       => $dbCount('cache_peers'),
             'peer_access' => $dbCount('cache_peer_access_rules'),
             'auth'        => $dbCount('auth_config'),
-            'scheduler'   => $dbCount('scheduled_jobs'),
-            'hourly'      => $logStats['hourly'] ?? [],
-            'topDomains'  => $logStats['domains'] ?? [],
         ];
-
-        $acls = Database::fetchAll("SELECT * FROM acls");
-        $peers = Database::fetchAll("SELECT * FROM cache_peers");
 
         echo View::render('dashboard', [
             'title' => 'Dashboard',
-            'status' => $status,
-            'version' => $version,
-            'connections' => $connections,
-            'recentLogs' => $recentLogs,
-            'auditLogs' => $auditLogs,
+            'active' => 'dashboard',
             'stats' => $stats,
-            'acls' => $acls,
-            'peers' => $peers,
+            'auditLogs' => Audit::getRecent(5),
+            'isAdmin' => Auth::isAdmin(),
         ]);
     }
 
     public function apiStatus($params = []) {
         Auth::requireAuth();
-        // Release session lock for AJAX polling endpoints
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
         }

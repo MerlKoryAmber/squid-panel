@@ -5,11 +5,12 @@
 <div class="card">
     <div class="card-header"><h3>Kerberos Settings</h3></div>
     <div class="card-body">
-        <form method="POST" action="/auth/kerberos/update">
+        <form method="POST" action="/auth/kerberos/save">
             <?= View::csrf() ?>
             <div class="form-group">
                 <label>Keytab Path</label>
-                <input type="text" name="keytab_path" value="<?= htmlspecialchars($config['keytab_path'] ?? '/etc/squid/proxy.keytab') ?>">
+                <input type="text" name="keytab_path" value="<?= htmlspecialchars($config['keytab_path'] ?? '/etc/squid/proxy.keytab') ?>" placeholder="/etc/squid/proxy.keytab">
+                <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">Only an absolute .keytab path under /etc/squid is allowed.</p>
             </div>
             <div class="form-group">
                 <label>Service Principal</label>
@@ -18,6 +19,14 @@
             <div class="form-group">
                 <label>KDC Realm</label>
                 <input type="text" name="realm" value="<?= htmlspecialchars($config['realm'] ?? 'DOMAIN.LOCAL') ?>">
+            </div>
+            <div class="form-group">
+                <label>KDC</label>
+                <input type="text" name="kdc" value="<?= htmlspecialchars($config['kdc'] ?? '') ?>" placeholder="dc01.domain.local">
+            </div>
+            <div class="form-group">
+                <label>Admin Server</label>
+                <input type="text" name="admin_server" value="<?= htmlspecialchars($config['admin_server'] ?? '') ?>" placeholder="dc01.domain.local">
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Save Settings</button>

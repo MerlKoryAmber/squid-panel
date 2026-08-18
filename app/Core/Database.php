@@ -14,6 +14,7 @@ class Database {
             if (!$exists) {
                 self::migrate();
             }
+            self::ensureSchema();
         }
         return self::$pdo;
     }
@@ -33,6 +34,39 @@ class Database {
         $hash = password_hash('admin', PASSWORD_BCRYPT);
         $stmt = self::$pdo->prepare("INSERT INTO users (username, password_hash, role, language, created_at) VALUES (?, ?, 'admin', 'ru', datetime('now'))");
         $stmt->execute(['admin', $hash]);
+    }
+
+    /**
+     * Add columns that CREATE IF NOT EXISTS will not apply to an existing spm.db.
+     */
+    private static function ensureSchema() {
+        self::addColumnIfMissing('cache_peers', 'name', "TEXT NOT NULL DEFAULT ''");
+        self::addColumnIfMissing('cache_peers', 'status', "TEXT NOT NULL DEFAULT 'active'");
+        self::addColumnIfMissing('cache_peer_access_rules', 'updated_at', 'TEXT');
+        self::addColumnIfMissing('auth_config', 'principal', "TEXT DEFAULT ''");
+        self::addColumnIfMissing('auth_config', 'kdc', "TEXT DEFAULT ''");
+        self::addColumnIfMissing('auth_config', 'admin_server', "TEXT DEFAULT ''");
+        self::addColumnIfMissing('auth_config', 'helper', "TEXT DEFAULT ''");
+        self::addColumnIfMissing('routing_rules', 'sort_order', 'INTEGER DEFAULT 0');
+    }
+
+    private static function addColumnIfMissing($table, $column, $ddl) {
+        $allowed = [
+            'cache_peers' => true,
+            'cache_peer_access_rules' => true,
+            'auth_config' => true,
+            'routing_rules' => true,
+        ];
+        if (!isset($allowed[$table])) {
+            return;
+        }
+        $stmt = self::$pdo->query('PRAGMA table_info(' . $table . ')');
+        foreach ($stmt->fetchAll() as $col) {
+            if (($col['name'] ?? '') === $column) {
+                return;
+            }
+        }
+        self::$pdo->exec("ALTER TABLE {$table} ADD COLUMN {$column} {$ddl}");
     }
 
     public static function query($sql, $params = []) {

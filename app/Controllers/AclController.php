@@ -19,8 +19,8 @@ class AclController {
 
         $name = preg_replace('/[^a-zA-Z0-9_-]/', '', $_POST['name'] ?? '');
         $type = $_POST['type'] ?? '';
-        $values = array_filter(array_map('trim', explode("
-", $_POST['entries'] ?? '')));
+        $raw = $_POST['entries'] ?? $_POST['values'] ?? '';
+        $values = array_values(array_filter(array_map('trim', preg_split('/\R/', $raw)), 'strlen'));
         $description = $_POST['description'] ?? '';
         $group = $_POST['group_name'] ?? '';
 
@@ -63,8 +63,8 @@ class AclController {
         View::verifyCsrf();
 
         $id = (int)($_POST['id'] ?? 0);
-        $values = array_filter(array_map('trim', explode("
-", $_POST['entries'] ?? '')));
+        $raw = $_POST['entries'] ?? $_POST['values'] ?? '';
+        $values = array_values(array_filter(array_map('trim', preg_split('/\R/', $raw)), 'strlen'));
         $description = $_POST['description'] ?? '';
         $group = $_POST['group_name'] ?? '';
 

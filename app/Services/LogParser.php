@@ -96,32 +96,77 @@ class LogParser {
     }
 
     public static function getStats($file, $hours = 24) {
-        if (!file_exists($file)) return ['domains' => [], 'users' => [], 'codes' => []];
+        $hours = max(1, min(168, (int)$hours));
+        $empty = self::emptyStats($hours);
+
+        if (!file_exists($file)) {
+            $empty['error'] = 'Access log not found';
+            return $empty;
+        }
+        if (!is_readable($file)) {
+            $empty['error'] = 'Access log is not readable by the panel user';
+            return $empty;
+        }
+
+        $handle = fopen($file, 'r');
+        if (!$handle) {
+            $empty['error'] = 'Could not open access log';
+            return $empty;
+        }
 
         $domains = [];
         $users = [];
         $codes = [];
-        $cutoff = time() - ($hours * 3600);
+        $hourly = [];
+        $now = time();
+        $cutoff = $now - ($hours * 3600);
+        for ($i = $hours - 1; $i >= 0; $i--) {
+            $ts = $now - ($i * 3600);
+            $key = date('YmdH', $ts);
+            $hourly[$key] = ['hour' => date('H', $ts), 'count' => 0];
+        }
 
-        $handle = fopen($file, 'r');
-        if (!$handle) return ['domains' => [], 'users' => [], 'codes' => []];
+        $total = 0;
+        $hits = 0;
+        $misses = 0;
+        $errors = 0;
 
         while (($line = fgets($handle)) !== false) {
             $parsed = self::parseLine($line);
-            if (!$parsed || empty($parsed['timestamp'])) continue;
+            if (!$parsed || empty($parsed['timestamp'])) {
+                continue;
+            }
 
             $ts = strtotime($parsed['timestamp']);
-            if ($ts < $cutoff) continue;
+            if ($ts === false || $ts < $cutoff) {
+                continue;
+            }
 
-            $host = parse_url($parsed['url'], PHP_URL_HOST) ?: 'unknown';
+            $total++;
+            $hourKey = date('YmdH', $ts);
+            if (isset($hourly[$hourKey])) {
+                $hourly[$hourKey]['count']++;
+            }
+
+            $host = self::requestHost($parsed['url'] ?? '');
             $domains[$host] = ($domains[$host] ?? 0) + 1;
 
             if (!empty($parsed['user'])) {
                 $users[$parsed['user']] = ($users[$parsed['user']] ?? 0) + (int)$parsed['bytes'];
             }
 
-            $code = explode('/', $parsed['status'])[0] ?? 'unknown';
-            $codes[$code] = ($codes[$code] ?? 0) + 1;
+            $statusParts = explode('/', $parsed['status'] ?? '');
+            $hier = $statusParts[0] ?? 'unknown';
+            $http = $statusParts[1] ?? '';
+            $codes[$hier] = ($codes[$hier] ?? 0) + 1;
+
+            if (strpos($hier, 'HIT') !== false) {
+                $hits++;
+            } elseif (strpos($hier, 'ERR_') === 0 || ((int)$http >= 500 && (int)$http <= 599)) {
+                $errors++;
+            } else {
+                $misses++;
+            }
         }
 
         fclose($handle);
@@ -130,11 +175,61 @@ class LogParser {
         arsort($users);
         arsort($codes);
 
+        $top = array_slice($domains, 0, 10, true);
+        $topDomains = [];
+        foreach ($top as $domain => $count) {
+            $topDomains[] = ['domain' => (string)$domain, 'count' => (int)$count];
+        }
+
+        $ratio = $total > 0 ? round(($hits / $total) * 100) . '%' : '0%';
+
         return [
-            'domains' => array_slice($domains, 0, 10, true),
+            'domains' => $top,
+            'topDomains' => $topDomains,
+            'hourly' => array_values($hourly),
             'users' => array_slice($users, 0, 10, true),
             'codes' => array_slice($codes, 0, 10, true),
+            'total_requests' => $total,
+            'cache_hits' => $hits,
+            'cache_misses' => $misses,
+            'errors' => $errors,
+            'hit_ratio' => $ratio,
         ];
+    }
+
+    private static function emptyStats($hours) {
+        $hourly = [];
+        $now = time();
+        for ($i = $hours - 1; $i >= 0; $i--) {
+            $ts = $now - ($i * 3600);
+            $hourly[] = ['hour' => date('H', $ts), 'count' => 0];
+        }
+        return [
+            'domains' => [],
+            'topDomains' => [],
+            'hourly' => $hourly,
+            'users' => [],
+            'codes' => [],
+            'total_requests' => 0,
+            'cache_hits' => 0,
+            'cache_misses' => 0,
+            'errors' => 0,
+            'hit_ratio' => '0%',
+        ];
+    }
+
+    private static function requestHost($url) {
+        $host = parse_url($url, PHP_URL_HOST);
+        if (!empty($host)) {
+            return $host;
+        }
+        if (preg_match('#^https?://([^/:]+)#i', $url, $m)) {
+            return $m[1];
+        }
+        if (preg_match('#^([^/:\s]+)(?::\d+)?$#', $url, $m)) {
+            return $m[1];
+        }
+        return 'unknown';
     }
 
     /**

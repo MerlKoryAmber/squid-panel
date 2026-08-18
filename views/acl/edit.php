@@ -28,8 +28,16 @@
             </div>
             <div class="form-group">
                 <label>Values (one per line)</label>
-                <textarea name="values" rows="6" placeholder="192.168.1.0/24&#10;10.0.0.0/8"><?= isset($acl) ? htmlspecialchars(implode("
-", json_decode($acl['values'], true) ?? [])) : '' ?></textarea>
+                <textarea name="entries" rows="6" placeholder="192.168.1.0/24&#10;10.0.0.0/8"><?php
+                    $vals = [];
+                    if (isset($acl)) {
+                        $vals = json_decode($acl['entries'] ?? $acl['values'] ?? '[]', true);
+                        if (!is_array($vals)) {
+                            $vals = [];
+                        }
+                    }
+                    echo htmlspecialchars(implode("\n", $vals));
+                ?></textarea>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Save ACL</button>

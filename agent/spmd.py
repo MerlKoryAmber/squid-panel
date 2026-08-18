@@ -10,11 +10,17 @@ import sys
 import json
 import subprocess
 import logging
-from pathlib import Path
+import re
+import struct
+import pwd
+import grp
 
 SOCKET_PATH = "/run/spmd.sock"
 PID_FILE = "/run/spmd.pid"
 LOG_FILE = "/var/log/spmd.log"
+
+PARSE_FILE = "/opt/spm/storage/tmp/squid.conf.parse"
+ALLOWED_UIDS = None
 
 ALLOWED_COMMANDS = {
     "squid_reconfigure": ["/usr/sbin/squid", "-k", "reconfigure"],
@@ -22,13 +28,16 @@ ALLOWED_COMMANDS = {
     "squid_start": ["/usr/bin/systemctl", "start", "squid"],
     "squid_stop": ["/usr/bin/systemctl", "stop", "squid"],
     "squid_status": ["/usr/bin/systemctl", "status", "squid", "--no-pager", "-o", "short"],
-    "squid_syntax": ["/usr/sbin/squid", "-k", "parse"],
+    "squid_syntax": ["/usr/sbin/squid", "-f", PARSE_FILE, "-k", "parse"],
     "squid_version": ["/usr/sbin/squid", "-v"],
     "winbind_status": ["/usr/bin/systemctl", "status", "winbind", "--no-pager", "-o", "short"],
     "kinit_test": ["/usr/bin/kinit", "-k", "-t"],
     "wbinfo_test": ["/usr/bin/wbinfo", "-t"],
     "net_ads_info": ["/usr/bin/net", "ads", "info"],
 }
+
+KEYTAB_DIR = "/etc/squid"
+KEYTAB_NAME = re.compile(r"^[A-Za-z0-9._-]+\.keytab$")
 
 def setup_logging():
     logging.basicConfig(
@@ -40,17 +49,62 @@ def setup_logging():
         ]
     )
 
+def validate_keytab(path):
+    if not isinstance(path, str) or "\x00" in path:
+        raise ValueError("Invalid keytab path")
+
+    base = os.path.basename(path)
+    if not KEYTAB_NAME.fullmatch(base):
+        raise ValueError("Keytab must be a .keytab file under /etc/squid")
+
+    candidate = os.path.join(KEYTAB_DIR, base)
+    real = os.path.realpath(candidate)
+    if os.path.dirname(real) != KEYTAB_DIR or not os.path.isfile(real):
+        raise ValueError("Keytab not found under /etc/squid")
+
+    return real
+
+def allowed_peer_uids():
+    global ALLOWED_UIDS
+    if ALLOWED_UIDS is not None:
+        return ALLOWED_UIDS
+    uids = {0}
+    try:
+        uids.add(pwd.getpwnam("squidmgr").pw_uid)
+    except KeyError:
+        logging.error("User squidmgr not found; only root may call spmd")
+    ALLOWED_UIDS = uids
+    return ALLOWED_UIDS
+
+def peer_credentials(conn):
+    # Linux SO_PEERCRED (CentOS 9): pid, uid, gid
+    SO_PEERCRED = 17
+    creds = conn.getsockopt(socket.SOL_SOCKET, SO_PEERCRED, struct.calcsize("3i"))
+    pid, uid, gid = struct.unpack("3i", creds)
+    return pid, uid, gid
+
 def validate_command(command_key, extra_args):
     if command_key not in ALLOWED_COMMANDS:
         raise ValueError(f"Command not in whitelist: {command_key}")
 
+    if extra_args is None:
+        extra_args = []
+    if not isinstance(extra_args, list):
+        raise ValueError("Invalid args")
+
     cmd = list(ALLOWED_COMMANDS[command_key])
 
-    # Validate extra args against injection
-    for arg in extra_args:
-        if any(c in arg for c in [";", "&", "|", "<", ">", "$", "`", "\\"]):
-            raise ValueError(f"Invalid character in argument: {arg}")
-        cmd.append(arg)
+    if command_key == "kinit_test":
+        if len(extra_args) != 1:
+            raise ValueError("kinit_test requires exactly one keytab argument")
+        cmd.append(validate_keytab(extra_args[0]))
+        return cmd
+
+    if extra_args:
+        raise ValueError("Extra arguments are not allowed")
+
+    if command_key == "squid_syntax" and not os.path.isfile(PARSE_FILE):
+        raise ValueError("Parse staging file is missing")
 
     return cmd
 
@@ -58,6 +112,23 @@ def handle_client(conn):
     # Set timeout to prevent hung connections from accumulating
     conn.settimeout(15)
     try:
+        try:
+            pid, uid, gid = peer_credentials(conn)
+        except OSError as e:
+            logging.warning(f"SO_PEERCRED failed: {e}")
+            try:
+                conn.sendall(json.dumps({"success": False, "error": "peer check failed"}).encode("utf-8"))
+            except (BrokenPipeError, OSError):
+                pass
+            return
+        if uid not in allowed_peer_uids():
+            logging.warning(f"Rejected socket client uid={uid} pid={pid} gid={gid}")
+            try:
+                conn.sendall(json.dumps({"success": False, "error": "unauthorized"}).encode("utf-8"))
+            except (BrokenPipeError, OSError):
+                pass
+            return
+
         data = b""
         while True:
             try:
@@ -140,8 +211,14 @@ def main():
     sock.bind(SOCKET_PATH)
     sock.listen(10)
 
-    # Set permissions so squidmgr can connect
+    # squidmgr must be able to connect; process runs as root:squidmgr
     os.chmod(SOCKET_PATH, 0o660)
+    try:
+        import grp
+        gid = grp.getgrnam("squidmgr").gr_gid
+        os.chown(SOCKET_PATH, 0, gid)
+    except KeyError:
+        pass
 
     logging.info(f"SPM Agent started on {SOCKET_PATH}")
 

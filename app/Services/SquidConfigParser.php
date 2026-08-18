@@ -24,16 +24,6 @@ class SquidConfigParser {
             'globals' => 0,
         ];
 
-        // Debug: show all cache_peer lines
-        echo "DEBUG: All cache_peer lines in file:
-";
-        foreach ($lines as $idx => $l) {
-            if (strpos($l, 'cache_peer') !== false) {
-                echo "  line {$idx}: " . trim($l) . "
-";
-            }
-        }
-
         $globals = [];
         $authParams = [];
         $currentAcl = null;
@@ -252,7 +242,8 @@ class SquidConfigParser {
         }
 
         return [
-            'hostname' => $peerName ?: $hostname,
+            'name' => $peerName ?: $hostname,
+            'hostname' => $hostname,
             'peer_type' => $peerType,
             'http_port' => $httpPort,
             'icp_port' => $icpPort,
@@ -263,6 +254,7 @@ class SquidConfigParser {
             'login' => $login,
             'connect_timeout' => $connectTimeout,
             'options' => implode(' ', $options),
+            'status' => 'active',
         ];
     }
 
@@ -271,12 +263,12 @@ class SquidConfigParser {
         if ($existing) return; // Skip duplicates
 
         Database::query(
-            "INSERT INTO cache_peers (hostname, peer_type, http_port, icp_port, proxy_only, no_query, no_digest, weight, login, connect_timeout, access_acl, options, created_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+            "INSERT INTO cache_peers (name, hostname, peer_type, http_port, icp_port, proxy_only, no_query, no_digest, weight, login, connect_timeout, access_acl, options, status, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
             [
-                $peer['hostname'], $peer['peer_type'], $peer['http_port'], $peer['icp_port'],
+                $peer['name'], $peer['hostname'], $peer['peer_type'], $peer['http_port'], $peer['icp_port'],
                 $peer['proxy_only'], $peer['no_query'], $peer['no_digest'], $peer['weight'],
-                $peer['login'], $peer['connect_timeout'], '', $peer['options']
+                $peer['login'], $peer['connect_timeout'], '', $peer['options'], $peer['status'] ?? 'active'
             ]
         );
     }
@@ -317,7 +309,6 @@ class SquidConfigParser {
 
     private static function importCachePeerAccess($rule) {
         if (!is_array($rule) || empty($rule['peer_id'])) {
-            echo "DEBUG: skipping orphan rule\n";
             return;
         }
         $maxOrder = Database::fetch(
@@ -326,18 +317,14 @@ class SquidConfigParser {
         );
         $order = ($maxOrder['max'] ?? 0) + 1;
 
-        echo "DEBUG: inserting peer_access peer_id={$rule['peer_id']} hostname={$rule['hostname']} action={$rule['action']} acl={$rule['acl_name']}\n";
         Database::query(
             "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
             [$rule['peer_id'], $rule['hostname'], $rule['acl_name'], $rule['action'], $rule['negated'] ?? 0, $order]
         );
-        echo "DEBUG: inserted OK\n";
     }
 
     private static function parseRouting($tokens) {
-        echo "DEBUG parseRouting tokens: " . implode(" | ", $tokens) . "\n";
         if (count($tokens) < 3) {
-            echo "DEBUG: routing too few tokens (" . count($tokens) . "), skipping\n";
             return [];
         }
 

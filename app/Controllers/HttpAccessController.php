@@ -36,7 +36,12 @@ class HttpAccessController {
         Auth::requireAdmin();
         View::verifyCsrf();
 
-        $order = $_POST['order'] ?? [];
+        $data = View::jsonInput();
+        $order = $data['order'] ?? $_POST['order'] ?? [];
+        if (!is_array($order)) {
+            $order = [];
+        }
+
         foreach ($order as $index => $id) {
             Database::query("UPDATE http_access_rules SET sort_order = ? WHERE id = ?", [$index + 1, (int)$id]);
         }
