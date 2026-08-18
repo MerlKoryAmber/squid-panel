@@ -141,6 +141,20 @@ chmod 700 "$SPM_DIR/storage/tmp"
 chmod 700 "$SPM_DIR/storage/acl"
 mkdir -p /etc/squid/acl.d
 chmod 755 /etc/squid/acl.d
+SRC_KT="/etc/krb5.keytab"
+DST_KT="/etc/squid/krb5.keytab"
+if [ -f "$DST_KT" ]; then
+    echo "Keytab $DST_KT already present, not overwritten."
+elif [ -f "$SRC_KT" ]; then
+    cp -a "$SRC_KT" "$DST_KT"
+    if id squid &>/dev/null; then
+        chown squid:squid "$DST_KT"
+    fi
+    chmod 640 "$DST_KT"
+    echo "Copied $SRC_KT -> $DST_KT (mode 640, owner squid). Live squid.conf was not changed."
+else
+    echo "No $SRC_KT; upload a keytab in the panel to $DST_KT."
+fi
 chmod 750 "$SPM_DIR/agent" 2>/dev/null || true
 chmod 750 "$SPM_DIR/app" "$SPM_DIR/config" "$SPM_DIR/views" 2>/dev/null || true
 chmod 755 "$SPM_DIR/public"
@@ -368,6 +382,9 @@ else
 fi
 echo ""
 echo "Sudoers: kinit may use only /etc/squid/*.keytab"
+if [ -f /etc/squid/krb5.keytab ]; then
+    echo "Panel keytab copy: /etc/squid/krb5.keytab (live helper path in squid.conf was not edited)."
+fi
 echo "Live squid.conf was not replaced. A copy is at:"
 echo "  ${SQUID_CONF}.spm-install-${TS}"
 echo ""
