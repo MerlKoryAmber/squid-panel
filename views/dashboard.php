@@ -122,12 +122,11 @@ function fmt(value, suffix) {
 
 function updateStatus() {
     fetch('/api/squid/status', { credentials: 'same-origin' })
-        .then(r => {
+        .then(r => r.text().then(text => ({ r, text })))
+        .then(({ r, text }) => {
             if (r.status === 401) throw new Error('session');
             if (!r.ok) throw new Error('status');
-            return r.json();
-        })
-        .then(data => {
+            const data = JSON.parse(text);
             const isRunning = !!data.running;
             const html = `
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
@@ -159,7 +158,7 @@ function updateStatus() {
         .catch(err => {
             const msg = err && err.message === 'session'
                 ? 'Session expired. Refresh the page and sign in again.'
-                : 'Failed to load status (check spmd/sudoers for systemctl status squid).';
+                : 'Failed to load status.';
             document.getElementById('status-content').innerHTML = '<div class="alert alert-danger">' + msg + '</div>';
         });
 }

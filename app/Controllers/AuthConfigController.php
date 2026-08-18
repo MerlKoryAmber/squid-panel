@@ -83,7 +83,8 @@ class AuthConfigController {
         $domainInfo = '';
         try {
             $wb = PrivilegedExecutor::execute('winbind_status');
-            $winbindStatus['status'] = $wb['success'] ? 'running' : 'stopped';
+            $state = strtolower(trim((string)($wb['stdout'] ?? '')));
+            $winbindStatus['status'] = ($state === 'active') ? 'running' : 'stopped';
             $winbindStatus['raw'] = $wb['stdout'];
 
             $net = PrivilegedExecutor::execute('net_ads_info');

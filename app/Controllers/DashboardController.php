@@ -44,8 +44,21 @@ class DashboardController {
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
         }
-        header('Content-Type: application/json');
-        echo json_encode(PrivilegedExecutor::getSquidStatus());
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $data = PrivilegedExecutor::getSquidStatus();
+        } catch (Throwable $e) {
+            $data = [
+                'status' => 'error',
+                'running' => false,
+                'pid' => null,
+                'uptime' => null,
+                'cpu' => null,
+                'memory' => null,
+                'connections' => null,
+            ];
+        }
+        echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
     public function apiStats($params = []) {

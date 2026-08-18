@@ -8,10 +8,10 @@ class PrivilegedExecutor {
         'squid_restart' => ['/usr/bin/systemctl', 'restart', 'squid'],
         'squid_start' => ['/usr/bin/systemctl', 'start', 'squid'],
         'squid_stop' => ['/usr/bin/systemctl', 'stop', 'squid'],
-        'squid_status' => ['/usr/bin/systemctl', 'status', 'squid', '--no-pager', '-o', 'short'],
+        'squid_status' => ['/usr/bin/systemctl', 'is-active', 'squid'],
         'squid_syntax' => ['/usr/sbin/squid', '-f', '/opt/spm/storage/tmp/squid.conf.parse', '-k', 'parse'],
         'squid_version' => ['/usr/sbin/squid', '-v'],
-        'winbind_status' => ['/usr/bin/systemctl', 'status', 'winbind', '--no-pager', '-o', 'short'],
+        'winbind_status' => ['/usr/bin/systemctl', 'is-active', 'winbind'],
         'kinit_test' => ['/usr/bin/kinit', '-k', '-t'],
         'wbinfo_test' => ['/usr/bin/wbinfo', '-t'],
         'net_ads_info' => ['/usr/bin/net', 'ads', 'info'],
@@ -127,8 +127,11 @@ class PrivilegedExecutor {
         @socket_close($socket);
 
         $result = json_decode($response, true);
-        if (!$result || !isset($result['success'])) {
-            return null; // Fallback to sudo
+        if (!is_array($result) || !array_key_exists('success', $result)) {
+            return null;
+        }
+        if (!empty($result['error']) && !isset($result['exit_code'])) {
+            return null;
         }
 
         return $result;
@@ -148,8 +151,14 @@ class PrivilegedExecutor {
             $body = '';
         }
 
+        $success = $exitCode === 0;
+        $cmd0 = $cmd[1] ?? '';
+        if ($cmd0 === 'is-active' && in_array($exitCode, [0, 3, 4], true)) {
+            $success = true;
+        }
+
         return [
-            'success' => $exitCode === 0,
+            'success' => $success,
             'exit_code' => $exitCode,
             'stdout' => rtrim($body),
             'stderr' => '',
@@ -157,41 +166,40 @@ class PrivilegedExecutor {
     }
 
     public static function getSquidStatus() {
-        $raw = '';
+        $pid = self::squidPid();
         $svcState = 'unknown';
 
-        try {
-            $result = self::execute('squid_status');
-            $raw = $result['stdout'] ?? '';
-            if (!empty($result['stderr'])) {
-                $raw .= "\n" . $result['stderr'];
-            }
-            foreach (preg_split('/\r\n|\n|\r/', $raw) as $line) {
-                if (strpos($line, 'Active:') === false) {
-                    continue;
-                }
-                if (strpos($line, 'active (running)') !== false) {
+        if ($pid <= 0) {
+            try {
+                $result = self::execute('squid_status');
+                $word = strtolower(trim((string)($result['stdout'] ?? '')));
+                $word = preg_split('/\s+/', $word, 2)[0] ?? '';
+                if ($word === 'active') {
                     $svcState = 'running';
-                } elseif (strpos($line, 'inactive') !== false) {
+                } elseif (in_array($word, ['inactive', 'dead'], true)) {
                     $svcState = 'stopped';
-                } else {
+                } elseif ($word === 'failed') {
                     $svcState = 'error';
+                } elseif (in_array($word, ['activating', 'deactivating', 'reloading'], true)) {
+                    $svcState = 'running';
                 }
-                break;
+            } catch (Exception $e) {
+                $svcState = 'unknown';
             }
-        } catch (Exception $e) {
-            $raw = $e->getMessage();
-            $svcState = 'error';
+            if ($svcState === 'running') {
+                $pid = self::squidPid();
+            }
+        } else {
+            $svcState = 'running';
         }
 
-        $pid = self::squidPid();
         $running = ($svcState === 'running') || ($pid > 0);
         if ($running) {
             $status = 'running';
         } elseif ($svcState === 'stopped') {
             $status = 'stopped';
         } else {
-            $status = ($pid > 0) ? 'running' : 'error';
+            $status = 'error';
         }
 
         $metrics = $pid > 0 ? self::squidProcessMetrics($pid) : [];
@@ -205,35 +213,115 @@ class PrivilegedExecutor {
             'cpu' => $metrics['cpu'] ?? null,
             'memory' => $metrics['memory'] ?? null,
             'connections' => $running ? self::countEstablishedOnPort($port) : 0,
-            'raw' => $raw,
         ];
     }
 
     private static function squidPid() {
+        foreach (['/run/squid.pid', '/run/squid/squid.pid', '/var/run/squid.pid'] as $file) {
+            $raw = @file_get_contents($file);
+            $pid = (int)trim((string)$raw);
+            if ($pid > 0 && @is_dir('/proc/' . $pid) && self::procComm($pid) === 'squid') {
+                return $pid;
+            }
+        }
+
+        $best = 0;
+        $comms = @glob('/proc/[0-9]*/comm');
+        if (is_array($comms)) {
+            foreach ($comms as $commFile) {
+                $name = trim((string)@file_get_contents($commFile));
+                if ($name !== 'squid') {
+                    continue;
+                }
+                $pid = (int)basename(dirname($commFile));
+                if ($pid > 0 && ($best === 0 || $pid < $best)) {
+                    $best = $pid;
+                }
+            }
+        }
+        if ($best > 0) {
+            return $best;
+        }
+
         $out = @shell_exec('pgrep -xo squid 2>/dev/null');
         $pid = (int)trim((string)$out);
         return $pid > 0 ? $pid : 0;
     }
 
+    private static function procComm($pid) {
+        return trim((string)@file_get_contents('/proc/' . (int)$pid . '/comm'));
+    }
+
+    private static function formatElapsed($seconds) {
+        $seconds = (int)$seconds;
+        if ($seconds < 0) {
+            return null;
+        }
+        $d = intdiv($seconds, 86400);
+        $h = intdiv($seconds % 86400, 3600);
+        $m = intdiv($seconds % 3600, 60);
+        $s = $seconds % 60;
+        if ($d > 0) {
+            return sprintf('%d-%02d:%02d:%02d', $d, $h, $m, $s);
+        }
+        if ($h > 0) {
+            return sprintf('%02d:%02d:%02d', $h, $m, $s);
+        }
+        return sprintf('%02d:%02d', $m, $s);
+    }
+
+    private static function procEtime($pid) {
+        $uptimeRaw = @file_get_contents('/proc/uptime');
+        $stat = @file_get_contents('/proc/' . (int)$pid . '/stat');
+        if ($uptimeRaw === false || $stat === false) {
+            return null;
+        }
+        $uptime = (float)strtok($uptimeRaw, ' ');
+        $rparen = strrpos($stat, ')');
+        if ($rparen === false) {
+            return null;
+        }
+        $fields = explode(' ', trim(substr($stat, $rparen + 1)));
+        $startTicks = (int)($fields[19] ?? 0);
+        $elapsed = (int)max(0, $uptime - ($startTicks / 100.0));
+        return self::formatElapsed($elapsed);
+    }
+
     private static function squidProcessMetrics($pid) {
         $pid = (int)$pid;
+        $memory = null;
+        $status = @file_get_contents('/proc/' . $pid . '/status');
+        if (is_string($status) && preg_match('/^VmRSS:\s+(\d+)\s+kB/m', $status, $m)) {
+            $rssKb = (int)$m[1];
+            if ($rssKb >= 1024) {
+                $memory = sprintf('%.1f MB', $rssKb / 1024);
+            } elseif ($rssKb > 0) {
+                $memory = $rssKb . ' KB';
+            }
+        }
+        $etime = self::procEtime($pid);
+        $cpu = null;
         $line = @shell_exec('ps -p ' . $pid . ' -o etime=,pcpu=,rss= --no-headers 2>/dev/null');
         $line = trim((string)$line);
-        if ($line === '') {
-            return [];
-        }
-        $parts = preg_split('/\s+/', $line);
-        $etime = $parts[0] ?? '';
-        $cpu = isset($parts[1]) ? rtrim($parts[1], '%') : null;
-        $rssKb = isset($parts[2]) ? (int)$parts[2] : 0;
-        $memory = null;
-        if ($rssKb >= 1024) {
-            $memory = sprintf('%.1f MB', $rssKb / 1024);
-        } elseif ($rssKb > 0) {
-            $memory = $rssKb . ' KB';
+        if ($line !== '') {
+            $parts = preg_split('/\s+/', $line);
+            if (!empty($parts[0])) {
+                $etime = $parts[0];
+            }
+            if (isset($parts[1])) {
+                $cpu = rtrim($parts[1], '%');
+            }
+            if ($memory === null && isset($parts[2])) {
+                $rssKb = (int)$parts[2];
+                if ($rssKb >= 1024) {
+                    $memory = sprintf('%.1f MB', $rssKb / 1024);
+                } elseif ($rssKb > 0) {
+                    $memory = $rssKb . ' KB';
+                }
+            }
         }
         return [
-            'etime' => $etime !== '' ? $etime : null,
+            'etime' => $etime,
             'cpu' => $cpu,
             'memory' => $memory,
         ];

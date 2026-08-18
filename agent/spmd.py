@@ -27,10 +27,10 @@ ALLOWED_COMMANDS = {
     "squid_restart": ["/usr/bin/systemctl", "restart", "squid"],
     "squid_start": ["/usr/bin/systemctl", "start", "squid"],
     "squid_stop": ["/usr/bin/systemctl", "stop", "squid"],
-    "squid_status": ["/usr/bin/systemctl", "status", "squid", "--no-pager", "-o", "short"],
+    "squid_status": ["/usr/bin/systemctl", "is-active", "squid"],
     "squid_syntax": ["/usr/sbin/squid", "-f", PARSE_FILE, "-k", "parse"],
     "squid_version": ["/usr/sbin/squid", "-v"],
-    "winbind_status": ["/usr/bin/systemctl", "status", "winbind", "--no-pager", "-o", "short"],
+    "winbind_status": ["/usr/bin/systemctl", "is-active", "winbind"],
     "kinit_test": ["/usr/bin/kinit", "-k", "-t"],
     "wbinfo_test": ["/usr/bin/wbinfo", "-t"],
     "net_ads_info": ["/usr/bin/net", "ads", "info"],
@@ -168,8 +168,12 @@ def handle_client(conn):
             timeout=30
         )
 
+        exit_ok = result.returncode == 0
+        if command_key in ("squid_status", "winbind_status") and result.returncode in (0, 3, 4):
+            exit_ok = True
+
         response = {
-            "success": result.returncode == 0,
+            "success": exit_ok,
             "exit_code": result.returncode,
             "stdout": result.stdout,
             "stderr": result.stderr,
