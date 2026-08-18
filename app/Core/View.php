@@ -53,6 +53,13 @@ class View {
         return '<input type="hidden" name="' . CSRF_TOKEN_NAME . '" value="' . htmlspecialchars(self::csrfToken()) . '">';
     }
 
+    public static function asset($path) {
+        $path = '/' . ltrim((string)$path, '/');
+        $full = SPM_ROOT . '/public' . $path;
+        $ver = is_file($full) ? (string)filemtime($full) : (string)SPM_VERSION;
+        return $path . '?v=' . rawurlencode($ver);
+    }
+
     public static function jsonInput() {
         if (self::$jsonInput !== null) {
             return self::$jsonInput;

@@ -186,8 +186,8 @@ server {
     }
 
     location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)\$ {
-        expires 1M;
-        add_header Cache-Control "public, immutable";
+        expires 1h;
+        add_header Cache-Control "public, max-age=3600";
     }
 }
 EOF

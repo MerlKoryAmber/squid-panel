@@ -121,33 +121,45 @@ a:hover { color: var(--ir-primary-light); text-decoration: underline; }
 }
 
 .brand-mark {
-    flex: 0 0 auto;
-    width: 64px;
-    height: 40px;
+    flex: 0 0 48px;
+    width: 48px;
+    height: 30px;
+    max-width: 48px;
+    max-height: 30px;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 3px 5px;
+    padding: 2px;
     background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 0 0 1px rgba(201, 169, 110, 0.55), 0 6px 14px rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--ir-accent);
+    border-radius: 6px;
+    box-shadow: none;
 }
 
 .brand-mark img {
     display: block;
-    width: 100%;
-    height: 100%;
+    max-width: 42px;
+    max-height: 24px;
+    width: auto;
+    height: auto;
     object-fit: contain;
-    object-position: center;
 }
 
 .brand-mark-lg {
-    width: 168px;
-    height: 96px;
-    padding: 10px 14px;
-    border-radius: 14px;
-    margin: 0 auto 18px;
-    box-shadow: 0 0 0 1px rgba(201, 169, 110, 0.4), 0 10px 24px rgba(15, 27, 46, 0.08);
+    flex: 0 0 88px;
+    width: 88px;
+    height: 52px;
+    max-width: 88px;
+    max-height: 52px;
+    padding: 3px;
+    border-radius: 8px;
+    margin: 0 auto 14px;
+}
+
+.brand-mark-lg img {
+    max-width: 78px;
+    max-height: 44px;
 }
 
 .brand-copy {
