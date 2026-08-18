@@ -104,8 +104,9 @@ class SquidConfigBuilder {
 
             // Peer Access Rules — cache_peer_access
             $peerAccessRules = Database::fetchAll(
-                "SELECT cpar.*, cp.hostname FROM cache_peer_access_rules cpar 
-                 JOIN cache_peers cp ON cpar.peer_id = cp.id 
+                "SELECT cpar.*, cp.hostname AS peer_host, cp.name AS peer_name
+                 FROM cache_peer_access_rules cpar
+                 JOIN cache_peers cp ON cpar.peer_id = cp.id
                  WHERE COALESCE(cp.status, 'active') = 'active'
                  ORDER BY cp.id, cpar.sort_order, cpar.id"
             );
@@ -113,7 +114,12 @@ class SquidConfigBuilder {
             if (!empty($peerAccessRules)) {
                 $lines[] = "# === Cache Peer Access Rules ===";
                 foreach ($peerAccessRules as $rule) {
-                    $lines[] = "cache_peer_access " . $rule['hostname'] . " " . $rule['action'] . " " . $rule['acl_entries'];
+                    $peerRef = trim((string)($rule['peer_name'] ?? ''));
+                    if ($peerRef === '') {
+                        $peerRef = $rule['hostname'] ?: $rule['peer_host'];
+                    }
+                    $acls = trim((string)($rule['acl_entries'] !== '' ? $rule['acl_entries'] : $rule['acl_name']));
+                    $lines[] = "cache_peer_access " . $peerRef . " " . $rule['action'] . " " . $acls;
                 }
                 $lines[] = "";
             }

@@ -132,14 +132,20 @@ if [ "$HAD_EXISTING_DB" = "1" ] && [ -f "$PRESERVED_DB" ]; then
 fi
 
 chown -R "$WEB_USER:$WEB_USER" "$SPM_DIR"
-chmod 750 "$SPM_DIR"
+# nginx must traverse /opt/spm to serve /public, but must not be in group squidmgr (spmd socket).
+chmod 751 "$SPM_DIR"
 chmod 750 "$SPM_DIR/database"
 chmod 700 "$SPM_DIR/storage"
 chmod 700 "$SPM_DIR/storage/logs"
 chmod 700 "$SPM_DIR/storage/tmp"
+chmod 750 "$SPM_DIR/agent" 2>/dev/null || true
+chmod 750 "$SPM_DIR/app" "$SPM_DIR/config" "$SPM_DIR/views" 2>/dev/null || true
 chmod 755 "$SPM_DIR/public"
-chmod 755 "$SPM_DIR/agent"
-chmod 644 "$SPM_DIR/agent/sudoers.spm"
+find "$SPM_DIR/public" -type d -exec chmod 755 {} +
+find "$SPM_DIR/public" -type f -exec chmod 644 {} +
+chmod 644 "$SPM_DIR/agent/sudoers.spm" 2>/dev/null || true
+setfacl -m "u:nginx:x" "$SPM_DIR" 2>/dev/null || true
+setfacl -R -m "u:nginx:rX" "$SPM_DIR/public" 2>/dev/null || true
 
 echo "[4/9] Configuring Nginx on port $PANEL_PORT (does not bind :80/:443)..."
 mkdir -p /etc/nginx/conf.d

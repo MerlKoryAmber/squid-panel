@@ -25,12 +25,12 @@ if ($result['success']) {
     }
 
     // Debug: show imported peers and access rules
-    $peers = Database::fetchAll("SELECT id, hostname FROM cache_peers");
+    $peers = Database::fetchAll("SELECT id, name, hostname FROM cache_peers");
     echo "
 Imported peers (" . count($peers) . "):
 ";
     foreach ($peers as $p) {
-        echo "  - {$p['hostname']} (id={$p['id']})
+        echo "  - {$p['name']} {$p['hostname']} (id={$p['id']})
 ";
     }
 
