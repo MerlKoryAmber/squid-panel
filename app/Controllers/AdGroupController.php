@@ -3,12 +3,24 @@ class AdGroupController {
     public function index($params = []) {
         Auth::requireAuth();
         $listed = ['ok' => false, 'groups' => [], 'error' => ''];
+        $imported = [];
+        $realm = '';
         try {
             $listed = AdGroupAcl::listFromDirectory();
-        } catch (Exception $e) {
+            if (!is_array($listed) || !isset($listed['groups']) || !is_array($listed['groups'])) {
+                $listed = ['ok' => false, 'groups' => [], 'error' => 'LDAP group list failed'];
+            }
+        } catch (Throwable $e) {
             $listed = ['ok' => false, 'groups' => [], 'error' => $e->getMessage()];
         }
-        $imported = AdGroupAcl::importedMap();
+        try {
+            $imported = AdGroupAcl::importedMap();
+            $realm = AdGroupAcl::realm();
+        } catch (Throwable $e) {
+            if (($listed['error'] ?? '') === '') {
+                $listed['error'] = $e->getMessage();
+            }
+        }
         $flashError = $_SESSION['flash_error'] ?? '';
         $flashSuccess = $_SESSION['flash_success'] ?? '';
         unset($_SESSION['flash_error'], $_SESSION['flash_success']);
@@ -16,9 +28,9 @@ class AdGroupController {
             'title' => 'AD groups',
             'active' => 'acl',
             'isAdmin' => Auth::isAdmin(),
-            'realm' => AdGroupAcl::realm(),
+            'realm' => $realm,
             'listed' => $listed,
-            'imported' => $imported,
+            'imported' => is_array($imported) ? $imported : [],
             'flashError' => $flashError,
             'flashSuccess' => $flashSuccess,
         ]);

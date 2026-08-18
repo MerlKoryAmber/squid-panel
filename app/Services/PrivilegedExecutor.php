@@ -69,8 +69,9 @@ class PrivilegedExecutor {
         }
 
         if ($commandKey === 'acl_file_install' || $commandKey === 'keytab_install' || $commandKey === 'ad_ldap_groups') {
+            $recv = ($commandKey === 'ad_ldap_groups') ? 45 : 10;
             if (AGENT_ENABLED && file_exists(AGENT_SOCKET)) {
-                $result = self::executeViaAgent($commandKey, $extraArgs);
+                $result = self::executeViaAgent($commandKey, $extraArgs, $recv);
                 if ($result !== null) {
                     return $result;
                 }
@@ -119,12 +120,24 @@ class PrivilegedExecutor {
         return self::executeViaSudo($cmd);
     }
 
-    private static function executeViaAgent($commandKey, $extraArgs) {
+    private static function executeViaAgent($commandKey, $extraArgs, $recvSec = 10) {
+        $flags = JSON_UNESCAPED_SLASHES;
+        if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+            $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+        }
         $payload = json_encode([
             'command' => $commandKey,
-            'args' => $extraArgs,
+            'args' => array_values($extraArgs),
             'timestamp' => time(),
-        ]);
+        ], $flags);
+        if (!is_string($payload) || $payload === '') {
+            return [
+                'success' => false,
+                'exit_code' => 1,
+                'stdout' => '',
+                'stderr' => 'Failed to encode agent request',
+            ];
+        }
 
         $socket = @socket_create(AF_UNIX, SOCK_STREAM, 0);
         if (!$socket || !@socket_connect($socket, AGENT_SOCKET)) {
@@ -132,9 +145,12 @@ class PrivilegedExecutor {
             return null; // Fallback to sudo
         }
 
-        // Set send/receive timeouts to prevent hung sockets
+        $recvSec = (int)$recvSec;
+        if ($recvSec < 5) {
+            $recvSec = 5;
+        }
         @socket_set_option($socket, SOL_SOCKET, SO_SNDTIMEO, ['sec' => 5, 'usec' => 0]);
-        @socket_set_option($socket, SOL_SOCKET, SO_RCVTIMEO, ['sec' => 10, 'usec' => 0]);
+        @socket_set_option($socket, SOL_SOCKET, SO_RCVTIMEO, ['sec' => $recvSec, 'usec' => 0]);
 
         // Ensure full payload is sent
         $sent = 0;
@@ -163,7 +179,14 @@ class PrivilegedExecutor {
             return null;
         }
         if (!empty($result['error']) && !isset($result['exit_code'])) {
-            return null;
+            $result['success'] = false;
+            $result['exit_code'] = 1;
+            if (!isset($result['stderr']) || $result['stderr'] === '') {
+                $result['stderr'] = (string)$result['error'];
+            }
+            if (!isset($result['stdout'])) {
+                $result['stdout'] = '';
+            }
         }
 
         return $result;

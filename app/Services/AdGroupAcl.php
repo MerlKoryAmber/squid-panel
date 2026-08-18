@@ -8,13 +8,13 @@ class AdGroupAcl {
     public const ACL_PREFIX = 'ad_';
 
     public static function realm() {
-        $row = Database::fetch("SELECT realm FROM auth_config WHERE scheme = 'negotiate' LIMIT 1");
+        $row = Database::fetch("SELECT realm FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];
         $realm = strtoupper(trim((string)($row['realm'] ?? '')));
         return preg_match('/^[A-Z0-9.-]+$/', $realm) ? $realm : '';
     }
 
     public static function principal() {
-        $row = Database::fetch("SELECT principal FROM auth_config WHERE scheme = 'negotiate' LIMIT 1");
+        $row = Database::fetch("SELECT principal FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];
         return trim((string)($row['principal'] ?? ''));
     }
 
@@ -92,7 +92,7 @@ class AdGroupAcl {
     }
 
     public static function kdcHost() {
-        $row = Database::fetch("SELECT kdc FROM auth_config WHERE scheme = 'negotiate' LIMIT 1");
+        $row = Database::fetch("SELECT kdc FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];
         $kdc = strtolower(trim((string)($row['kdc'] ?? '')));
         if (preg_match('/^[a-z0-9.-]+$/', $kdc)) {
             return $kdc;
@@ -124,8 +124,11 @@ class AdGroupAcl {
     public static function listFromDirectory() {
         try {
             $result = PrivilegedExecutor::execute('ad_ldap_groups');
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             return ['ok' => false, 'groups' => [], 'error' => $e->getMessage()];
+        }
+        if (!is_array($result)) {
+            return ['ok' => false, 'groups' => [], 'error' => 'LDAP group list failed'];
         }
         if (empty($result['success'])) {
             $err = trim((string)(($result['stderr'] ?? '') ?: ($result['error'] ?? '') ?: ($result['stdout'] ?? 'LDAP group list failed')));
@@ -153,7 +156,14 @@ class AdGroupAcl {
 
     public static function importedMap() {
         $map = [];
-        $rows = Database::fetchAll("SELECT id, name, group_name FROM acls WHERE type = 'external'");
+        try {
+            $rows = Database::fetchAll("SELECT id, name, group_name FROM acls WHERE type = 'external'");
+        } catch (Throwable $e) {
+            return $map;
+        }
+        if (!is_array($rows)) {
+            return $map;
+        }
         foreach ($rows as $row) {
             $key = strtolower(trim((string)$row['group_name']));
             if ($key === '') {
