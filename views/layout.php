@@ -35,7 +35,7 @@
                     <li><a href="/dashboard" class="<?= ($active ?? '') === 'dashboard' ? 'active' : '' ?>">📊 Dashboard</a></li>
                     <li><a href="/acl" class="<?= ($active ?? '') === 'acl' ? 'active' : '' ?>">🛡 ACLs</a></li>
                     <li><a href="/http_access" class="<?= ($active ?? '') === 'http_access' ? 'active' : '' ?>">🔒 HTTP Access</a></li>
-                    <li><a href="/peers" class="<?= ($active ?? '') === 'peers' ? 'active' : '' ?>">Cascade</a></li>
+                    <li><a href="/peers" class="<?= ($active ?? '') === 'peers' ? 'active' : '' ?>">🔗 Cascade</a></li>
                     <li><a href="/auth" class="<?= ($active ?? '') === 'auth' ? 'active' : '' ?>">🔑 Authentication</a></li>
                     <li><a href="/users" class="<?= ($active ?? '') === 'users' ? 'active' : '' ?>">👤 Users</a></li>
                     <li><a href="/logs" class="<?= ($active ?? '') === 'logs' ? 'active' : '' ?>">📋 Logs</a></li>
