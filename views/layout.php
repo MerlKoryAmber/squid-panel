@@ -16,8 +16,13 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <h1>Squid Proxy Manager</h1>
-                <span>Network Security</span>
+                <div class="brand-mark" aria-hidden="true">
+                    <img src="/assets/img/spm-mascot.png" alt="">
+                </div>
+                <div class="brand-copy">
+                    <h1>Squid Proxy Manager</h1>
+                    <span>Network Security</span>
+                </div>
             </div>
             <nav class="sidebar-nav">
                 <ul>

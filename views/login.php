@@ -14,6 +14,9 @@
 <body class="login-page">
     <div class="login-box">
         <div class="logo">
+            <div class="brand-mark brand-mark-lg" aria-hidden="true">
+                <img src="/assets/img/spm-mascot.png" alt="">
+            </div>
             <h1>Squid Proxy Manager</h1>
             <span>Network Security & Access Control</span>
         </div>
