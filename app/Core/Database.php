@@ -48,6 +48,7 @@ class Database {
         self::addColumnIfMissing('auth_config', 'kdc', "TEXT DEFAULT ''");
         self::addColumnIfMissing('auth_config', 'admin_server', "TEXT DEFAULT ''");
         self::addColumnIfMissing('auth_config', 'helper', "TEXT DEFAULT ''");
+        self::addColumnIfMissing('auth_config', 'children_extra', "TEXT DEFAULT ''");
         self::addColumnIfMissing('routing_rules', 'sort_order', 'INTEGER DEFAULT 0');
         self::addColumnIfMissing('acls', 'storage', "TEXT NOT NULL DEFAULT 'inline'");
     }

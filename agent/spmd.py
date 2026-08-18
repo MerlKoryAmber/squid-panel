@@ -35,6 +35,7 @@ ALLOWED_COMMANDS = {
     "wbinfo_test": ["/usr/bin/wbinfo", "-t"],
     "net_ads_info": ["/usr/bin/net", "ads", "info"],
     "acl_file_install": ["__acl_file_install__"],
+    "keytab_install": ["__keytab_install__"],
 }
 
 ACL_SRC = "/opt/spm/storage/acl"
@@ -71,8 +72,47 @@ def install_acl_file(filename):
         pass
     return dst
 
+
+def install_keytab(filename):
+    if not isinstance(filename, str) or not KEYTAB_NAME.fullmatch(filename):
+        raise ValueError("Invalid keytab filename")
+    src_dir = os.path.realpath(KEYTAB_SRC)
+    src = os.path.realpath(os.path.join(KEYTAB_SRC, filename))
+    if os.path.dirname(src) != src_dir or not os.path.isfile(src):
+        raise ValueError("Keytab staging file not found")
+    size = os.path.getsize(src)
+    if size > KEYTAB_MAX:
+        raise ValueError("Keytab file is too large")
+    with open(src, "rb") as fh:
+        data = fh.read()
+    if len(data) < 2 or data[:2] not in (b"\x05\x01", b"\x05\x02"):
+        raise ValueError("File is not a MIT keytab")
+    os.makedirs(KEYTAB_DIR, mode=0o755, exist_ok=True)
+    dst = os.path.join(KEYTAB_DIR, filename)
+    tmp = dst + ".tmp"
+    with open(tmp, "wb") as fh:
+        fh.write(data)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.chmod(tmp, 0o640)
+    os.replace(tmp, dst)
+    try:
+        squid_uid = pwd.getpwnam("squid").pw_uid
+        squid_gid = pwd.getpwnam("squid").pw_gid
+        os.chown(dst, squid_uid, squid_gid)
+    except KeyError:
+        pass
+    try:
+        os.unlink(src)
+    except OSError:
+        pass
+    return dst
+
+
 KEYTAB_DIR = "/etc/squid"
+KEYTAB_SRC = "/opt/spm/storage/tmp"
 KEYTAB_NAME = re.compile(r"^[A-Za-z0-9._-]+\.keytab$")
+KEYTAB_MAX = 512 * 1024
 
 def setup_logging():
     logging.basicConfig(
@@ -140,6 +180,12 @@ def validate_command(command_key, extra_args):
             raise ValueError("acl_file_install requires exactly one filename")
         install_acl_file(extra_args[0])
         return ["__acl_file_install__", extra_args[0]]
+
+    if command_key == "keytab_install":
+        if len(extra_args) != 1:
+            raise ValueError("keytab_install requires exactly one filename")
+        install_keytab(extra_args[0])
+        return ["__keytab_install__", extra_args[0]]
 
     if extra_args:
         raise ValueError("Extra arguments are not allowed")
@@ -210,6 +256,20 @@ def handle_client(conn):
                 "stderr": "",
             }
             logging.info("Result: acl file installed %s", cmd[1])
+            try:
+                conn.sendall(json.dumps(response).encode("utf-8"))
+            except (BrokenPipeError, OSError) as e:
+                logging.warning(f"Failed to send response: {str(e)}")
+            return
+
+        if cmd and cmd[0] == "__keytab_install__":
+            response = {
+                "success": True,
+                "exit_code": 0,
+                "stdout": "installed " + cmd[1],
+                "stderr": "",
+            }
+            logging.info("Result: keytab installed %s", cmd[1])
             try:
                 conn.sendall(json.dumps(response).encode("utf-8"))
             except (BrokenPipeError, OSError) as e:

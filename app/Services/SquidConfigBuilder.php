@@ -43,21 +43,26 @@ class SquidConfigBuilder {
                     continue;
                 }
                 $children = (int)($auth['children'] ?: 5);
+                $childrenLine = (string)($children ?: ($scheme === 'negotiate' || $scheme === 'ntlm' ? 10 : 5));
+                $extra = trim((string)($auth['children_extra'] ?? ''));
+                if ($extra !== '') {
+                    $childrenLine .= ' ' . $extra;
+                }
                 if ($scheme === 'basic') {
                     $lines[] = "auth_param basic program " . $program;
-                    $lines[] = "auth_param basic children " . $children;
+                    $lines[] = "auth_param basic children " . $childrenLine;
                     $lines[] = "auth_param basic realm " . ($auth['realm'] ?: 'Squid Proxy');
                     $lines[] = "auth_param basic credentialsttl " . ($auth['credentialsttl'] ?: '2 hours');
                 } elseif ($scheme === 'negotiate') {
                     $lines[] = "auth_param negotiate program " . $program;
-                    $lines[] = "auth_param negotiate children " . ($children ?: 10);
+                    $lines[] = "auth_param negotiate children " . $childrenLine;
                     $lines[] = "auth_param negotiate keep_alive " . ($auth['keep_alive'] ?: 'on');
                 } elseif ($scheme === 'ntlm') {
                     $lines[] = "auth_param ntlm program " . $program;
-                    $lines[] = "auth_param ntlm children " . ($children ?: 10);
+                    $lines[] = "auth_param ntlm children " . $childrenLine;
                 } elseif ($scheme === 'digest') {
                     $lines[] = "auth_param digest program " . $program;
-                    $lines[] = "auth_param digest children " . $children;
+                    $lines[] = "auth_param digest children " . $childrenLine;
                     if (!empty($auth['realm'])) {
                         $lines[] = "auth_param digest realm " . $auth['realm'];
                     }

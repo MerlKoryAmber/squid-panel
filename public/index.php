@@ -97,6 +97,7 @@ $router->post('/peers/routing/reorder', 'CachePeerController@reorderRouting');
 $router->get('/auth', 'AuthConfigController@index');
 $router->get('/auth/kerberos', 'AuthConfigController@kerberos');
 $router->post('/auth/kerberos/save', 'AuthConfigController@saveKerberos');
+$router->post('/auth/kerberos/upload', 'AuthConfigController@uploadKerberosKeytab');
 $router->post('/auth/kerberos/test', 'AuthConfigController@testKerberos');
 $router->get('/auth/ntlm', 'AuthConfigController@ntlm');
 $router->post('/auth/ntlm/save', 'AuthConfigController@saveNtlm');

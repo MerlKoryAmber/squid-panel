@@ -485,6 +485,43 @@ class SquidConfigParser {
         ];
     }
 
+    private static function parseNegotiateFlags($program) {
+        $tokens = preg_split('/\s+/', trim((string)$program));
+        $kept = [];
+        $keytab = '';
+        $principal = '';
+        $n = count($tokens);
+        for ($i = 0; $i < $n; $i++) {
+            if ($tokens[$i] === '-k' && isset($tokens[$i + 1])) {
+                $keytab = $tokens[++$i];
+                continue;
+            }
+            if ($tokens[$i] === '-s' && isset($tokens[$i + 1])) {
+                $principal = $tokens[++$i];
+                continue;
+            }
+            $kept[] = $tokens[$i];
+        }
+        $realm = '';
+        if (preg_match('/@([A-Za-z0-9._-]+)\s*$/', $principal, $m)) {
+            $realm = strtoupper($m[1]);
+        }
+        return [
+            'helper' => implode(' ', $kept),
+            'keytab_path' => $keytab,
+            'principal' => $principal,
+            'realm' => $realm,
+        ];
+    }
+
+    private static function parseChildrenValue($value) {
+        $value = trim((string)$value);
+        if (preg_match('/^(\d+)\s*(.*)$/', $value, $m)) {
+            return [(int)$m[1], trim($m[2])];
+        }
+        return [(int)$value, ''];
+    }
+
     private static function importAuthParams($params) {
         $schemes = [];
         foreach ($params as $p) {
@@ -493,18 +530,33 @@ class SquidConfigParser {
                 $schemes[$scheme] = [
                     'scheme' => $scheme,
                     'program' => '',
+                    'helper' => '',
                     'children' => 5,
-                    'realm' => 'Squid Proxy',
+                    'children_extra' => '',
+                    'realm' => $scheme === 'negotiate' ? '' : 'Squid Proxy',
                     'credentialsttl' => '2 hours',
                     'keep_alive' => 'on',
+                    'keytab_path' => '',
+                    'principal' => '',
                 ];
             }
             switch ($p['param']) {
                 case 'program':
                     $schemes[$scheme]['program'] = $p['value'];
+                    if ($scheme === 'negotiate') {
+                        $flags = self::parseNegotiateFlags($p['value']);
+                        $schemes[$scheme]['helper'] = $flags['helper'];
+                        $schemes[$scheme]['keytab_path'] = $flags['keytab_path'];
+                        $schemes[$scheme]['principal'] = $flags['principal'];
+                        if ($flags['realm'] !== '') {
+                            $schemes[$scheme]['realm'] = $flags['realm'];
+                        }
+                    }
                     break;
                 case 'children':
-                    $schemes[$scheme]['children'] = (int)$p['value'];
+                    list($count, $extra) = self::parseChildrenValue($p['value']);
+                    $schemes[$scheme]['children'] = $count;
+                    $schemes[$scheme]['children_extra'] = $extra;
                     break;
                 case 'realm':
                     $schemes[$scheme]['realm'] = trim($p['value'], '"\'');
@@ -519,8 +571,19 @@ class SquidConfigParser {
         }
         foreach ($schemes as $data) {
             Database::query(
-                "INSERT INTO auth_config (scheme, program, children, realm, credentialsttl, keep_alive, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
-                [$data['scheme'], $data['program'], $data['children'], $data['realm'], $data['credentialsttl'], $data['keep_alive']]
+                "INSERT INTO auth_config (scheme, program, helper, children, children_extra, realm, credentialsttl, keep_alive, keytab_path, principal, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+                [
+                    $data['scheme'],
+                    $data['program'],
+                    $data['helper'],
+                    $data['children'],
+                    $data['children_extra'],
+                    $data['realm'],
+                    $data['credentialsttl'],
+                    $data['keep_alive'],
+                    $data['keytab_path'],
+                    $data['principal'],
+                ]
             );
         }
     }

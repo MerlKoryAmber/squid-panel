@@ -1,77 +1,198 @@
 <?php
 class AuthConfigController {
+    private const KEYTAB_MAX = 524288;
+
     public function index($params = []) {
         Auth::requireAuth();
-        echo View::render('auth.index', ['title' => 'Authentication']);
+        echo View::render('auth.index', ['title' => 'Authentication', 'active' => 'auth']);
     }
 
     public function kerberos($params = []) {
         Auth::requireAuth();
         $config = Database::fetch("SELECT * FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];
-        $krb5 = file_exists('/etc/krb5.conf') ? file_get_contents('/etc/krb5.conf') : '';
-        echo View::render('auth.kerberos', ['title' => 'Kerberos (Negotiate)', 'config' => $config, 'krb5' => $krb5]);
+        $krb5 = is_readable('/etc/krb5.conf') ? (string)file_get_contents('/etc/krb5.conf') : '';
+        $keytabPath = trim((string)($config['keytab_path'] ?? ''));
+        $managed = $this->isManagedKeytab($keytabPath);
+        $keytabExists = false;
+        if ($managed) {
+            try {
+                PrivilegedExecutor::squidKeytabPath($keytabPath, true);
+                $keytabExists = true;
+            } catch (Exception $e) {
+                $keytabExists = false;
+            }
+        }
+        $destName = 'proxy.keytab';
+        if ($keytabPath !== '' && preg_match('/^[A-Za-z0-9._-]+\.keytab$/', basename($keytabPath))) {
+            $destName = basename($keytabPath);
+        }
+        $flashError = $_SESSION['flash_error'] ?? '';
+        $flashSuccess = $_SESSION['flash_success'] ?? '';
+        unset($_SESSION['flash_error'], $_SESSION['flash_success']);
+        echo View::render('auth.kerberos', [
+            'title' => 'Kerberos (Negotiate)',
+            'active' => 'auth',
+            'config' => $config,
+            'krb5' => $krb5,
+            'isAdmin' => Auth::isAdmin(),
+            'keytabManaged' => $managed,
+            'keytabExists' => $keytabExists,
+            'destName' => $destName,
+            'flashError' => $flashError,
+            'flashSuccess' => $flashSuccess,
+        ]);
     }
 
     public function saveKerberos($params = []) {
         Auth::requireAdmin();
         View::verifyCsrf();
 
-        $realm = $_POST['realm'] ?? '';
-        $kdc = $_POST['kdc'] ?? '';
-        $admin_server = $_POST['admin_server'] ?? '';
-        $principal = trim($_POST['principal'] ?? '');
-        try {
-            $keytab_path = PrivilegedExecutor::squidKeytabPath($_POST['keytab_path'] ?? '/etc/squid/proxy.keytab');
-        } catch (Exception $e) {
-            http_response_code(400);
-            die($e->getMessage());
-        }
-        $program = $_POST['program'] ?? '/usr/lib64/squid/negotiate_kerberos_auth';
+        $existing = Database::fetch("SELECT * FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];
+        $realm = trim((string)($_POST['realm'] ?? ''));
+        $kdc = trim((string)($_POST['kdc'] ?? ''));
+        $admin_server = trim((string)($_POST['admin_server'] ?? ''));
+        $principal = trim((string)($_POST['principal'] ?? ''));
+        $keep_alive = (($_POST['keep_alive'] ?? 'on') === 'off') ? 'off' : 'on';
         $children = (int)($_POST['children'] ?? 10);
-
-        // Write krb5.conf
-        $krb5Content = "[libdefaults]
-    default_realm = {$realm}
-    dns_lookup_realm = false
-    dns_lookup_kdc = false
-    ticket_lifetime = 24h
-    renew_lifetime = 7d
-    forwardable = true
-
-[realms]
-    {$realm} = {
-        kdc = {$kdc}
-        admin_server = {$admin_server}
-    }
-";
-
-        if (is_writable('/etc/krb5.conf') || is_writable('/etc')) {
-            file_put_contents('/etc/krb5.conf', $krb5Content);
+        if ($children < 1) {
+            $children = 10;
         }
+        $children_extra = trim((string)($_POST['children_extra'] ?? ''));
+        if ($children_extra !== '' && !preg_match('/^[A-Za-z0-9._=\s-]+$/', $children_extra)) {
+            $this->flashRedirect('/auth/kerberos', 'Invalid children options');
+            return;
+        }
+        try {
+            $keytab_path = $this->resolveKeytabForSave($_POST['keytab_path'] ?? '', $existing);
+        } catch (Exception $e) {
+            $this->flashRedirect('/auth/kerberos', $e->getMessage());
+            return;
+        }
+        $helper = $this->stripNegotiateHelper(trim((string)($_POST['program'] ?? '')));
+        if ($helper === '') {
+            $helper = $this->stripNegotiateHelper(trim((string)($existing['helper'] ?? ''))) ?: '/usr/lib64/squid/negotiate_kerberos_auth';
+        }
+        $program = $this->buildNegotiateProgram($helper, $keytab_path, $principal);
 
-        // Save to DB
         Database::query("DELETE FROM auth_config WHERE scheme = 'negotiate'");
         Database::query(
-            "INSERT INTO auth_config (scheme, program, children, realm, keytab_path, principal, kdc, admin_server, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
-            ['negotiate', $program, $children, $realm, $keytab_path, $principal, $kdc, $admin_server]
+            "INSERT INTO auth_config (scheme, program, helper, children, children_extra, realm, keep_alive, keytab_path, principal, kdc, admin_server, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+            ['negotiate', $program, $helper, $children, $children_extra, $realm, $keep_alive, $keytab_path, $principal, $kdc, $admin_server]
         );
 
         Audit::log('kerberos_save', "Updated Kerberos config for realm {$realm}");
-        View::redirect('/auth/kerberos');
+        $this->flashRedirect('/auth/kerberos', '', 'Kerberos settings saved. Live squid.conf is not rewritten.');
+    }
+
+    public function uploadKerberosKeytab($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+
+        if (empty($_FILES['keytab']) || !is_array($_FILES['keytab'])) {
+            $this->flashRedirect('/auth/kerberos', 'No keytab file uploaded');
+            return;
+        }
+        $file = $_FILES['keytab'];
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $this->flashRedirect('/auth/kerberos', 'Upload failed (code ' . (int)($file['error'] ?? 0) . ')');
+            return;
+        }
+        $tmpUpload = (string)($file['tmp_name'] ?? '');
+        if ($tmpUpload === '' || !is_uploaded_file($tmpUpload)) {
+            $this->flashRedirect('/auth/kerberos', 'Invalid upload');
+            return;
+        }
+        $size = (int)($file['size'] ?? 0);
+        if ($size < 2 || $size > self::KEYTAB_MAX) {
+            $this->flashRedirect('/auth/kerberos', 'Keytab must be between 2 bytes and 512 KB');
+            return;
+        }
+        $raw = file_get_contents($tmpUpload);
+        if ($raw === false || !$this->keytabMagicOk($raw)) {
+            $this->flashRedirect('/auth/kerberos', 'File is not a MIT keytab (expected version 0x0501 or 0x0502)');
+            return;
+        }
+
+        $destName = trim((string)($_POST['dest_name'] ?? ''));
+        if ($destName === '') {
+            $destName = 'proxy.keytab';
+        }
+        try {
+            $destPath = PrivilegedExecutor::squidKeytabPath($destName);
+            $base = basename($destPath);
+        } catch (Exception $e) {
+            $this->flashRedirect('/auth/kerberos', $e->getMessage());
+            return;
+        }
+
+        $stageDir = (defined('SPM_STORAGE') ? SPM_STORAGE : '/opt/spm/storage') . '/tmp';
+        if (!is_dir($stageDir) && !mkdir($stageDir, 0750, true) && !is_dir($stageDir)) {
+            $this->flashRedirect('/auth/kerberos', 'Cannot create staging directory');
+            return;
+        }
+        $stage = $stageDir . '/' . $base;
+        if (file_put_contents($stage, $raw) === false) {
+            $this->flashRedirect('/auth/kerberos', 'Cannot write staging keytab');
+            return;
+        }
+        @chmod($stage, 0600);
+
+        try {
+            $result = PrivilegedExecutor::execute('keytab_install', [$base]);
+        } catch (Exception $e) {
+            @unlink($stage);
+            $this->flashRedirect('/auth/kerberos', $e->getMessage());
+            return;
+        }
+        @unlink($stage);
+
+        if (empty($result['success'])) {
+            $msg = trim((string)(($result['stderr'] ?? '') ?: ($result['error'] ?? '') ?: ($result['stdout'] ?? 'keytab install failed')));
+            $this->flashRedirect('/auth/kerberos', $msg);
+            return;
+        }
+
+        $existing = Database::fetch("SELECT * FROM auth_config WHERE scheme = 'negotiate' LIMIT 1");
+        if ($existing) {
+            $helper = $this->stripNegotiateHelper((string)($existing['helper'] ?? '')) ?: '/usr/lib64/squid/negotiate_kerberos_auth';
+            $principal = trim((string)($existing['principal'] ?? ''));
+            $program = $this->buildNegotiateProgram($helper, $destPath, $principal);
+            Database::query(
+                "UPDATE auth_config SET keytab_path = ?, program = ?, helper = ?, updated_at = datetime('now') WHERE id = ?",
+                [$destPath, $program, $helper, (int)$existing['id']]
+            );
+        } else {
+            $helper = '/usr/lib64/squid/negotiate_kerberos_auth';
+            $program = $this->buildNegotiateProgram($helper, $destPath, '');
+            Database::query(
+                "INSERT INTO auth_config (scheme, program, helper, children, keep_alive, keytab_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+                ['negotiate', $program, $helper, 20, 'on', $destPath]
+            );
+        }
+
+        Audit::log('kerberos_keytab_upload', 'Installed keytab ' . $base);
+        $this->flashRedirect('/auth/kerberos', '', 'Keytab installed as ' . $destPath);
     }
 
     public function testKerberos($params = []) {
         Auth::requireAdmin();
         View::verifyCsrf();
 
+        $config = Database::fetch("SELECT * FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];
+        $posted = trim((string)($_POST['keytab_path'] ?? ''));
+        $path = $posted !== '' ? $posted : (string)($config['keytab_path'] ?? '');
         try {
-            $keytab = PrivilegedExecutor::squidKeytabPath($_POST['keytab_path'] ?? '/etc/squid/proxy.keytab', true);
+            $keytab = PrivilegedExecutor::squidKeytabPath($path, true);
             $result = PrivilegedExecutor::execute('kinit_test', [$keytab]);
-            header('Content-Type: application/json');
-            echo json_encode(['success' => $result['success'], 'output' => $result['stdout'] ?: $result['stderr']]);
+            $ok = !empty($result['success']);
+            $out = trim((string)(($result['stdout'] ?? '') ?: ($result['stderr'] ?? '') ?: ($result['error'] ?? '')));
+            if ($ok) {
+                $this->flashRedirect('/auth/kerberos', '', $out !== '' ? $out : 'kinit succeeded');
+            } else {
+                $this->flashRedirect('/auth/kerberos', $out !== '' ? $out : 'kinit failed');
+            }
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            $this->flashRedirect('/auth/kerberos', $e->getMessage());
         }
     }
 
@@ -95,6 +216,7 @@ class AuthConfigController {
 
         echo View::render('auth.ntlm', [
             'title' => 'NTLM (Winbind)',
+            'active' => 'auth',
             'config' => $config,
             'winbind' => $winbindStatus,
             'domainInfo' => $domainInfo
@@ -129,7 +251,7 @@ class AuthConfigController {
     public function basic($params = []) {
         Auth::requireAuth();
         $config = Database::fetch("SELECT * FROM auth_config WHERE scheme = 'basic' LIMIT 1") ?: [];
-        echo View::render('auth.basic', ['title' => 'Basic Authentication', 'config' => $config]);
+        echo View::render('auth.basic', ['title' => 'Basic Authentication', 'active' => 'auth', 'config' => $config]);
     }
 
     public function saveBasic($params = []) {
@@ -149,5 +271,82 @@ class AuthConfigController {
 
         Audit::log('basic_save', "Updated Basic auth config");
         View::redirect('/auth/basic');
+    }
+
+    private function flashRedirect($url, $error = '', $success = '') {
+        if ($error !== '') {
+            $_SESSION['flash_error'] = $error;
+        }
+        if ($success !== '') {
+            $_SESSION['flash_success'] = $success;
+        }
+        View::redirect($url);
+    }
+
+    private function isManagedKeytab($path) {
+        $path = trim((string)$path);
+        if ($path === '') {
+            return false;
+        }
+        try {
+            PrivilegedExecutor::squidKeytabPath($path);
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    private function resolveKeytabForSave($posted, $existing) {
+        $posted = trim((string)$posted);
+        try {
+            return PrivilegedExecutor::squidKeytabPath($posted !== '' ? $posted : '/etc/squid/proxy.keytab');
+        } catch (Exception $e) {
+            $old = trim((string)($existing['keytab_path'] ?? ''));
+            if ($posted !== '' && $posted === $old) {
+                return $old;
+            }
+            throw $e;
+        }
+    }
+
+    private function stripNegotiateHelper($helper) {
+        $helper = trim((string)$helper);
+        if ($helper === '') {
+            return '';
+        }
+        $tokens = preg_split('/\s+/', $helper);
+        $kept = [];
+        $n = count($tokens);
+        for ($i = 0; $i < $n; $i++) {
+            if (($tokens[$i] === '-k' || $tokens[$i] === '-s') && isset($tokens[$i + 1])) {
+                $i++;
+                continue;
+            }
+            $kept[] = $tokens[$i];
+        }
+        return implode(' ', $kept);
+    }
+
+    private function buildNegotiateProgram($helper, $keytab, $principal) {
+        $line = $this->stripNegotiateHelper($helper);
+        if ($line === '') {
+            $line = '/usr/lib64/squid/negotiate_kerberos_auth';
+        }
+        if (trim((string)$keytab) !== '') {
+            $line .= ' -k ' . trim($keytab);
+        }
+        if (trim((string)$principal) !== '') {
+            $line .= ' -s ' . trim($principal);
+        }
+        return $line;
+    }
+
+    private function keytabMagicOk($bytes) {
+        if (!is_string($bytes) || strlen($bytes) < 2) {
+            return false;
+        }
+        $ver = unpack('n', substr($bytes, 0, 2));
+        $code = (int)($ver[1] ?? 0);
+        return $code === 0x0501 || $code === 0x0502;
     }
 }

@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS auth_config (
     kdc TEXT DEFAULT '',
     admin_server TEXT DEFAULT '',
     helper TEXT DEFAULT '',
+    children_extra TEXT DEFAULT '',
     created_at TEXT,
     updated_at TEXT
 );
