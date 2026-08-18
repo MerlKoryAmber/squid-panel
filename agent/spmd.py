@@ -14,6 +14,7 @@ import re
 import struct
 import pwd
 import grp
+import base64
 
 SOCKET_PATH = "/run/spmd.sock"
 PID_FILE = "/run/spmd.pid"
@@ -33,9 +34,11 @@ ALLOWED_COMMANDS = {
     "winbind_status": ["/usr/bin/systemctl", "is-active", "winbind"],
     "kinit_test": ["/usr/bin/kinit", "-k", "-t"],
     "wbinfo_test": ["/usr/bin/wbinfo", "-t"],
+    "wbinfo_groups": ["/usr/bin/wbinfo", "-g"],
     "net_ads_info": ["/usr/bin/net", "ads", "info"],
     "acl_file_install": ["__acl_file_install__"],
     "keytab_install": ["__keytab_install__"],
+    "ad_ldap_groups": ["__ad_ldap_groups__"],
 }
 
 ACL_SRC = "/opt/spm/storage/acl"
@@ -107,6 +110,98 @@ def install_keytab(filename):
     except OSError:
         pass
     return dst
+
+
+REALM_RE = re.compile(r"^[A-Za-z0-9.-]+$")
+HOST_RE = re.compile(r"^[A-Za-z0-9.-]+$")
+PRINC_RE = re.compile(r"^[A-Za-z0-9./_@-]+$")
+LDAPSEARCH = "/usr/bin/ldapsearch"
+KINIT = "/usr/bin/kinit"
+KDESTROY = "/usr/bin/kdestroy"
+LDAP_CCACHE = "/run/spmd/krb5_ldap.ccache"
+
+
+def _ldap_base_dn(realm):
+    parts = []
+    for label in realm.split("."):
+        if not label or not re.fullmatch(r"[A-Za-z0-9-]+", label):
+            raise ValueError("Invalid realm for LDAP base")
+        parts.append("DC=" + label)
+    if len(parts) < 2:
+        raise ValueError("Realm must have at least two labels")
+    return ",".join(parts)
+
+
+def _parse_sam_names(ldif_text):
+    names = []
+    for raw in ldif_text.splitlines():
+        line = raw.strip()
+        if line.lower().startswith("samaccountname::"):
+            blob = line.split(":", 2)[-1].strip()
+            try:
+                decoded = base64.b64decode(blob).decode("utf-8", "replace").strip()
+            except Exception:
+                continue
+            if decoded:
+                names.append(decoded)
+        elif line.lower().startswith("samaccountname:"):
+            val = line.split(":", 1)[1].strip()
+            if val:
+                names.append(val)
+    return names
+
+
+def list_ad_ldap_groups(keytab_path, realm, ldap_host, principal):
+    keytab = validate_keytab(keytab_path)
+    if not isinstance(realm, str) or not REALM_RE.fullmatch(realm):
+        raise ValueError("Invalid Kerberos realm")
+    if not isinstance(ldap_host, str) or not HOST_RE.fullmatch(ldap_host):
+        raise ValueError("Invalid LDAP host")
+    princ = ""
+    if principal and principal not in ("-", ""):
+        if not isinstance(principal, str) or not PRINC_RE.fullmatch(principal):
+            raise ValueError("Invalid principal")
+        princ = principal
+    if not os.path.isfile(LDAPSEARCH):
+        raise ValueError("ldapsearch not found (install openldap-clients)")
+    base = _ldap_base_dn(realm)
+    os.makedirs("/run/spmd", mode=0o700, exist_ok=True)
+    env = os.environ.copy()
+    env["KRB5CCNAME"] = "FILE:" + LDAP_CCACHE
+    kinit_cmd = [KINIT, "-k", "-t", keytab]
+    if princ:
+        kinit_cmd.append(princ)
+    k1 = subprocess.run(kinit_cmd, capture_output=True, text=True, timeout=15, env=env)
+    if k1.returncode != 0:
+        raise ValueError("kinit failed: " + (k1.stderr or k1.stdout or "error").strip())
+    try:
+        uri = "ldap://" + ldap_host
+        filter_str = "(objectClass=group)"
+        base_cmd = [
+            LDAPSEARCH, "-Y", "GSSAPI", "-Q",
+            "-H", uri, "-b", base, "-LLL",
+            "-o", "nettimeout=15",
+        ]
+        cmd = base_cmd + ["-E", "pr=1000/noprompt", filter_str, "sAMAccountName"]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=env)
+        if r.returncode != 0:
+            cmd = base_cmd + [filter_str, "sAMAccountName"]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=env)
+        if r.returncode != 0 and not r.stdout:
+            err = (r.stderr or r.stdout or "ldapsearch failed").strip()
+            raise ValueError(err)
+        names = _parse_sam_names(r.stdout or "")
+        names = list(dict.fromkeys(names))
+        if len(names) > 2000:
+            names = names[:2000]
+        logging.info("LDAP group list: %s names from %s", len(names), ldap_host)
+        return names
+    finally:
+        subprocess.run([KDESTROY, "-c", env["KRB5CCNAME"]], capture_output=True, timeout=5, env=env)
+        try:
+            os.unlink(LDAP_CCACHE)
+        except OSError:
+            pass
 
 
 KEYTAB_DIR = "/etc/squid"
@@ -186,6 +281,12 @@ def validate_command(command_key, extra_args):
             raise ValueError("keytab_install requires exactly one filename")
         install_keytab(extra_args[0])
         return ["__keytab_install__", extra_args[0]]
+
+    if command_key == "ad_ldap_groups":
+        if len(extra_args) != 4:
+            raise ValueError("ad_ldap_groups requires keytab, realm, host, principal")
+        names = list_ad_ldap_groups(extra_args[0], extra_args[1], extra_args[2], extra_args[3])
+        return ["__ad_ldap_groups__", "\n".join(names)]
 
     if extra_args:
         raise ValueError("Extra arguments are not allowed")
@@ -270,6 +371,20 @@ def handle_client(conn):
                 "stderr": "",
             }
             logging.info("Result: keytab installed %s", cmd[1])
+            try:
+                conn.sendall(json.dumps(response).encode("utf-8"))
+            except (BrokenPipeError, OSError) as e:
+                logging.warning(f"Failed to send response: {str(e)}")
+            return
+
+        if cmd and cmd[0] == "__ad_ldap_groups__":
+            response = {
+                "success": True,
+                "exit_code": 0,
+                "stdout": cmd[1],
+                "stderr": "",
+            }
+            logging.info("Result: LDAP groups listed")
             try:
                 conn.sendall(json.dumps(response).encode("utf-8"))
             except (BrokenPipeError, OSError) as e:

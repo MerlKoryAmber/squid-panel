@@ -83,7 +83,7 @@ fi
 
 echo "[1/9] Installing dependencies..."
 dnf install -y -q epel-release 2>/dev/null || true
-dnf install -y nginx php php-fpm php-pdo php-sqlite3 python3 samba-winbind krb5-workstation sudo tar policycoreutils-python-utils acl openssl
+dnf install -y nginx php php-fpm php-pdo php-sqlite3 python3 samba-winbind krb5-workstation openldap-clients sudo tar policycoreutils-python-utils acl openssl
 dnf install -y php-json php-mbstring php-xml 2>/dev/null || true
 
 echo "[2/9] Creating system user..."

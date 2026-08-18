@@ -10,6 +10,7 @@ class SquidConfigBuilder {
         $this->config['http_access'] = Database::fetchAll("SELECT * FROM http_access_rules ORDER BY sort_order, id");
         $this->config['peers'] = Database::fetchAll("SELECT * FROM cache_peers ORDER BY id");
         $this->config['auth'] = Database::fetchAll("SELECT * FROM auth_config ORDER BY id");
+        $this->config['ext_acl'] = Database::fetchAll("SELECT * FROM external_acl_types ORDER BY name, id");
         $this->config['globals'] = Database::fetch("SELECT * FROM squid_globals LIMIT 1") ?: [];
         return $this;
     }
@@ -71,6 +72,41 @@ class SquidConfigBuilder {
             $lines[] = "";
         }
 
+        if (!empty($this->config['ext_acl'])) {
+            $lines[] = "# === External ACL helpers ===";
+            foreach ($this->config['ext_acl'] as $ext) {
+                $name = trim((string)($ext['name'] ?? ''));
+                $program = trim((string)($ext['program'] ?? ''));
+                if ($name === '' || $program === '') {
+                    continue;
+                }
+                $line = 'external_acl_type ' . $name;
+                $ttl = (int)($ext['ttl'] ?? 3600);
+                $neg = (int)($ext['negative_ttl'] ?? 60);
+                $children = (int)($ext['children'] ?? 10);
+                if ($ttl > 0) {
+                    $line .= ' ttl=' . $ttl;
+                }
+                if ($neg > 0) {
+                    $line .= ' negative_ttl=' . $neg;
+                }
+                if ($children > 0) {
+                    $line .= ' children=' . $children;
+                }
+                $format = trim((string)($ext['format'] ?? '%LOGIN'));
+                if ($format === '') {
+                    $format = '%LOGIN';
+                }
+                $line .= ' ' . $format . ' ' . $program;
+                $opts = trim((string)($ext['options'] ?? ''));
+                if ($opts !== '') {
+                    $line .= ' ' . $opts;
+                }
+                $lines[] = $line;
+            }
+            $lines[] = "";
+        }
+
         // ACLs
         $lines[] = "# === ACL Definitions ===";
         foreach ($this->config['acls'] as $acl) {
@@ -81,8 +117,19 @@ class SquidConfigBuilder {
                 continue;
             }
             $values = json_decode($acl['entries'], true) ?: [];
+            if ($type === 'external') {
+                if (empty($values)) {
+                    continue;
+                }
+                $quoted = [];
+                foreach ($values as $val) {
+                    $quoted[] = $this->quoteAclToken((string)$val);
+                }
+                $lines[] = 'acl ' . $name . ' external ' . implode(' ', $quoted);
+                continue;
+            }
             foreach ($values as $val) {
-                $lines[] = "acl " . $name . " " . $type . " " . $val;
+                $lines[] = "acl " . $name . " " . $type . " " . $this->quoteAclToken((string)$val);
             }
         }
         $lines[] = "";
@@ -173,6 +220,17 @@ class SquidConfigBuilder {
 
         return implode("
 ", $lines);
+    }
+
+    private function quoteAclToken($val) {
+        $val = trim($val);
+        if ($val === '' || strpos($val, '"') !== false) {
+            return $val;
+        }
+        if (strpbrk($val, " \t") !== false) {
+            return '"' . $val . '"';
+        }
+        return $val;
     }
 
     public function save($content = null) {

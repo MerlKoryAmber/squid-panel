@@ -32,6 +32,7 @@ class SquidConfigParser {
             'routing' => 0,
             'auth' => 0,
             'globals' => 0,
+            'external_acl' => 0,
         ];
 
         $acls = [];
@@ -41,6 +42,7 @@ class SquidConfigParser {
         $routing = [];
         $globals = [];
         $authParams = [];
+        $extAclTypes = [];
 
         $count = count($lines);
         for ($i = 0; $i < $count; $i++) {
@@ -103,6 +105,12 @@ class SquidConfigParser {
                         $authParams[] = $parsed;
                     }
                     break;
+                case 'external_acl_type':
+                    $parsed = self::parseExternalAclType($tokens);
+                    if ($parsed) {
+                        $extAclTypes[] = $parsed;
+                    }
+                    break;
                 case 'http_port':
                 case 'icp_port':
                 case 'cache_dir':
@@ -143,6 +151,10 @@ class SquidConfigParser {
         if (!empty($authParams)) {
             self::importAuthParams($authParams);
             $stats['auth'] = count($authParams);
+        }
+        foreach ($extAclTypes as $ext) {
+            self::importExternalAclType($ext);
+            $stats['external_acl']++;
         }
         self::importDefaultSettings();
 
@@ -206,6 +218,10 @@ class SquidConfigParser {
         Database::query("DELETE FROM acls");
         Database::query("DELETE FROM auth_config");
         Database::query("DELETE FROM squid_globals");
+        try {
+            Database::query("DELETE FROM external_acl_types");
+        } catch (Exception $e) {
+        }
     }
 
     private static function parseAcl($tokens) {
@@ -224,6 +240,9 @@ class SquidConfigParser {
         }
         if ($type === 'proxy_auth' && empty($cleanValues)) {
             $cleanValues[] = 'REQUIRED';
+        }
+        if ($type === 'external' && count($cleanValues) > 1) {
+            $cleanValues = [implode(' ', $cleanValues)];
         }
         $storage = 'inline';
         $rawFirst = $values[0] ?? '';
@@ -483,6 +502,70 @@ class SquidConfigParser {
             'param' => $tokens[2],
             'value' => implode(' ', array_slice($tokens, 3)),
         ];
+    }
+
+    private static function parseExternalAclType($tokens) {
+        if (count($tokens) < 4) {
+            return null;
+        }
+        $name = $tokens[1];
+        if (!preg_match('/^[A-Za-z0-9._-]+$/', $name)) {
+            return null;
+        }
+        $ttl = 3600;
+        $negativeTtl = 60;
+        $children = 10;
+        $format = '%LOGIN';
+        $programParts = [];
+        $n = count($tokens);
+        for ($i = 2; $i < $n; $i++) {
+            $t = $tokens[$i];
+            if (preg_match('/^ttl=(\d+)$/', $t, $m)) {
+                $ttl = (int)$m[1];
+                continue;
+            }
+            if (preg_match('/^negative_ttl=(\d+)$/', $t, $m)) {
+                $negativeTtl = (int)$m[1];
+                continue;
+            }
+            if (preg_match('/^children=(\d+)/', $t, $m)) {
+                $children = (int)$m[1];
+                continue;
+            }
+            if (isset($t[0]) && $t[0] === '%') {
+                $format = $t;
+                continue;
+            }
+            $programParts[] = $t;
+        }
+        if (empty($programParts)) {
+            return null;
+        }
+        $program = array_shift($programParts);
+        return [
+            'name' => $name,
+            'format' => $format,
+            'ttl' => $ttl,
+            'negative_ttl' => $negativeTtl,
+            'children' => $children,
+            'program' => $program,
+            'options' => implode(' ', $programParts),
+        ];
+    }
+
+    private static function importExternalAclType($row) {
+        Database::query(
+            "INSERT INTO external_acl_types (name, format, ttl, negative_ttl, children, program, options, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+            [
+                $row['name'],
+                $row['format'],
+                $row['ttl'],
+                $row['negative_ttl'],
+                $row['children'],
+                $row['program'],
+                $row['options'],
+            ]
+        );
     }
 
     private static function parseNegotiateFlags($program) {

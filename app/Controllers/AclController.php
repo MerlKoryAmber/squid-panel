@@ -8,7 +8,7 @@ class AclController {
         }
         unset($acl);
         $types = (require SPM_CONFIG . '/squid.php')['acl_types'];
-        echo View::render('acl.index', ['title' => 'ACL Management', 'acls' => $acls, 'types' => $types]);
+        echo View::render('acl.index', ['title' => 'ACL Management', 'active' => 'acl', 'acls' => $acls, 'types' => $types]);
     }
 
     public function create($params = []) {
@@ -70,9 +70,22 @@ class AclController {
         View::verifyCsrf();
 
         $id = (int)($_POST['id'] ?? 0);
-        $acl = Database::fetch("SELECT name FROM acls WHERE id = ?", [$id]);
+        $acl = Database::fetch("SELECT * FROM acls WHERE id = ?", [$id]);
         if ($acl) {
             Database::query("DELETE FROM acls WHERE id = ?", [$id]);
+            if (($acl['type'] ?? '') === 'external') {
+                $entries = json_decode($acl['entries'] ?? '[]', true);
+                $helper = is_array($entries) ? trim((string)($entries[0] ?? '')) : '';
+                if ($helper !== '' && strpos($helper, AdGroupAcl::HELPER_PREFIX) === 0) {
+                    $still = Database::fetch(
+                        "SELECT id FROM acls WHERE type = 'external' AND entries = ?",
+                        [json_encode([$helper])]
+                    );
+                    if (!$still) {
+                        Database::query("DELETE FROM external_acl_types WHERE name = ?", [$helper]);
+                    }
+                }
+            }
             $work = AclListFile::workDir() . '/' . preg_replace('/[^A-Za-z0-9._-]/', '', $acl['name']) . '.txt';
             if (is_file($work)) {
                 @unlink($work);

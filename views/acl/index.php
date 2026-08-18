@@ -1,6 +1,9 @@
 <div class="page-header">
     <h2>Access Control Lists</h2>
-    <a href="/acl/create" class="btn btn-primary">+ Add ACL</a>
+    <div>
+        <a href="/acl/ad-groups" class="btn btn-secondary">AD groups</a>
+        <a href="/acl/create" class="btn btn-primary">+ Add ACL</a>
+    </div>
 </div>
 
 <div class="card">
@@ -27,7 +30,11 @@
             <tbody>
                 <?php foreach ($acls as $acl): ?>
                 <tr>
-                    <td><strong><?= htmlspecialchars($acl['name']) ?></strong></td>
+                    <td><strong><?= htmlspecialchars($acl['name']) ?></strong>
+                        <?php if (!empty($acl['group_name'])): ?>
+                        <div style="font-size:0.78rem; color:var(--ir-text-muted);"><?= htmlspecialchars($acl['group_name']) ?></div>
+                        <?php endif; ?>
+                    </td>
                     <td>
                         <span class="badge badge-default"><?= htmlspecialchars($acl['type']) ?></span>
                         <?php if (($acl['storage'] ?? 'inline') === 'file'): ?>

@@ -24,4 +24,11 @@
             <p style="color: var(--ir-text-muted); font-size: 0.85rem;">Windows domain authentication</p>
         </div>
     </a>
+    <a href="/acl/ad-groups" class="card" style="text-decoration:none; color:inherit;">
+        <div class="card-body" style="text-align:center; padding: var(--space-xl);">
+            <div style="font-size: 2rem; margin-bottom: var(--space-md);">👥</div>
+            <h3 style="margin-bottom: var(--space-sm);">AD groups</h3>
+            <p style="color: var(--ir-text-muted); font-size: 0.85rem;">Import directory groups as Squid ACLs</p>
+        </div>
+    </a>
 </div>

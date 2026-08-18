@@ -117,6 +117,19 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS external_acl_types (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    format TEXT NOT NULL DEFAULT '%LOGIN',
+    ttl INTEGER DEFAULT 3600,
+    negative_ttl INTEGER DEFAULT 60,
+    children INTEGER DEFAULT 10,
+    program TEXT NOT NULL,
+    options TEXT DEFAULT '',
+    created_at TEXT,
+    updated_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     language TEXT DEFAULT 'ru',
@@ -129,5 +142,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_acl_name ON acls(name);
 CREATE INDEX IF NOT EXISTS idx_acl_group ON acls(group_name);
+CREATE INDEX IF NOT EXISTS idx_ext_acl_name ON external_acl_types(name);
 CREATE INDEX IF NOT EXISTS idx_peer_access_peer ON cache_peer_access_rules(peer_id);
 CREATE INDEX IF NOT EXISTS idx_peer_access_acl ON cache_peer_access_rules(acl_name);

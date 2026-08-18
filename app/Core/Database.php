@@ -51,6 +51,20 @@ class Database {
         self::addColumnIfMissing('auth_config', 'children_extra', "TEXT DEFAULT ''");
         self::addColumnIfMissing('routing_rules', 'sort_order', 'INTEGER DEFAULT 0');
         self::addColumnIfMissing('acls', 'storage', "TEXT NOT NULL DEFAULT 'inline'");
+        self::$pdo->exec(
+            "CREATE TABLE IF NOT EXISTS external_acl_types (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                format TEXT NOT NULL DEFAULT '%LOGIN',
+                ttl INTEGER DEFAULT 3600,
+                negative_ttl INTEGER DEFAULT 60,
+                children INTEGER DEFAULT 10,
+                program TEXT NOT NULL,
+                options TEXT DEFAULT '',
+                created_at TEXT,
+                updated_at TEXT
+            )"
+        );
     }
 
     private static function addColumnIfMissing($table, $column, $ddl) {
