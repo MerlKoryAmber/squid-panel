@@ -87,16 +87,29 @@ class SquidConfigBuilder {
                 $icpPort = $peer['icp_port'] ?? 0;
                 $line = "cache_peer " . $peer['hostname'] . " " . $peer['peer_type'] . " " . $httpPort . " " . (int)$icpPort;
                 $options = [];
-                if (!empty($peer['proxy_only'])) $options[] = 'proxy-only';
-                if (!empty($peer['no_query'])) $options[] = 'no-query';
-                if (!empty($peer['no_digest'])) $options[] = 'no-digest';
-                if (!empty($peer['weight'])) $options[] = 'weight=' . $peer['weight'];
-                if (!empty($peer['login'])) $options[] = 'login=' . $peer['login'];
-                if (!empty($peer['connect_timeout'])) $options[] = 'connect-timeout=' . $peer['connect_timeout'];
+                $seen = [];
+                $addOpt = function ($token) use (&$options, &$seen) {
+                    $token = trim((string)$token);
+                    if ($token === '' || isset($seen[$token])) {
+                        return;
+                    }
+                    $seen[$token] = true;
+                    $options[] = $token;
+                };
+                if (!empty($peer['proxy_only'])) $addOpt('proxy-only');
+                if (!empty($peer['no_query'])) $addOpt('no-query');
+                if (!empty($peer['no_digest'])) $addOpt('no-digest');
+                if (!empty($peer['weight'])) $addOpt('weight=' . $peer['weight']);
+                if (!empty($peer['login'])) $addOpt('login=' . $peer['login']);
+                if (!empty($peer['connect_timeout'])) $addOpt('connect-timeout=' . $peer['connect_timeout']);
                 $peerName = trim($peer['name'] ?? '');
-                if ($peerName !== '') $options[] = 'name=' . $peerName;
-                $extra = trim($peer['options'] ?? '');
-                if ($extra !== '') $options[] = $extra;
+                if ($peerName !== '') $addOpt('name=' . $peerName);
+                foreach (preg_split('/\s+/', trim((string)($peer['options'] ?? ''))) as $extra) {
+                    if (strpos($extra, 'name=') === 0) {
+                        continue;
+                    }
+                    $addOpt($extra);
+                }
                 if (!empty($options)) $line .= " " . implode(' ', $options);
                 $lines[] = $line;
             }

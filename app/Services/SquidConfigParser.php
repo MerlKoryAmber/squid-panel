@@ -232,18 +232,24 @@ class SquidConfigParser {
         foreach (array_slice($tokens, 5) as $token) {
             if (strpos($token, 'login=') === 0) {
                 $login = substr($token, 6);
+                $options[] = $token;
             } elseif (strpos($token, 'weight=') === 0) {
                 $weight = (int)substr($token, 7);
+                $options[] = $token;
             } elseif (strpos($token, 'connect-timeout=') === 0) {
                 $connectTimeout = (int)substr($token, 16);
+                $options[] = $token;
             } elseif (strpos($token, 'name=') === 0) {
                 $peerName = substr($token, 5);
             } elseif ($token === 'proxy-only') {
                 $proxyOnly = 1;
+                $options[] = $token;
             } elseif ($token === 'no-query') {
                 $noQuery = 1;
+                $options[] = $token;
             } elseif ($token === 'no-digest') {
                 $noDigest = 1;
+                $options[] = $token;
             } else {
                 $options[] = $token;
             }

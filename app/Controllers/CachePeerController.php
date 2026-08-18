@@ -6,6 +6,10 @@ class CachePeerController {
             "SELECT p.*, (SELECT COUNT(*) FROM cache_peer_access_rules r WHERE r.peer_id = p.id) AS rule_count
              FROM cache_peers p ORDER BY id"
         );
+        foreach ($peers as &$row) {
+            $row['options'] = self::composeOptionsString($row);
+        }
+        unset($row);
         $creating = isset($_GET['new']);
         $selectedId = (int)($_GET['id'] ?? 0);
         if (!$creating && $selectedId <= 0 && !empty($peers)) {
@@ -17,6 +21,7 @@ class CachePeerController {
         if (!$creating && $selectedId > 0) {
             $peer = Database::fetch("SELECT * FROM cache_peers WHERE id = ?", [$selectedId]);
             if ($peer) {
+                $peer['options'] = self::composeOptionsString($peer);
                 $accessRules = Database::fetchAll(
                     "SELECT * FROM cache_peer_access_rules WHERE peer_id = ? ORDER BY sort_order, id",
                     [$peer['id']]
@@ -51,11 +56,14 @@ class CachePeerController {
             die('Hostname is required');
         }
         $id = Database::insert(
-            "INSERT INTO cache_peers (name, hostname, peer_type, http_port, icp_port, options, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+            "INSERT INTO cache_peers (name, hostname, peer_type, http_port, icp_port, proxy_only, no_query, no_digest, weight, login, connect_timeout, options, status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
             [
                 $data['name'], $data['hostname'], $data['peer_type'],
-                $data['http_port'], $data['icp_port'], $data['options'], $data['status'],
+                $data['http_port'], $data['icp_port'],
+                $data['proxy_only'], $data['no_query'], $data['no_digest'],
+                $data['weight'], $data['login'], $data['connect_timeout'],
+                $data['options'], $data['status'],
             ]
         );
         Audit::log('peer_create', "Created cache_peer {$data['hostname']}");
@@ -79,10 +87,13 @@ class CachePeerController {
         }
         $data = self::peerFromPost($peer);
         Database::query(
-            "UPDATE cache_peers SET name=?, hostname=?, peer_type=?, http_port=?, icp_port=?, options=?, status=?, updated_at=datetime('now') WHERE id=?",
+            "UPDATE cache_peers SET name=?, hostname=?, peer_type=?, http_port=?, icp_port=?, proxy_only=?, no_query=?, no_digest=?, weight=?, login=?, connect_timeout=?, options=?, status=?, updated_at=datetime('now') WHERE id=?",
             [
                 $data['name'], $data['hostname'], $data['peer_type'],
-                $data['http_port'], $data['icp_port'], $data['options'], $data['status'],
+                $data['http_port'], $data['icp_port'],
+                $data['proxy_only'], $data['no_query'], $data['no_digest'],
+                $data['weight'], $data['login'], $data['connect_timeout'],
+                $data['options'], $data['status'],
                 $id
             ]
         );
@@ -294,14 +305,95 @@ class CachePeerController {
         }
         $icpPort = (int)($_POST['icp_port'] ?? $existing['icp_port'] ?? 0);
         $status = ($_POST['status'] ?? ($existing['status'] ?? 'active')) === 'disabled' ? 'disabled' : 'active';
+        $parsed = self::parseOptionTokens($_POST['options'] ?? ($existing['options'] ?? ''));
         return [
             'name' => $name !== '' ? $name : $hostname,
             'hostname' => $hostname,
             'peer_type' => $peerType,
             'http_port' => $httpPort,
             'icp_port' => $icpPort,
-            'options' => $_POST['options'] ?? ($existing['options'] ?? ''),
+            'proxy_only' => $parsed['proxy_only'],
+            'no_query' => $parsed['no_query'],
+            'no_digest' => $parsed['no_digest'],
+            'weight' => $parsed['weight'],
+            'login' => $parsed['login'],
+            'connect_timeout' => $parsed['connect_timeout'],
+            'options' => self::composeOptionsString($parsed + ['options' => implode(' ', $parsed['extra'])]),
             'status' => $status,
         ];
+    }
+
+    private static function parseOptionTokens($options) {
+        $flags = [
+            'proxy_only' => 0,
+            'no_query' => 0,
+            'no_digest' => 0,
+            'login' => '',
+            'weight' => 0,
+            'connect_timeout' => 0,
+            'extra' => [],
+        ];
+        foreach (preg_split('/\s+/', trim((string)$options)) as $token) {
+            if ($token === '') {
+                continue;
+            }
+            if ($token === 'proxy-only') {
+                $flags['proxy_only'] = 1;
+            } elseif ($token === 'no-query') {
+                $flags['no_query'] = 1;
+            } elseif ($token === 'no-digest') {
+                $flags['no_digest'] = 1;
+            } elseif (strpos($token, 'login=') === 0) {
+                $flags['login'] = substr($token, 6);
+            } elseif (strpos($token, 'weight=') === 0) {
+                $flags['weight'] = (int)substr($token, 7);
+            } elseif (strpos($token, 'connect-timeout=') === 0) {
+                $flags['connect_timeout'] = (int)substr($token, 16);
+            } elseif (strpos($token, 'name=') === 0) {
+                continue;
+            } else {
+                $flags['extra'][] = $token;
+            }
+        }
+        return $flags;
+    }
+
+    public static function composeOptionsString($peer) {
+        $parsed = self::parseOptionTokens($peer['options'] ?? '');
+        $parts = [];
+        if (!empty($peer['no_query']) || !empty($parsed['no_query'])) {
+            $parts[] = 'no-query';
+        }
+        if (!empty($peer['proxy_only']) || !empty($parsed['proxy_only'])) {
+            $parts[] = 'proxy-only';
+        }
+        if (!empty($peer['no_digest']) || !empty($parsed['no_digest'])) {
+            $parts[] = 'no-digest';
+        }
+        $login = trim((string)($peer['login'] ?? ''));
+        if ($login === '') {
+            $login = $parsed['login'];
+        }
+        if ($login !== '') {
+            $parts[] = 'login=' . $login;
+        }
+        $weight = (int)($peer['weight'] ?? 0);
+        if ($weight <= 0) {
+            $weight = $parsed['weight'];
+        }
+        if ($weight > 0) {
+            $parts[] = 'weight=' . $weight;
+        }
+        $timeout = (int)($peer['connect_timeout'] ?? 0);
+        if ($timeout <= 0) {
+            $timeout = $parsed['connect_timeout'];
+        }
+        if ($timeout > 0) {
+            $parts[] = 'connect-timeout=' . $timeout;
+        }
+        foreach ($parsed['extra'] as $token) {
+            $parts[] = $token;
+        }
+        return implode(' ', array_values(array_unique($parts)));
     }
 }
