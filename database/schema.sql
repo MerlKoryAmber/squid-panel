@@ -134,6 +134,7 @@ CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     language TEXT DEFAULT 'ru',
     theme TEXT DEFAULT 'light',
+    panel_allow_ips TEXT NOT NULL DEFAULT '',
     updated_at TEXT
 );
 

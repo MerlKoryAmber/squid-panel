@@ -129,6 +129,8 @@ $router->get('/audit', 'AuditController@index');
 // Settings
 $router->get('/settings', 'SettingsController@index');
 $router->post('/settings/save', 'SettingsController@save');
+$router->post('/settings/squid', 'SettingsController@saveSquid');
+$router->post('/settings/allow', 'SettingsController@saveAllow');
 
 // Cache Peer Access Rules
 $router->get('/peers/access', 'CachePeerController@access');

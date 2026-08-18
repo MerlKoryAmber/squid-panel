@@ -15,3 +15,5 @@ squidmgr ALL=(root) NOPASSWD: /usr/bin/kinit -k -t /etc/squid/*.keytab
 squidmgr ALL=(root) NOPASSWD: /usr/bin/wbinfo -t
 squidmgr ALL=(root) NOPASSWD: /usr/bin/wbinfo -g
 squidmgr ALL=(root) NOPASSWD: /usr/bin/net ads info
+squidmgr ALL=(root) NOPASSWD: /usr/sbin/nginx -t
+squidmgr ALL=(root) NOPASSWD: /usr/bin/systemctl reload nginx

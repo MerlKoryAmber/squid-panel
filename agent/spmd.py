@@ -15,6 +15,7 @@ import struct
 import pwd
 import grp
 import base64
+import time
 
 SOCKET_PATH = "/run/spmd.sock"
 PID_FILE = "/run/spmd.pid"
@@ -39,6 +40,8 @@ ALLOWED_COMMANDS = {
     "acl_file_install": ["__acl_file_install__"],
     "keytab_install": ["__keytab_install__"],
     "ad_ldap_groups": ["__ad_ldap_groups__"],
+    "squid_listen_apply": ["__squid_listen_apply__"],
+    "nginx_allow_apply": ["__nginx_allow_apply__"],
 }
 
 ACL_SRC = "/opt/spm/storage/acl"
@@ -204,6 +207,144 @@ def list_ad_ldap_groups(keytab_path, realm, ldap_host, principal):
             pass
 
 
+SQUID_CONF_LIVE = "/etc/squid/squid.conf"
+LISTEN_DST = "/etc/squid/spm-listen.conf"
+LISTEN_INCLUDE = "include /etc/squid/spm-listen.conf"
+NGINX_ALLOW_DST = "/etc/nginx/conf.d/spm-allow.inc"
+NGINX_BIN = "/usr/sbin/nginx"
+LISTEN_LINE = re.compile(
+    r"^(#.*|http_port\s+\S.*|visible_hostname\s+[A-Za-z0-9._-]+)$"
+)
+NGINX_ALLOW_LINE = re.compile(
+    r"^(#.*|allow\s+[0-9a-fA-F.:/]+;|deny\s+all;)$"
+)
+
+
+def _read_tmp_named(filename, pattern, max_bytes):
+    if not isinstance(filename, str) or not pattern.fullmatch(filename):
+        raise ValueError("Invalid staging filename")
+    src_dir = os.path.realpath("/opt/spm/storage/tmp")
+    src = os.path.realpath(os.path.join("/opt/spm/storage/tmp", filename))
+    if os.path.dirname(src) != src_dir or not os.path.isfile(src):
+        raise ValueError("Staging file not found")
+    if os.path.getsize(src) > max_bytes:
+        raise ValueError("Staging file too large")
+    with open(src, "r", encoding="utf-8") as fh:
+        text = fh.read()
+    return src, text
+
+
+def _atomic_write(path, text, mode=0o644):
+    tmp = path + ".tmp"
+    os.makedirs(os.path.dirname(path), mode=0o755, exist_ok=True)
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(text)
+        if not text.endswith("\n"):
+            fh.write("\n")
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.chmod(tmp, mode)
+    os.replace(tmp, path)
+
+
+def _validate_lines(text, line_re, what):
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line == "":
+            continue
+        if not line_re.fullmatch(line):
+            raise ValueError("Invalid " + what + " line: " + line)
+
+
+def _comment_listen_directives(text):
+    out = []
+    for line in text.splitlines(True):
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            out.append(line)
+            continue
+        if re.match(r"^(http_port|visible_hostname)\s", stripped):
+            ending = "\n" if line.endswith("\n") else ""
+            body = line[:-1] if line.endswith("\n") else line
+            out.append("# SPM-moved " + body + ending)
+            continue
+        out.append(line)
+    return "".join(out)
+
+
+def apply_squid_listen():
+    _src, body = _read_tmp_named("spm-listen.conf", re.compile(r"^spm-listen\.conf$"), 8192)
+    _validate_lines(body, LISTEN_LINE, "listen")
+    if "http_port " not in body:
+        raise ValueError("listen file has no http_port")
+    _atomic_write(LISTEN_DST, body, 0o644)
+    try:
+        squid_uid = pwd.getpwnam("squid").pw_uid
+        squid_gid = pwd.getpwnam("squid").pw_gid
+        os.chown(LISTEN_DST, squid_uid, squid_gid)
+    except KeyError:
+        pass
+    if not os.path.isfile(SQUID_CONF_LIVE):
+        raise ValueError("squid.conf missing")
+    with open(SQUID_CONF_LIVE, "r", encoding="utf-8", errors="replace") as fh:
+        original = fh.read()
+    ts = time.strftime("%Y%m%d%H%M%S")
+    backup = SQUID_CONF_LIVE + ".spm-listen-" + ts
+    _atomic_write(backup, original, 0o644)
+    text = _comment_listen_directives(original)
+    if LISTEN_INCLUDE not in text:
+        if text and not text.endswith("\n"):
+            text += "\n"
+        text += "# SPM managed listen/hostname\n" + LISTEN_INCLUDE + "\n"
+    parse_dir = os.path.dirname(PARSE_FILE)
+    os.makedirs(parse_dir, mode=0o755, exist_ok=True)
+    _atomic_write(PARSE_FILE, text, 0o600)
+    p = subprocess.run(
+        ["/usr/sbin/squid", "-f", PARSE_FILE, "-k", "parse"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if p.returncode != 0:
+        raise ValueError((p.stderr or p.stdout or "squid parse failed").strip())
+    _atomic_write(SQUID_CONF_LIVE, text, 0o644)
+    r = subprocess.run(
+        ["/usr/sbin/squid", "-k", "reconfigure"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if r.returncode != 0:
+        raise ValueError((r.stderr or r.stdout or "reconfigure failed").strip())
+    logging.info("squid listen applied backup=%s", backup)
+    return "listen applied, backup " + backup
+
+
+def apply_nginx_allow():
+    _src, body = _read_tmp_named("spm-allow.inc", re.compile(r"^spm-allow\.inc$"), 8192)
+    _validate_lines(body, NGINX_ALLOW_LINE, "nginx allow")
+    old = ""
+    if os.path.isfile(NGINX_ALLOW_DST):
+        with open(NGINX_ALLOW_DST, "r", encoding="utf-8", errors="replace") as fh:
+            old = fh.read()
+    _atomic_write(NGINX_ALLOW_DST, body, 0o644)
+    t = subprocess.run([NGINX_BIN, "-t"], capture_output=True, text=True, timeout=15)
+    if t.returncode != 0:
+        if old != "":
+            _atomic_write(NGINX_ALLOW_DST, old, 0o644)
+        raise ValueError((t.stderr or t.stdout or "nginx -t failed").strip())
+    r = subprocess.run(
+        ["/usr/bin/systemctl", "reload", "nginx"],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    if r.returncode != 0:
+        raise ValueError((r.stderr or r.stdout or "nginx reload failed").strip())
+    logging.info("nginx allowlist applied")
+    return "nginx allowlist applied"
+
+
 KEYTAB_DIR = "/etc/squid"
 KEYTAB_SRC = "/opt/spm/storage/tmp"
 KEYTAB_NAME = re.compile(r"^[A-Za-z0-9._-]+\.keytab$")
@@ -287,6 +428,18 @@ def validate_command(command_key, extra_args):
             raise ValueError("ad_ldap_groups requires keytab, realm, host, principal")
         names = list_ad_ldap_groups(extra_args[0], extra_args[1], extra_args[2], extra_args[3])
         return ["__ad_ldap_groups__", "\n".join(names)]
+
+    if command_key == "squid_listen_apply":
+        if extra_args:
+            raise ValueError("Extra arguments are not allowed")
+        msg = apply_squid_listen()
+        return ["__squid_listen_apply__", msg]
+
+    if command_key == "nginx_allow_apply":
+        if extra_args:
+            raise ValueError("Extra arguments are not allowed")
+        msg = apply_nginx_allow()
+        return ["__nginx_allow_apply__", msg]
 
     if extra_args:
         raise ValueError("Extra arguments are not allowed")
@@ -385,6 +538,20 @@ def handle_client(conn):
                 "stderr": "",
             }
             logging.info("Result: LDAP groups listed")
+            try:
+                conn.sendall(json.dumps(response).encode("utf-8"))
+            except (BrokenPipeError, OSError) as e:
+                logging.warning(f"Failed to send response: {str(e)}")
+            return
+
+        if cmd and cmd[0] in ("__squid_listen_apply__", "__nginx_allow_apply__"):
+            response = {
+                "success": True,
+                "exit_code": 0,
+                "stdout": cmd[1],
+                "stderr": "",
+            }
+            logging.info("Result: %s", cmd[0])
             try:
                 conn.sendall(json.dumps(response).encode("utf-8"))
             except (BrokenPipeError, OSError) as e:

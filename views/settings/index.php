@@ -2,6 +2,56 @@
     <h2>Settings</h2>
 </div>
 
+<?php if (!empty($flashError)): ?>
+<div class="alert alert-danger"><?= htmlspecialchars((string)$flashError, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
+<?php endif; ?>
+<?php if (!empty($flashSuccess)): ?>
+<div class="alert alert-success"><?= htmlspecialchars((string)$flashSuccess, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
+<?php endif; ?>
+
+<div class="card">
+    <div class="card-header"><h3>Squid listen</h3></div>
+    <div class="card-body">
+        <p style="color:var(--ir-text-muted); font-size:0.82rem;">
+            Imported from live conf. Apply writes <code>/etc/squid/spm-listen.conf</code>, comments <code>http_port</code> / <code>visible_hostname</code> in main <code>squid.conf</code> (backup), adds <code>include</code>, then parse + reconfigure.
+        </p>
+        <form method="POST" action="/settings/squid">
+            <?= View::csrf() ?>
+            <div class="form-group">
+                <label>http_port (one line per listen)</label>
+                <textarea name="http_port" rows="3" placeholder="3128"><?= htmlspecialchars((string)($globals['http_port'] ?? '3128'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></textarea>
+            </div>
+            <div class="form-group">
+                <label>visible_hostname</label>
+                <input type="text" name="visible_hostname" value="<?= htmlspecialchars((string)($globals['visible_hostname'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" placeholder="proxy.example.com">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save and apply to Squid</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h3>Panel IP allowlist (nginx)</h3></div>
+    <div class="card-body">
+        <p style="color:var(--ir-text-muted); font-size:0.82rem;">
+            Empty = no filter. Non-empty = only these IPs/CIDRs + this request’s IP if missing. Always <code>127.0.0.1</code> / <code>::1</code> in nginx file. Wrong list can lock the UI; keep a console.
+        </p>
+        <p style="font-size:0.82rem;">Your IP now: <code><?= htmlspecialchars((string)($clientIp ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></code></p>
+        <form method="POST" action="/settings/allow">
+            <?= View::csrf() ?>
+            <div class="form-group">
+                <label>Allowed IPs (one per line)</label>
+                <textarea name="panel_allow_ips" rows="6" placeholder="10.0.0.0/8"><?= htmlspecialchars((string)($settings['panel_allow_ips'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save and reload nginx</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-header"><h3>General</h3></div>
     <div class="card-body">

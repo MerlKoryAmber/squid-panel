@@ -30,10 +30,13 @@ class DashboardController {
             'auth'        => $dbCount('auth_config'),
         ];
 
+        $globals = Database::fetch("SELECT http_port, visible_hostname FROM squid_globals LIMIT 1") ?: [];
         echo View::render('dashboard', [
             'title' => 'Dashboard',
             'active' => 'dashboard',
             'stats' => $stats,
+            'httpPort' => trim((string)($globals['http_port'] ?? '')),
+            'visibleHostname' => trim((string)($globals['visible_hostname'] ?? '')),
             'auditLogs' => Audit::getRecent(5),
             'isAdmin' => Auth::isAdmin(),
         ]);

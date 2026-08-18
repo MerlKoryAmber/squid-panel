@@ -112,6 +112,13 @@ class SquidConfigParser {
                     }
                     break;
                 case 'http_port':
+                    $v = implode(' ', array_slice($tokens, 1));
+                    if (!empty($globals['http_port'])) {
+                        $globals['http_port'] .= "\n" . $v;
+                    } else {
+                        $globals['http_port'] = $v;
+                    }
+                    break;
                 case 'icp_port':
                 case 'cache_dir':
                 case 'visible_hostname':

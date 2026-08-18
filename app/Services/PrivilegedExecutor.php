@@ -19,6 +19,8 @@ class PrivilegedExecutor {
         'acl_file_install' => ['__acl_file_install__'],
         'keytab_install' => ['__keytab_install__'],
         'ad_ldap_groups' => ['__ad_ldap_groups__'],
+        'squid_listen_apply' => ['__squid_listen_apply__'],
+        'nginx_allow_apply' => ['__nginx_allow_apply__'],
     ];
 
     private const KEYTAB_DIR = '/etc/squid';
@@ -62,14 +64,20 @@ class PrivilegedExecutor {
             $extraArgs = [basename(self::squidKeytabPath($extraArgs[0] ?? '', false))];
         } elseif ($commandKey === 'ad_ldap_groups') {
             $extraArgs = AdGroupAcl::ldapQueryArgs();
+        } elseif ($commandKey === 'squid_listen_apply' || $commandKey === 'nginx_allow_apply') {
+            $extraArgs = [];
         } elseif ($commandKey === 'squid_syntax') {
             $extraArgs = [];
         } elseif (!empty($extraArgs)) {
             throw new Exception('Extra arguments are not allowed');
         }
 
-        if ($commandKey === 'acl_file_install' || $commandKey === 'keytab_install' || $commandKey === 'ad_ldap_groups') {
-            $recv = ($commandKey === 'ad_ldap_groups') ? 45 : 10;
+        if ($commandKey === 'acl_file_install' || $commandKey === 'keytab_install' || $commandKey === 'ad_ldap_groups'
+            || $commandKey === 'squid_listen_apply' || $commandKey === 'nginx_allow_apply') {
+            $recv = 10;
+            if ($commandKey === 'ad_ldap_groups' || $commandKey === 'squid_listen_apply') {
+                $recv = 45;
+            }
             if (AGENT_ENABLED && file_exists(AGENT_SOCKET)) {
                 $result = self::executeViaAgent($commandKey, $extraArgs, $recv);
                 if ($result !== null) {
@@ -80,6 +88,10 @@ class PrivilegedExecutor {
                 $need = 'spmd is required to install keytabs into /etc/squid';
             } elseif ($commandKey === 'ad_ldap_groups') {
                 $need = 'spmd is required to list AD groups via LDAP';
+            } elseif ($commandKey === 'squid_listen_apply') {
+                $need = 'spmd is required to apply Squid listen settings';
+            } elseif ($commandKey === 'nginx_allow_apply') {
+                $need = 'spmd is required to apply nginx IP allowlist';
             } else {
                 $need = 'spmd is required to copy ACL lists into /etc/squid/acl.d';
             }

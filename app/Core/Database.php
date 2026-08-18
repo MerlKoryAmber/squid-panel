@@ -51,6 +51,7 @@ class Database {
         self::addColumnIfMissing('auth_config', 'children_extra', "TEXT DEFAULT ''");
         self::addColumnIfMissing('routing_rules', 'sort_order', 'INTEGER DEFAULT 0');
         self::addColumnIfMissing('acls', 'storage', "TEXT NOT NULL DEFAULT 'inline'");
+        self::addColumnIfMissing('settings', 'panel_allow_ips', "TEXT NOT NULL DEFAULT ''");
         self::$pdo->exec(
             "CREATE TABLE IF NOT EXISTS external_acl_types (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,6 +75,7 @@ class Database {
             'auth_config' => true,
             'routing_rules' => true,
             'acls' => true,
+            'settings' => true,
         ];
         if (!isset($allowed[$table])) {
             return;

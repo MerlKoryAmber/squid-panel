@@ -166,6 +166,10 @@ setfacl -R -m "u:nginx:rX" "$SPM_DIR/public" 2>/dev/null || true
 
 echo "[4/9] Configuring Nginx on port $PANEL_PORT (does not bind :80/:443)..."
 mkdir -p /etc/nginx/conf.d
+if [ ! -f /etc/nginx/conf.d/spm-allow.inc ]; then
+    echo "# SPM panel IP allowlist. Empty = all IPs." > /etc/nginx/conf.d/spm-allow.inc
+    chmod 644 /etc/nginx/conf.d/spm-allow.inc
+fi
 
 SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 if [ -z "$SERVER_IP" ]; then
@@ -185,6 +189,8 @@ server {
 
     root /opt/spm/public;
     index index.php;
+
+    include /etc/nginx/conf.d/spm-allow.inc;
 
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;

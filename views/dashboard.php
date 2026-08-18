@@ -1,4 +1,9 @@
 <div class="stats-grid">
+    <?php
+    $httpPort = trim((string)($httpPort ?? ''));
+    $visibleHostname = trim((string)($visibleHostname ?? ''));
+    $portFirst = $httpPort !== '' ? (preg_split('/\s+/', $httpPort)[0] ?? $httpPort) : '—';
+    ?>
     <div class="stat-card">
         <div class="stat-label">HTTP Access Rules</div>
         <div class="stat-value"><?= $stats['http_access'] ?? 0 ?></div>
@@ -23,6 +28,11 @@
         <div class="stat-label">Auth Methods</div>
         <div class="stat-value"><?= $stats['auth'] ?? 0 ?></div>
         <div class="stat-meta">Configured backends</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Squid http_port</div>
+        <div class="stat-value" style="font-size:1.4rem; word-break:break-all;"><?= htmlspecialchars($portFirst) ?></div>
+        <div class="stat-meta"><?= htmlspecialchars($httpPort !== '' ? str_replace("\n", ' · ', $httpPort) : 'not imported') ?><?= !empty($visibleHostname) ? ' · ' . htmlspecialchars($visibleHostname) : '' ?></div>
     </div>
 </div>
 
