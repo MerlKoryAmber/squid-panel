@@ -2,14 +2,24 @@
 /**
  * Parses existing squid.conf and imports into SPM database
  */
+require_once __DIR__ . '/AclListFile.php';
+
 class SquidConfigParser {
 
     public static function parseAndImport($configPath = '/etc/squid/squid.conf') {
+        try {
+            return self::parseAndImportInner($configPath);
+        } catch (Throwable $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    private static function parseAndImportInner($configPath) {
         if (!file_exists($configPath) || !is_readable($configPath)) {
             return ['success' => false, 'error' => 'Config file not found or not readable: ' . $configPath];
         }
 
-        $lines = file($configPath, FILE_IGNORE_NEW_LINES);
+        $lines = self::readConfigLines($configPath);
         if ($lines === false) {
             return ['success' => false, 'error' => 'Failed to read config file'];
         }
@@ -54,6 +64,8 @@ class SquidConfigParser {
             }
 
             switch ($tokens[0]) {
+                case 'include':
+                    break;
                 case 'acl':
                     $parsed = self::parseAcl($tokens);
                     if ($parsed) {
@@ -135,6 +147,55 @@ class SquidConfigParser {
         self::importDefaultSettings();
 
         return ['success' => true, 'stats' => $stats];
+    }
+
+    private static function readConfigLines($configPath, $depth = 0, &$seen = []) {
+        $real = realpath($configPath);
+        if ($real === false || !is_readable($real) || $depth > 8) {
+            if ($depth === 0) {
+                $raw = @file($configPath, FILE_IGNORE_NEW_LINES);
+                return $raw === false ? false : $raw;
+            }
+            return [];
+        }
+        if (isset($seen[$real])) {
+            return [];
+        }
+        $seen[$real] = true;
+        $raw = file($real, FILE_IGNORE_NEW_LINES);
+        if ($raw === false) {
+            return $depth === 0 ? false : [];
+        }
+        $out = [];
+        $count = count($raw);
+        for ($i = 0; $i < $count; $i++) {
+            $line = rtrim($raw[$i]);
+            $trim = trim($line);
+            if ($trim === '' || strpos($trim, '#') === 0) {
+                $out[] = $line;
+                continue;
+            }
+            while (substr(rtrim($line), -1) === '\\' && isset($raw[$i + 1])) {
+                $line = rtrim(substr(rtrim($line), 0, -1)) . ' ' . trim($raw[++$i]);
+                $trim = trim($line);
+            }
+            $tokens = preg_split('/\s+/', $trim);
+            if (($tokens[0] ?? '') === 'include' && isset($tokens[1])) {
+                $pattern = trim($tokens[1], '"\'');
+                $matches = glob($pattern) ?: [];
+                if (empty($matches) && is_file($pattern)) {
+                    $matches = [$pattern];
+                }
+                foreach ($matches as $inc) {
+                    foreach (self::readConfigLines($inc, $depth + 1, $seen) as $incLine) {
+                        $out[] = $incLine;
+                    }
+                }
+                continue;
+            }
+            $out[] = $line;
+        }
+        return $out;
     }
 
     private static function resetImportedTables() {
