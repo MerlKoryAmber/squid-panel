@@ -164,7 +164,8 @@ class PrivilegedExecutor {
             $sent += $n;
         }
 
-        @socket_shutdown($socket, SHUT_WR);
+        $how = defined('SHUT_WR') ? SHUT_WR : 1;
+        @socket_shutdown($socket, $how);
 
         $response = '';
         while (true) {
