@@ -160,9 +160,9 @@ $aclTokens = function ($entries) {
                                 </span>
                             </td>
                             <td>
-                                <?php foreach ($aclTokens($rule['acl_entries'] ?? $rule['acl_name'] ?? '') as $acl): ?>
-                                <span class="badge badge-default" style="margin-right:4px;"><?= htmlspecialchars($acl) ?></span>
-                                <?php endforeach; ?>
+                                <?php foreach ($aclTokens($rule['acl_entries'] ?? $rule['acl_name'] ?? '') as $acl) {
+                                    echo View::aclBadge($acl);
+                                } ?>
                             </td>
                             <?php if ($isAdmin): ?>
                             <td>
@@ -201,9 +201,16 @@ $aclTokens = function ($entries) {
                         <?php else: ?>
                         <div class="acl-chip-list">
                             <?php foreach ($acls as $acl): ?>
-                            <label class="acl-chip">
+                            <label class="acl-chip" data-acl-tip="<?= htmlspecialchars(View::aclTipText($acl['name']), ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="checkbox" name="acls[]" value="<?= htmlspecialchars($acl['name']) ?>">
-                                <span><?= htmlspecialchars($acl['name']) ?></span>
+                                <?php
+                                $meta = View::aclCatalog()[$acl['name']] ?? null;
+                                if ($meta) {
+                                    echo '<a class="acl-ref" href="/acl/edit?id=' . (int)$meta['id'] . '" data-acl-tip="' . htmlspecialchars(View::aclTipText($acl['name']), ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($acl['name']) . '</a>';
+                                } else {
+                                    echo '<span>' . htmlspecialchars($acl['name']) . '</span>';
+                                }
+                                ?>
                                 <small><?= htmlspecialchars($acl['type']) ?></small>
                             </label>
                             <?php endforeach; ?>
@@ -262,9 +269,9 @@ $aclTokens = function ($entries) {
                     <td><span class="badge badge-<?= $isDirect ? 'info' : 'success' ?>"><?= $policy ?></span></td>
                     <td><?= htmlspecialchars($rule['action']) ?></td>
                     <td>
-                        <?php foreach ($aclTokens($rule['acl_name'] ?? '') as $acl): ?>
-                        <span class="badge badge-default" style="margin-right:4px;"><?= htmlspecialchars($acl) ?></span>
-                        <?php endforeach; ?>
+                        <?php foreach ($aclTokens($rule['acl_name'] ?? '') as $acl) {
+                            echo View::aclBadge($acl);
+                        } ?>
                     </td>
                     <?php if ($isAdmin): ?>
                     <td>
@@ -308,9 +315,16 @@ $aclTokens = function ($entries) {
                 <?php else: ?>
                 <div class="acl-chip-list">
                     <?php foreach ($acls as $acl): ?>
-                    <label class="acl-chip">
+                    <label class="acl-chip" data-acl-tip="<?= htmlspecialchars(View::aclTipText($acl['name']), ENT_QUOTES, 'UTF-8') ?>">
                         <input type="checkbox" name="acls[]" value="<?= htmlspecialchars($acl['name']) ?>">
-                        <span><?= htmlspecialchars($acl['name']) ?></span>
+                        <?php
+                        $meta = View::aclCatalog()[$acl['name']] ?? null;
+                        if ($meta) {
+                            echo '<a class="acl-ref" href="/acl/edit?id=' . (int)$meta['id'] . '" data-acl-tip="' . htmlspecialchars(View::aclTipText($acl['name']), ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($acl['name']) . '</a>';
+                        } else {
+                            echo '<span>' . htmlspecialchars($acl['name']) . '</span>';
+                        }
+                        ?>
                         <small><?= htmlspecialchars($acl['type']) ?></small>
                     </label>
                     <?php endforeach; ?>

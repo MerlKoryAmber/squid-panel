@@ -10,7 +10,7 @@ class AclController {
     public function create($params = []) {
         Auth::requireAdmin();
         $types = (require SPM_CONFIG . '/squid.php')['acl_types'];
-        echo View::render('acl.edit', ['title' => 'Create ACL', 'types' => $types, 'acl' => null]);
+        echo View::render('acl.edit', ['title' => 'Create ACL', 'types' => $types, 'acl' => null, 'isAdmin' => true]);
     }
 
     public function store($params = []) {
@@ -47,7 +47,7 @@ class AclController {
     }
 
     public function edit($params = []) {
-        Auth::requireAdmin();
+        Auth::requireAuth();
         $id = (int)($_GET['id'] ?? 0);
         $acl = Database::fetch("SELECT * FROM acls WHERE id = ?", [$id]);
         if (!$acl) {
@@ -55,7 +55,12 @@ class AclController {
             die('ACL not found');
         }
         $types = (require SPM_CONFIG . '/squid.php')['acl_types'];
-        echo View::render('acl.edit', ['title' => 'Edit ACL', 'types' => $types, 'acl' => $acl]);
+        echo View::render('acl.edit', [
+            'title' => 'Edit ACL',
+            'types' => $types,
+            'acl' => $acl,
+            'isAdmin' => Auth::isAdmin(),
+        ]);
     }
 
     public function update($params = []) {

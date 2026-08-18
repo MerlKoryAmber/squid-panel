@@ -40,9 +40,10 @@
                     <td>
                         <?php
                         $acls = json_decode($rule['acls'], true) ?? [];
-                        foreach ($acls as $acl): ?>
-                        <span class="badge badge-default" style="margin-right:4px;"><?= htmlspecialchars($acl) ?></span>
-                        <?php endforeach; ?>
+                        foreach ($acls as $acl) {
+                            echo View::aclBadge($acl);
+                        }
+                        ?>
                     </td>
                     <td style="color: var(--ir-text-secondary);"><?= htmlspecialchars($rule['description'] ?? '') ?></td>
                     <td>

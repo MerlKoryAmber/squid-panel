@@ -860,6 +860,47 @@ select[multiple] { min-height: 120px; }
 
 .acl-chip input { margin: 0; }
 .acl-chip small { color: var(--ir-text-muted); }
+.acl-chip a.acl-ref {
+    color: inherit;
+    text-decoration: none;
+    font-weight: 600;
+    border-bottom: 1px dotted var(--ir-border);
+}
+.acl-chip a.acl-ref:hover { color: var(--ir-primary); }
+
+a.acl-ref {
+    display: inline-block;
+    margin: 0 4px 4px 0;
+    text-decoration: none;
+    vertical-align: middle;
+}
+span.acl-ref {
+    display: inline-block;
+    margin: 0 4px 4px 0;
+    vertical-align: middle;
+    cursor: help;
+}
+.acl-ref .badge { cursor: pointer; }
+span.acl-ref .badge { cursor: help; }
+.acl-ref-neg { font-style: italic; }
+
+#acl-tip-pop {
+    position: fixed;
+    z-index: 4000;
+    max-width: min(360px, calc(100vw - 16px));
+    max-height: min(280px, calc(100vh - 16px));
+    overflow: auto;
+    padding: 8px 10px;
+    background: var(--ir-text);
+    color: #fff;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+    pointer-events: none;
+}
 
 @media (max-width: 1024px) {
     .cascade {

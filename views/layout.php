@@ -6,6 +6,10 @@
     <title><?= htmlspecialchars($title ?? 'Squid Proxy Manager') ?> — SPM</title>
     <link rel="stylesheet" href="/assets/css/app.css">
     <link rel="stylesheet" href="/assets/css/inter-font.css">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 </head>
 <body>
     <div class="app-wrapper">
@@ -65,11 +69,65 @@
         </div>
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div id="acl-tip-pop" hidden></div>
     <script>
     function toggleSidebar() {
         document.querySelector('.sidebar').classList.toggle('open');
         document.getElementById('sidebarOverlay').classList.toggle('show');
     }
+    (function () {
+        const pop = document.getElementById('acl-tip-pop');
+        if (!pop) return;
+        let current = null;
+        function hideTip() {
+            pop.hidden = true;
+            current = null;
+        }
+        function placeTip(el) {
+            const text = el.getAttribute('data-acl-tip');
+            if (!text) {
+                hideTip();
+                return;
+            }
+            current = el;
+            pop.textContent = text;
+            pop.hidden = false;
+            const r = el.getBoundingClientRect();
+            const margin = 8;
+            pop.style.left = r.left + 'px';
+            pop.style.top = (r.bottom + 6) + 'px';
+            const pr = pop.getBoundingClientRect();
+            let left = r.left;
+            let top = r.bottom + 6;
+            if (pr.right > window.innerWidth - margin) {
+                left = Math.max(margin, window.innerWidth - pr.width - margin);
+            }
+            if (pr.bottom > window.innerHeight - margin) {
+                top = Math.max(margin, r.top - pr.height - 6);
+            }
+            pop.style.left = left + 'px';
+            pop.style.top = top + 'px';
+        }
+        document.addEventListener('mouseover', function (e) {
+            const el = e.target.closest('[data-acl-tip]');
+            if (!el || current === el) return;
+            placeTip(el);
+        });
+        document.addEventListener('mouseout', function (e) {
+            const el = e.target.closest('[data-acl-tip]');
+            if (!el || el !== current) return;
+            const to = e.relatedTarget;
+            if (to && (el.contains(to) || pop.contains(to))) return;
+            hideTip();
+        });
+        document.addEventListener('click', function (e) {
+            const a = e.target.closest('a.acl-ref');
+            if (!a) return;
+            e.stopPropagation();
+        }, true);
+        window.addEventListener('scroll', hideTip, true);
+        window.addEventListener('resize', hideTip);
+    })();
     </script>
 </body>
 </html>

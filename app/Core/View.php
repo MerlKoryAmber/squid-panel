@@ -101,4 +101,94 @@ class View {
         }
         die($message);
     }
+
+    private static $aclCatalog = null;
+
+    public static function aclCatalog() {
+        if (self::$aclCatalog !== null) {
+            return self::$aclCatalog;
+        }
+        self::$aclCatalog = [];
+        try {
+            $rows = Database::fetchAll("SELECT id, name, type, entries, description FROM acls ORDER BY id");
+        } catch (Exception $e) {
+            return self::$aclCatalog;
+        }
+        foreach ($rows as $acl) {
+            $entries = json_decode($acl['entries'] ?? '[]', true);
+            if (!is_array($entries)) {
+                $entries = [];
+            }
+            self::$aclCatalog[$acl['name']] = [
+                'id' => (int)$acl['id'],
+                'type' => (string)$acl['type'],
+                'entries' => $entries,
+                'description' => (string)($acl['description'] ?? ''),
+            ];
+        }
+        return self::$aclCatalog;
+    }
+
+    public static function aclTipText($token) {
+        $token = trim((string)$token);
+        $name = (strpos($token, '!') === 0) ? substr($token, 1) : $token;
+        if ($name === '') {
+            return '';
+        }
+        $meta = self::aclCatalog()[$name] ?? null;
+        $builtins = [
+            'all' => 'Built-in Squid ACL (matches everything)',
+            'localhost' => 'Built-in Squid ACL (this host)',
+            'to_localhost' => 'Built-in Squid ACL (destined to this host)',
+            'manager' => 'Built-in Squid ACL (cache manager)',
+            'CONNECT' => 'Built-in method ACL',
+        ];
+        $lines = [];
+        if ($meta) {
+            $lines[] = $name . ' · ' . $meta['type'];
+            if ($meta['description'] !== '') {
+                $lines[] = $meta['description'];
+            }
+            $max = 16;
+            $shown = array_slice($meta['entries'], 0, $max);
+            if (empty($shown)) {
+                $lines[] = '(no values)';
+            } else {
+                foreach ($shown as $entry) {
+                    $lines[] = $entry;
+                }
+                $more = count($meta['entries']) - count($shown);
+                if ($more > 0) {
+                    $lines[] = '… +' . $more . ' more';
+                }
+            }
+        } elseif (isset($builtins[$name])) {
+            $lines[] = $name;
+            $lines[] = $builtins[$name];
+        } else {
+            $lines[] = $name;
+            $lines[] = 'Not found in panel ACLs';
+        }
+        if (strpos($token, '!') === 0) {
+            array_unshift($lines, 'Negated (!)');
+        }
+        return implode("\n", $lines);
+    }
+
+    public static function aclBadge($token) {
+        $token = trim((string)$token);
+        if ($token === '') {
+            return '';
+        }
+        $name = (strpos($token, '!') === 0) ? substr($token, 1) : $token;
+        $meta = self::aclCatalog()[$name] ?? null;
+        $tip = htmlspecialchars(self::aclTipText($token), ENT_QUOTES, 'UTF-8');
+        $label = htmlspecialchars($token, ENT_QUOTES, 'UTF-8');
+        $neg = strpos($token, '!') === 0 ? ' acl-ref-neg' : '';
+        $badge = '<span class="badge badge-default' . $neg . '">' . $label . '</span>';
+        if ($meta) {
+            return '<a class="acl-ref" href="/acl/edit?id=' . (int)$meta['id'] . '" data-acl-tip="' . $tip . '">' . $badge . '</a>';
+        }
+        return '<span class="acl-ref acl-ref-static" data-acl-tip="' . $tip . '">' . $badge . '</span>';
+    }
 }
