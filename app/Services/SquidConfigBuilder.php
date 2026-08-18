@@ -69,9 +69,15 @@ class SquidConfigBuilder {
         // ACLs
         $lines[] = "# === ACL Definitions ===";
         foreach ($this->config['acls'] as $acl) {
+            $name = $acl['name'];
+            $type = $acl['type'];
+            if (($acl['storage'] ?? 'inline') === 'file') {
+                $lines[] = "acl " . $name . " " . $type . " " . AclListFile::squidRef($name);
+                continue;
+            }
             $values = json_decode($acl['entries'], true) ?: [];
             foreach ($values as $val) {
-                $lines[] = "acl " . $acl['name'] . " " . $acl['type'] . " " . $val;
+                $lines[] = "acl " . $name . " " . $type . " " . $val;
             }
         }
         $lines[] = "";

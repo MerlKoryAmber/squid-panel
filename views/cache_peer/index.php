@@ -18,6 +18,7 @@ $aclTokens = function ($entries) {
 <p class="text-secondary" style="margin-top:-12px; margin-bottom: var(--space-lg);">
     Peers are upstream proxies. Access rules decide which requests may use the selected peer.
     “When to use cascade” decides whether Squid must go via a peer or direct.
+    Large destination lists belong in an ACL stored as a file (ACLs → Large list), then select that one ACL here — do not paste thousands of sites into Cascade.
 </p>
 
 <div class="cascade">

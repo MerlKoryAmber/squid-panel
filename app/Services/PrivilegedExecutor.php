@@ -15,6 +15,7 @@ class PrivilegedExecutor {
         'kinit_test' => ['/usr/bin/kinit', '-k', '-t'],
         'wbinfo_test' => ['/usr/bin/wbinfo', '-t'],
         'net_ads_info' => ['/usr/bin/net', 'ads', 'info'],
+        'acl_file_install' => ['__acl_file_install__'],
     ];
 
     private const KEYTAB_DIR = '/etc/squid';
@@ -52,10 +53,27 @@ class PrivilegedExecutor {
 
         if ($commandKey === 'kinit_test') {
             $extraArgs = [self::squidKeytabPath($extraArgs[0] ?? '', true)];
+        } elseif ($commandKey === 'acl_file_install') {
+            $extraArgs = [AclListFile::fileName(preg_replace('/\.txt$/', '', (string)($extraArgs[0] ?? '')))];
         } elseif ($commandKey === 'squid_syntax') {
             $extraArgs = [];
         } elseif (!empty($extraArgs)) {
             throw new Exception('Extra arguments are not allowed');
+        }
+
+        if ($commandKey === 'acl_file_install') {
+            if (AGENT_ENABLED && file_exists(AGENT_SOCKET)) {
+                $result = self::executeViaAgent($commandKey, $extraArgs);
+                if ($result !== null) {
+                    return $result;
+                }
+            }
+            return [
+                'success' => false,
+                'exit_code' => 1,
+                'stdout' => '',
+                'stderr' => 'spmd is required to copy ACL lists into /etc/squid/acl.d',
+            ];
         }
 
         $cmd = self::$allowedCommands[$commandKey];

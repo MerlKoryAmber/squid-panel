@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS acls (
     name TEXT NOT NULL,
     type TEXT NOT NULL,
     entries TEXT NOT NULL,
+    storage TEXT NOT NULL DEFAULT 'inline',
     description TEXT,
     group_name TEXT DEFAULT '',
     created_at TEXT,

@@ -123,7 +123,7 @@ else
     echo "Installer already in $SPM_DIR, skipping copy"
 fi
 
-mkdir -p "$SPM_DIR/storage/logs" "$SPM_DIR/storage/tmp" "$SPM_DIR/database" "$SPM_DIR/views/users"
+mkdir -p "$SPM_DIR/storage/logs" "$SPM_DIR/storage/tmp" "$SPM_DIR/storage/acl" "$SPM_DIR/database" "$SPM_DIR/views/users"
 
 if [ "$HAD_EXISTING_DB" = "1" ] && [ -f "$PRESERVED_DB" ]; then
     mkdir -p "$SPM_DIR/database"
@@ -138,6 +138,9 @@ chmod 750 "$SPM_DIR/database"
 chmod 700 "$SPM_DIR/storage"
 chmod 700 "$SPM_DIR/storage/logs"
 chmod 700 "$SPM_DIR/storage/tmp"
+chmod 700 "$SPM_DIR/storage/acl"
+mkdir -p /etc/squid/acl.d
+chmod 755 /etc/squid/acl.d
 chmod 750 "$SPM_DIR/agent" 2>/dev/null || true
 chmod 750 "$SPM_DIR/app" "$SPM_DIR/config" "$SPM_DIR/views" 2>/dev/null || true
 chmod 755 "$SPM_DIR/public"

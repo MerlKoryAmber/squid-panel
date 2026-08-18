@@ -21,6 +21,7 @@ define('SPM_CONFIG', SPM_ROOT . '/config');
  define('SQUID_BINARY', '/usr/sbin/squid');
  // Candidate conf for squid -f ... -k parse (must match sudoers/spmd on CentOS)
  define('SQUID_PARSE_FILE', '/opt/spm/storage/tmp/squid.conf.parse');
+ define('ACL_LIST_LIVE_DIR', '/etc/squid/acl.d');
 
 // Agent
  define('AGENT_SOCKET', '/run/spmd.sock');

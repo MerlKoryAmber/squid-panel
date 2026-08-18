@@ -34,7 +34,42 @@ ALLOWED_COMMANDS = {
     "kinit_test": ["/usr/bin/kinit", "-k", "-t"],
     "wbinfo_test": ["/usr/bin/wbinfo", "-t"],
     "net_ads_info": ["/usr/bin/net", "ads", "info"],
+    "acl_file_install": ["__acl_file_install__"],
 }
+
+ACL_SRC = "/opt/spm/storage/acl"
+ACL_DST = "/etc/squid/acl.d"
+ACL_FILE = re.compile(r"^[A-Za-z0-9._-]+\.txt$")
+
+
+def install_acl_file(filename):
+    if not isinstance(filename, str) or not ACL_FILE.fullmatch(filename):
+        raise ValueError("Invalid ACL list filename")
+    src_dir = os.path.realpath(ACL_SRC)
+    src = os.path.realpath(os.path.join(ACL_SRC, filename))
+    if os.path.dirname(src) != src_dir or not os.path.isfile(src):
+        raise ValueError("ACL list working copy not found")
+    size = os.path.getsize(src)
+    if size > 5 * 1024 * 1024:
+        raise ValueError("ACL list file is too large")
+    os.makedirs(ACL_DST, mode=0o755, exist_ok=True)
+    dst = os.path.join(ACL_DST, filename)
+    tmp = dst + ".tmp"
+    with open(src, "rb") as fh:
+        data = fh.read()
+    with open(tmp, "wb") as fh:
+        fh.write(data)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, dst)
+    try:
+        squid_uid = pwd.getpwnam("squid").pw_uid
+        squid_gid = pwd.getpwnam("squid").pw_gid
+        os.chown(dst, squid_uid, squid_gid)
+    except KeyError:
+        pass
+    return dst
 
 KEYTAB_DIR = "/etc/squid"
 KEYTAB_NAME = re.compile(r"^[A-Za-z0-9._-]+\.keytab$")
@@ -100,6 +135,12 @@ def validate_command(command_key, extra_args):
         cmd.append(validate_keytab(extra_args[0]))
         return cmd
 
+    if command_key == "acl_file_install":
+        if len(extra_args) != 1:
+            raise ValueError("acl_file_install requires exactly one filename")
+        install_acl_file(extra_args[0])
+        return ["__acl_file_install__", extra_args[0]]
+
     if extra_args:
         raise ValueError("Extra arguments are not allowed")
 
@@ -160,6 +201,20 @@ def handle_client(conn):
         logging.info(f"Executing: {command_key} with args: {extra_args}")
 
         cmd = validate_command(command_key, extra_args)
+
+        if cmd and cmd[0] == "__acl_file_install__":
+            response = {
+                "success": True,
+                "exit_code": 0,
+                "stdout": "installed " + cmd[1],
+                "stderr": "",
+            }
+            logging.info("Result: acl file installed %s", cmd[1])
+            try:
+                conn.sendall(json.dumps(response).encode("utf-8"))
+            except (BrokenPipeError, OSError) as e:
+                logging.warning(f"Failed to send response: {str(e)}")
+            return
 
         result = subprocess.run(
             cmd,

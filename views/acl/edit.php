@@ -3,6 +3,16 @@
     <a href="/acl" class="btn btn-secondary">← Back to ACLs</a>
 </div>
 
+<?php
+$isFile = isset($acl) && (($acl['storage'] ?? 'inline') === 'file');
+$fileTypes = 'dstdomain, srcdomain, dst, src';
+$livePath = isset($acl['name']) ? AclListFile::livePath($acl['name']) : '/etc/squid/acl.d/<name>.txt';
+?>
+
+<?php if (!empty($installNote)): ?>
+<div class="alert alert-success">List file copied to <?= htmlspecialchars(AclListFile::liveDir()) ?>. squid.conf was not rewritten — add the quoted path below if it is not there yet, then reconfigure Squid.</div>
+<?php endif; ?>
+
 <div class="card">
     <div class="card-header">
         <h3><?= isset($acl) ? 'Edit ' . htmlspecialchars($acl['name']) : 'New ACL' ?></h3>
@@ -14,7 +24,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Name</label>
-                    <input type="text" name="name" value="<?= htmlspecialchars($acl['name'] ?? '') ?>" placeholder="e.g. localnet" required <?= empty($isAdmin) ? 'readonly' : '' ?>>
+                    <input type="text" name="name" value="<?= htmlspecialchars($acl['name'] ?? '') ?>" placeholder="e.g. cascade_sites" required <?= empty($isAdmin) ? 'readonly' : '' ?>>
                 </div>
                 <div class="form-group">
                     <label>Type</label>
@@ -27,8 +37,18 @@
                 </div>
             </div>
             <div class="form-group">
+                <label class="acl-chip" style="display:inline-flex; margin-bottom:8px;">
+                    <input type="checkbox" name="storage_file" value="1" <?= $isFile ? 'checked' : '' ?> <?= empty($isAdmin) ? 'disabled' : '' ?>>
+                    <span>Large list (Squid file)</span>
+                </label>
+                <p class="text-muted" style="font-size:0.82rem; margin-bottom:8px;">
+                    For <?= htmlspecialchars($fileTypes) ?>. One value per line. From <?= (int)AclListFile::AUTO_FILE_MIN ?> entries the list is stored as a file automatically.
+                    Squid then uses one line:
+                    <code>acl <?= htmlspecialchars($acl['name'] ?? 'Name') ?> <?= htmlspecialchars($acl['type'] ?? 'dstdomain') ?> "<?= htmlspecialchars($livePath) ?>"</code>
+                    Live squid.conf is not overwritten by Save.
+                </p>
                 <label>Values (one per line)</label>
-                <textarea name="entries" rows="6" placeholder="192.168.1.0/24&#10;10.0.0.0/8" <?= empty($isAdmin) ? 'readonly' : '' ?>><?php
+                <textarea name="entries" rows="<?= $isFile ? 18 : 8 ?>" placeholder=".example.com&#10;.other.org" <?= empty($isAdmin) ? 'readonly' : '' ?>><?php
                     $vals = [];
                     if (isset($acl)) {
                         $vals = json_decode($acl['entries'] ?? $acl['values'] ?? '[]', true);

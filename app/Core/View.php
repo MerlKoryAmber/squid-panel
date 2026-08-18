@@ -117,7 +117,7 @@ class View {
         }
         self::$aclCatalog = [];
         try {
-            $rows = Database::fetchAll("SELECT id, name, type, entries, description FROM acls ORDER BY id");
+            $rows = Database::fetchAll("SELECT id, name, type, entries, description, storage FROM acls ORDER BY id");
         } catch (Exception $e) {
             return self::$aclCatalog;
         }
@@ -126,11 +126,19 @@ class View {
             if (!is_array($entries)) {
                 $entries = [];
             }
+            $storage = ($acl['storage'] ?? 'inline') === 'file' ? 'file' : 'inline';
+            $count = count($entries);
+            if ($storage === 'file') {
+                $count = AclListFile::countWorkFile($acl['name']);
+                $entries = [];
+            }
             self::$aclCatalog[$acl['name']] = [
                 'id' => (int)$acl['id'],
                 'type' => (string)$acl['type'],
                 'entries' => $entries,
                 'description' => (string)($acl['description'] ?? ''),
+                'storage' => $storage,
+                'count' => $count,
             ];
         }
         return self::$aclCatalog;
@@ -153,9 +161,13 @@ class View {
         $lines = [];
         if ($meta) {
             $lines[] = $name . ' · ' . $meta['type'];
-            if ($meta['description'] !== '') {
+            if (($meta['storage'] ?? 'inline') === 'file') {
+                $lines[] = 'File list · ' . (int)($meta['count'] ?? 0) . ' values';
+                $lines[] = AclListFile::livePath($name);
+            } elseif ($meta['description'] !== '') {
                 $lines[] = $meta['description'];
             }
+            if (($meta['storage'] ?? 'inline') !== 'file') {
             $max = 16;
             $shown = array_slice($meta['entries'], 0, $max);
             if (empty($shown)) {
@@ -168,6 +180,7 @@ class View {
                 if ($more > 0) {
                     $lines[] = '… +' . $more . ' more';
                 }
+            }
             }
         } elseif (isset($builtins[$name])) {
             $lines[] = $name;

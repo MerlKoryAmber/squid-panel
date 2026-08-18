@@ -49,6 +49,7 @@ class Database {
         self::addColumnIfMissing('auth_config', 'admin_server', "TEXT DEFAULT ''");
         self::addColumnIfMissing('auth_config', 'helper', "TEXT DEFAULT ''");
         self::addColumnIfMissing('routing_rules', 'sort_order', 'INTEGER DEFAULT 0');
+        self::addColumnIfMissing('acls', 'storage', "TEXT NOT NULL DEFAULT 'inline'");
     }
 
     private static function addColumnIfMissing($table, $column, $ddl) {
@@ -57,6 +58,7 @@ class Database {
             'cache_peer_access_rules' => true,
             'auth_config' => true,
             'routing_rules' => true,
+            'acls' => true,
         ];
         if (!isset($allowed[$table])) {
             return;

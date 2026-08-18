@@ -28,14 +28,23 @@
                 <?php foreach ($acls as $acl): ?>
                 <tr>
                     <td><strong><?= htmlspecialchars($acl['name']) ?></strong></td>
-                    <td><span class="badge badge-default"><?= htmlspecialchars($acl['type']) ?></span></td>
+                    <td>
+                        <span class="badge badge-default"><?= htmlspecialchars($acl['type']) ?></span>
+                        <?php if (($acl['storage'] ?? 'inline') === 'file'): ?>
+                        <span class="badge badge-info">file</span>
+                        <?php endif; ?>
+                    </td>
                     <td style="font-size:0.82rem; color:var(--ir-text-secondary);">
                         <?php
-                        $vals = json_decode($acl['entries'] ?? $acl['values'] ?? '[]', true);
-                        if (!is_array($vals)) {
-                            $vals = [];
+                        if (($acl['storage'] ?? 'inline') === 'file') {
+                            echo htmlspecialchars((int)($acl['list_count'] ?? 0) . ' values · ' . AclListFile::livePath($acl['name']));
+                        } else {
+                            $vals = json_decode($acl['entries'] ?? $acl['values'] ?? '[]', true);
+                            if (!is_array($vals)) {
+                                $vals = [];
+                            }
+                            echo htmlspecialchars(implode(', ', array_slice($vals, 0, 5)) . (count($vals) > 5 ? '...' : ''));
                         }
-                        echo htmlspecialchars(implode(', ', array_slice($vals, 0, 5)) . (count($vals) > 5 ? '...' : ''));
                         ?>
                     </td>
                     <td>

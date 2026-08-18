@@ -164,25 +164,64 @@ class SquidConfigParser {
         if ($type === 'proxy_auth' && empty($cleanValues)) {
             $cleanValues[] = 'REQUIRED';
         }
+        $storage = 'inline';
+        $rawFirst = $values[0] ?? '';
+        if (count($cleanValues) === 1 && AclListFile::looksLikeFileRef($rawFirst !== '' ? $rawFirst : ($cleanValues[0] ?? ''))) {
+            $storage = 'file';
+            $ref = $cleanValues[0];
+            $fromFile = [];
+            if (is_readable($ref)) {
+                $fromFile = AclListFile::parseLines((string)file_get_contents($ref));
+            }
+            try {
+                if (!empty($fromFile)) {
+                    AclListFile::writeWorkFile($name, $fromFile);
+                }
+            } catch (Exception $e) {
+            }
+            $cleanValues = [];
+        } elseif (AclListFile::isFileType($type) && count($cleanValues) >= AclListFile::AUTO_FILE_MIN) {
+            $storage = 'file';
+            try {
+                AclListFile::writeWorkFile($name, $cleanValues);
+            } catch (Exception $e) {
+                $storage = 'inline';
+            }
+            if ($storage === 'file') {
+                $cleanValues = [];
+            }
+        }
         return [
             'name' => $name,
             'type' => $type,
             'entries' => $cleanValues,
+            'storage' => $storage,
         ];
     }
 
     private static function importAcl($acl) {
+        $storage = ($acl['storage'] ?? 'inline') === 'file' ? 'file' : 'inline';
         $existing = Database::fetch("SELECT id FROM acls WHERE name = ? AND type = ?", [$acl['name'], $acl['type']]);
         if ($existing) {
-            $current = Database::fetch("SELECT entries FROM acls WHERE id = ?", [$existing['id']]);
+            if ($storage === 'file') {
+                Database::query(
+                    "UPDATE acls SET entries = ?, storage = ? WHERE id = ?",
+                    [json_encode([]), 'file', $existing['id']]
+                );
+                return;
+            }
+            $current = Database::fetch("SELECT entries, storage FROM acls WHERE id = ?", [$existing['id']]);
+            if (($current['storage'] ?? 'inline') === 'file') {
+                return;
+            }
             $currentValues = json_decode($current['entries'], true) ?: [];
             $merged = array_values(array_unique(array_merge($currentValues, $acl['entries'])));
             Database::query("UPDATE acls SET entries = ? WHERE id = ?", [json_encode($merged), $existing['id']]);
             return;
         }
         Database::query(
-            "INSERT INTO acls (name, type, entries, description, group_name, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
-            [$acl['name'], $acl['type'], json_encode($acl['entries']), 'Imported from squid.conf', '']
+            "INSERT INTO acls (name, type, entries, storage, description, group_name, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
+            [$acl['name'], $acl['type'], json_encode($acl['entries']), $storage, 'Imported from squid.conf', '']
         );
     }
 
