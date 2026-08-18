@@ -149,7 +149,12 @@ class CachePeerController {
             "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, acl_entries, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
             [$peerId, $peer['hostname'], $firstAcl, $entries, $action, $isNegated ? 1 : 0, ($maxOrder['max'] ?? 0) + 1]
         );
-        Audit::log('peer_access_create', "Added {$action} {$entries} to peer {$peerId}");
+        if ($action === 'allow' && !empty($_POST['lock_path'])) {
+            self::lockPathToPeer($peerId, $entries);
+            Audit::log('peer_access_create', "Added allow {$entries} to peer {$peerId} + never_direct + deny on other peers");
+        } else {
+            Audit::log('peer_access_create', "Added {$action} {$entries} to peer {$peerId}");
+        }
         View::redirect('/peers?id=' . $peerId);
     }
 
@@ -395,5 +400,47 @@ class CachePeerController {
             $parts[] = $token;
         }
         return implode(' ', array_values(array_unique($parts)));
+    }
+
+    private static function lockPathToPeer($peerId, $entries) {
+        $exists = Database::fetch(
+            "SELECT id FROM routing_rules WHERE directive = 'never_direct' AND action = 'allow' AND acl_name = ?",
+            [$entries]
+        );
+        if (!$exists) {
+            $maxOrder = Database::fetch("SELECT MAX(sort_order) as max FROM routing_rules");
+            Database::query(
+                "INSERT INTO routing_rules (directive, action, acl_name, negated, sort_order, created_at) VALUES ('never_direct', 'allow', ?, 0, ?, datetime('now'))",
+                [$entries, ($maxOrder['max'] ?? 0) + 1]
+            );
+        }
+
+        $others = Database::fetchAll(
+            "SELECT id, hostname FROM cache_peers WHERE id != ?",
+            [$peerId]
+        );
+        $tokens = preg_split('/\s+/', $entries);
+        $firstAcl = $tokens[0] ?? $entries;
+        $isNegated = (strpos($firstAcl, '!') === 0) ? 1 : 0;
+        if ($isNegated) {
+            $firstAcl = substr($firstAcl, 1);
+        }
+        foreach ($others as $other) {
+            $dup = Database::fetch(
+                "SELECT id FROM cache_peer_access_rules WHERE peer_id = ? AND action = 'deny' AND acl_entries = ?",
+                [$other['id'], $entries]
+            );
+            if ($dup) {
+                continue;
+            }
+            Database::query(
+                "UPDATE cache_peer_access_rules SET sort_order = sort_order + 1 WHERE peer_id = ?",
+                [$other['id']]
+            );
+            Database::query(
+                "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, acl_entries, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, 'deny', ?, 1, datetime('now'))",
+                [$other['id'], $other['hostname'], $firstAcl, $entries, $isNegated]
+            );
+        }
     }
 }

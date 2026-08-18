@@ -218,6 +218,15 @@ $aclTokens = function ($entries) {
                         </div>
                         <?php endif; ?>
                     </div>
+                    <div class="form-group" id="lockPathWrap">
+                        <label class="acl-chip">
+                            <input type="checkbox" name="lock_path" value="1" checked>
+                            <span>Forbid DIRECT and other peers</span>
+                        </label>
+                        <p class="text-muted" style="font-size:0.82rem; margin-top:6px;">
+                            Adds <code>never_direct allow</code> with the same ACLs and <code>deny</code> on every other peer (skipped if already present). Uncheck if this peer may be used but DIRECT is still allowed.
+                        </p>
+                    </div>
                     <div class="form-actions" style="border:0; margin-top:0; padding-top:0;">
                         <button type="submit" class="btn btn-primary" <?= empty($acls) ? 'disabled' : '' ?>>Add rule</button>
                     </div>
@@ -370,5 +379,17 @@ function bindReorder(tableId, url, extra) {
 }
 bindReorder('peerAccessTable', '/peers/access/reorder', { peer_id: <?= (int)$selectedId ?> });
 bindReorder('routingTable', '/peers/routing/reorder', {});
+(function () {
+    const form = document.querySelector('form[action="/peers/access/store"]');
+    if (!form) return;
+    const action = form.querySelector('select[name="action"]');
+    const wrap = document.getElementById('lockPathWrap');
+    if (!action || !wrap) return;
+    const sync = function () {
+        wrap.style.display = action.value === 'allow' ? '' : 'none';
+    };
+    action.addEventListener('change', sync);
+    sync();
+})();
 </script>
 <?php endif; ?>
