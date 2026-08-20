@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'operator' CHECK(role IN ('admin', 'operator')),
     language TEXT DEFAULT 'ru',
+    policy_ui TEXT NOT NULL DEFAULT 'expert' CHECK(policy_ui IN ('simple', 'expert')),
     created_at TEXT,
     updated_at TEXT
 );
@@ -77,6 +78,18 @@ CREATE TABLE IF NOT EXISTS routing_rules (
     created_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS cascade_routes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_acls TEXT NOT NULL DEFAULT '[]',
+    to_acls TEXT NOT NULL DEFAULT '[]',
+    channel TEXT NOT NULL CHECK(channel IN ('peer', 'direct')),
+    peer_id INTEGER,
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT,
+    updated_at TEXT,
+    FOREIGN KEY (peer_id) REFERENCES cache_peers(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS auth_config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     scheme TEXT NOT NULL CHECK(scheme IN ('basic', 'digest', 'negotiate', 'ntlm')),
@@ -135,6 +148,7 @@ CREATE TABLE IF NOT EXISTS settings (
     language TEXT DEFAULT 'ru',
     theme TEXT DEFAULT 'light',
     panel_allow_ips TEXT NOT NULL DEFAULT '',
+    simple_ui_enabled INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT
 );
 

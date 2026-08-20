@@ -24,13 +24,14 @@ class SettingsController {
 
         $lang = in_array($_POST['language'] ?? '', ['ru', 'en']) ? $_POST['language'] : 'ru';
         $theme = $_POST['theme'] ?? 'light';
-        $prev = Database::fetch("SELECT panel_allow_ips FROM settings LIMIT 1") ?: [];
+        $prev = Database::fetch("SELECT panel_allow_ips, simple_ui_enabled FROM settings LIMIT 1") ?: [];
         $allow = (string)($prev['panel_allow_ips'] ?? '');
+        $simpleUi = (int)($prev['simple_ui_enabled'] ?? 0);
 
         Database::query("DELETE FROM settings");
         Database::query(
-            "INSERT INTO settings (language, theme, panel_allow_ips, updated_at) VALUES (?, ?, ?, datetime('now'))",
-            [$lang, $theme, $allow]
+            "INSERT INTO settings (language, theme, panel_allow_ips, simple_ui_enabled, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
+            [$lang, $theme, $allow, $simpleUi]
         );
 
         Audit::log('settings_save', 'Updated panel settings');
@@ -89,15 +90,17 @@ class SettingsController {
 
             $lang = 'ru';
             $theme = 'light';
+            $simpleUi = 0;
             $row = Database::fetch("SELECT * FROM settings LIMIT 1");
             if ($row) {
                 $lang = $row['language'] ?? $lang;
                 $theme = $row['theme'] ?? $theme;
+                $simpleUi = (int)($row['simple_ui_enabled'] ?? 0);
             }
             Database::query("DELETE FROM settings");
             Database::query(
-                "INSERT INTO settings (language, theme, panel_allow_ips, updated_at) VALUES (?, ?, ?, datetime('now'))",
-                [$lang, $theme, $store]
+                "INSERT INTO settings (language, theme, panel_allow_ips, simple_ui_enabled, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
+                [$lang, $theme, $store, $simpleUi]
             );
 
             PanelNet::writeTmp('spm-allow.inc', $body);

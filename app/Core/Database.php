@@ -52,6 +52,21 @@ class Database {
         self::addColumnIfMissing('routing_rules', 'sort_order', 'INTEGER DEFAULT 0');
         self::addColumnIfMissing('acls', 'storage', "TEXT NOT NULL DEFAULT 'inline'");
         self::addColumnIfMissing('settings', 'panel_allow_ips', "TEXT NOT NULL DEFAULT ''");
+        self::addColumnIfMissing('settings', 'simple_ui_enabled', "INTEGER NOT NULL DEFAULT 0");
+        self::addColumnIfMissing('users', 'policy_ui', "TEXT NOT NULL DEFAULT 'expert'");
+        self::$pdo->exec(
+            "CREATE TABLE IF NOT EXISTS cascade_routes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_acls TEXT NOT NULL DEFAULT '[]',
+                to_acls TEXT NOT NULL DEFAULT '[]',
+                channel TEXT NOT NULL CHECK(channel IN ('peer', 'direct')),
+                peer_id INTEGER,
+                sort_order INTEGER DEFAULT 0,
+                created_at TEXT,
+                updated_at TEXT,
+                FOREIGN KEY (peer_id) REFERENCES cache_peers(id) ON DELETE CASCADE
+            )"
+        );
         self::$pdo->exec(
             "CREATE TABLE IF NOT EXISTS external_acl_types (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,6 +91,7 @@ class Database {
             'routing_rules' => true,
             'acls' => true,
             'settings' => true,
+            'users' => true,
         ];
         if (!isset($allowed[$table])) {
             return;

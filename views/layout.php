@@ -33,8 +33,8 @@
             <nav class="sidebar-nav">
                 <ul>
                     <li><a href="/dashboard" class="<?= ($active ?? '') === 'dashboard' ? 'active' : '' ?>">📊 Dashboard</a></li>
-                    <li><a href="/acl" class="<?= ($active ?? '') === 'acl' ? 'active' : '' ?>">🛡 ACLs</a></li>
-                    <li><a href="/http_access" class="<?= ($active ?? '') === 'http_access' ? 'active' : '' ?>">🔒 HTTP Access</a></li>
+                    <li><a href="/acl" class="<?= ($active ?? '') === 'acl' ? 'active' : '' ?>">🛡 <?= PolicyUi::isSimple() ? 'Lists' : 'ACLs' ?></a></li>
+                    <li><a href="/http_access" class="<?= ($active ?? '') === 'http_access' ? 'active' : '' ?>">🔒 <?= PolicyUi::isSimple() ? 'HTTP rules' : 'HTTP Access' ?></a></li>
                     <li><a href="/peers" class="<?= ($active ?? '') === 'peers' ? 'active' : '' ?>">🔗 Cascade</a></li>
                     <li><a href="/auth" class="<?= ($active ?? '') === 'auth' ? 'active' : '' ?>">🔑 Authentication</a></li>
                     <li><a href="/users" class="<?= ($active ?? '') === 'users' ? 'active' : '' ?>">👤 Users</a></li>
@@ -66,6 +66,26 @@
                     <h2><?= htmlspecialchars($title ?? 'Dashboard') ?></h2>
                 </div>
                 <div class="top-header-actions">
+                    <?php if (Auth::check() && in_array(($active ?? ''), ['http_access', 'peers'], true)): ?>
+                    <?php if (PolicyUi::simpleUnlocked()): ?>
+                    <form method="POST" action="/ui/policy-mode" class="ui-mode-switch">
+                        <?= View::csrf() ?>
+                        <input type="hidden" name="return" value="<?= htmlspecialchars($_SERVER['REQUEST_URI'] ?? '/') ?>">
+                        <input type="hidden" name="mode" value="<?= PolicyUi::isSimple() ? 'expert' : 'simple' ?>">
+                        <span class="ui-mode-label"><?= PolicyUi::isSimple() ? 'Simple' : 'Expert' ?></span>
+                        <button type="submit" class="btn btn-sm btn-secondary"><?= PolicyUi::isSimple() ? 'Expert' : 'Simple' ?></button>
+                    </form>
+                    <?php elseif (Auth::isAdmin()): ?>
+                    <form method="POST" action="/ui/simple-unlock" class="ui-mode-switch" onsubmit="return confirm('Simple is for rules you build in the panel (from/to, who→channel). Imported CONNECT/port rules stay in Expert and are not converted. Enable Simple?')">
+                        <?= View::csrf() ?>
+                        <input type="hidden" name="return" value="<?= htmlspecialchars($_SERVER['REQUEST_URI'] ?? '/') ?>">
+                        <span class="ui-mode-label">Expert</span>
+                        <button type="submit" class="btn btn-sm btn-secondary">Enable Simple</button>
+                    </form>
+                    <?php else: ?>
+                    <span class="ui-mode-label">Expert</span>
+                    <?php endif; ?>
+                    <?php endif; ?>
                     <?php if (Auth::check()): ?>
                     <div class="user-badge">
                         <span><?= htmlspecialchars($_SESSION['username'] ?? '') ?></span>

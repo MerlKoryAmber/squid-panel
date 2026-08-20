@@ -54,6 +54,9 @@ $router->get('/login', 'AuthController@loginForm');
 $router->post('/login', 'AuthController@login');
 $router->get('/logout', 'AuthController@logout');
 
+$router->post('/ui/policy-mode', 'UiModeController@set');
+$router->post('/ui/simple-unlock', 'UiModeController@unlock');
+
 // Dashboard
 $router->get('/', 'DashboardController@index');
 $router->get('/dashboard', 'DashboardController@index');
@@ -94,6 +97,10 @@ $router->get('/peers/routing', 'CachePeerController@routing');
 $router->post('/peers/routing/store', 'CachePeerController@storeRouting');
 $router->post('/peers/routing/delete', 'CachePeerController@deleteRouting');
 $router->post('/peers/routing/reorder', 'CachePeerController@reorderRouting');
+
+$router->post('/peers/routes/store', 'CachePeerController@storeRoute');
+$router->post('/peers/routes/delete', 'CachePeerController@deleteRoute');
+$router->post('/peers/routes/reorder', 'CachePeerController@reorderRoutes');
 
 // Authentication (Kerberos/NTLM/Basic)
 $router->get('/auth', 'AuthConfigController@index');

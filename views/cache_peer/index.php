@@ -3,6 +3,11 @@ $isAdmin = !empty($isAdmin);
 $creating = !empty($creating);
 $selectedId = (int)($peer['id'] ?? 0);
 $csrf = View::csrfToken();
+$simpleUi = !empty($simpleUi);
+$catalog = $catalog ?? [];
+$cascadeRoutes = $cascadeRoutes ?? [];
+$fromLists = $fromLists ?? [];
+$toLists = $toLists ?? [];
 $aclTokens = function ($entries) {
     $parts = preg_split('/\s+/', trim((string)$entries));
     return array_values(array_filter($parts, 'strlen'));
@@ -15,11 +20,18 @@ $aclTokens = function ($entries) {
     <?php endif; ?>
 </div>
 
+<?php if (!$simpleUi): ?>
 <p class="text-secondary" style="margin-top:-12px; margin-bottom: var(--space-lg);">
     Peers are upstream proxies. Access rules decide which requests may use the selected peer.
     “When to use cascade” decides whether Squid must go via a peer or direct.
     Large destination lists belong in an ACL stored as a file (ACLs → Large list), then select that one ACL here — do not paste thousands of sites into Cascade.
 </p>
+<?php else: ?>
+<p class="text-secondary" style="margin-top:-12px; margin-bottom: var(--space-lg);">
+    Peers are upstream channels. Rules below send matching traffic to one peer or direct.
+    Saving routes rebuilds channel policy from this table.
+</p>
+<?php endif; ?>
 
 <div class="cascade">
     <aside class="cascade-list card">
@@ -129,7 +141,7 @@ $aclTokens = function ($entries) {
             </div>
         </div>
 
-        <?php if ($peer && !$creating): ?>
+        <?php if (!$simpleUi && $peer && !$creating): ?>
         <div class="card">
             <div class="card-header">
                 <h3>Who may use this peer</h3>
@@ -247,6 +259,7 @@ $aclTokens = function ($entries) {
     </section>
 </div>
 
+<?php if (!$simpleUi): ?>
 <div class="card" id="cascade-when">
     <div class="card-header">
         <h3>When to use cascade</h3>
@@ -348,6 +361,119 @@ $aclTokens = function ($entries) {
     </div>
     <?php endif; ?>
 </div>
+<?php endif; ?>
+
+<?php if ($simpleUi): ?>
+<div class="card">
+    <div class="card-header">
+        <h3>Who goes where</h3>
+        <span class="subtitle">First match wins · drag to reorder</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <?php if (empty($cascadeRoutes)): ?>
+        <div class="empty-state">
+            <h4>No routes in simple view</h4>
+            <p>If traffic already uses expert channel rules, switch to Expert. Saving a route here rebuilds channel policy from this table.</p>
+        </div>
+        <?php else: ?>
+        <table class="data-table" id="cascadeRouteTable">
+            <thead>
+                <tr>
+                    <?php if ($isAdmin): ?><th style="width:40px;"></th><?php endif; ?>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Channel</th>
+                    <?php if ($isAdmin): ?><th style="width:90px;"></th><?php endif; ?>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($cascadeRoutes as $route):
+                    $from = json_decode($route['from_acls'], true) ?: [];
+                    $to = json_decode($route['to_acls'], true) ?: [];
+                    $channelLabel = 'Direct';
+                    if (($route['channel'] ?? '') === 'peer') {
+                        $channelLabel = 'Peer';
+                        foreach ($peers as $pp) {
+                            if ((int)$pp['id'] === (int)$route['peer_id']) {
+                                $channelLabel = $pp['name'] ?: $pp['hostname'];
+                                break;
+                            }
+                        }
+                    }
+                ?>
+                <tr data-id="<?= (int)$route['id'] ?>">
+                    <?php if ($isAdmin): ?><td class="drag-handle">⋮⋮</td><?php endif; ?>
+                    <td>
+                        <?php if (empty($from)): ?>
+                        <span class="text-secondary">Anyone</span>
+                        <?php else: foreach ($from as $n) {
+                            $meta = $catalog[$n] ?? ['name' => $n];
+                            echo '<span class="badge badge-default">' . htmlspecialchars(PolicyAclKind::label($meta)) . '</span> ';
+                        } endif; ?>
+                    </td>
+                    <td>
+                        <?php if (empty($to)): ?>
+                        <span class="text-secondary">Any site</span>
+                        <?php else: foreach ($to as $n) {
+                            $meta = $catalog[$n] ?? ['name' => $n];
+                            echo '<span class="badge badge-default">' . htmlspecialchars(PolicyAclKind::label($meta)) . '</span> ';
+                        } endif; ?>
+                    </td>
+                    <td><?= htmlspecialchars($channelLabel) ?></td>
+                    <?php if ($isAdmin): ?>
+                    <td>
+                        <form method="POST" action="/peers/routes/delete" onsubmit="return confirm('Delete this route?')">
+                            <?= View::csrf() ?>
+                            <input type="hidden" name="id" value="<?= (int)$route['id'] ?>">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
+                    <?php endif; ?>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
+    </div>
+    <?php if ($isAdmin): ?>
+    <div class="card-body" style="border-top:1px solid var(--ir-border-light);">
+        <form method="POST" action="/peers/routes/store">
+            <?= View::csrf() ?>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>From</label>
+                    <select name="from[]" multiple size="5">
+                        <?php foreach ($fromLists as $item): ?>
+                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item)) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>To</label>
+                    <select name="to[]" multiple size="5">
+                        <?php foreach ($toLists as $item): ?>
+                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item)) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Channel</label>
+                    <select name="target">
+                        <option value="direct">Direct</option>
+                        <?php foreach ($peers as $pp): ?>
+                        <option value="<?= (int)$pp['id'] ?>"><?= htmlspecialchars($pp['name'] ?: $pp['hostname']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions" style="border:0; margin-top:0; padding-top:0;">
+                <button type="submit" class="btn btn-primary" <?= (empty($fromLists) && empty($toLists)) ? 'disabled' : '' ?>>Add route</button>
+            </div>
+        </form>
+    </div>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <?php if ($isAdmin): ?>
 <script src="/assets/js/sortable.js"></script>
@@ -379,6 +505,7 @@ function bindReorder(tableId, url, extra) {
 }
 bindReorder('peerAccessTable', '/peers/access/reorder', { peer_id: <?= (int)$selectedId ?> });
 bindReorder('routingTable', '/peers/routing/reorder', {});
+bindReorder('cascadeRouteTable', '/peers/routes/reorder', {});
 (function () {
     const form = document.querySelector('form[action="/peers/access/store"]');
     if (!form) return;

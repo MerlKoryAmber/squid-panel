@@ -29,15 +29,21 @@ class CachePeerController {
             }
         }
 
+        $catalog = PolicyAclKind::catalogByName();
         echo View::render('cache_peer.index', [
             'title' => 'Cascade',
             'active' => 'peers',
+            'simpleUi' => PolicyUi::isSimple(),
             'peers' => $peers,
             'peer' => $peer,
             'creating' => $creating,
             'accessRules' => $accessRules,
             'routingRules' => Database::fetchAll("SELECT * FROM routing_rules ORDER BY sort_order, id"),
+            'cascadeRoutes' => Database::fetchAll("SELECT * FROM cascade_routes ORDER BY sort_order, id"),
             'acls' => Database::fetchAll("SELECT name, type FROM acls ORDER BY name"),
+            'catalog' => $catalog,
+            'fromLists' => PolicyAclKind::lists('from', $catalog),
+            'toLists' => PolicyAclKind::lists('to', $catalog),
             'isAdmin' => Auth::isAdmin(),
         ]);
     }
@@ -98,6 +104,10 @@ class CachePeerController {
             ]
         );
         Audit::log('peer_update', "Updated cache_peer {$peer['hostname']}");
+        $left = Database::fetch("SELECT COUNT(*) AS c FROM cascade_routes");
+        if ((int)($left['c'] ?? 0) > 0) {
+            CascadeRouteCompiler::applyFromDb();
+        }
         View::redirect('/peers?id=' . $id);
     }
 
@@ -108,8 +118,13 @@ class CachePeerController {
         $peer = Database::fetch("SELECT hostname FROM cache_peers WHERE id = ?", [$id]);
         if ($peer) {
             Database::query("DELETE FROM cache_peer_access_rules WHERE peer_id = ?", [$id]);
+            Database::query("DELETE FROM cascade_routes WHERE peer_id = ?", [$id]);
             Database::query("DELETE FROM cache_peers WHERE id = ?", [$id]);
             Audit::log('peer_delete', "Deleted cache_peer {$peer['hostname']}");
+            $left = Database::fetch("SELECT COUNT(*) AS c FROM cascade_routes");
+            if ((int)($left['c'] ?? 0) > 0) {
+                CascadeRouteCompiler::applyFromDb();
+            }
         }
         View::redirect('/peers');
     }
@@ -149,6 +164,7 @@ class CachePeerController {
             "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, acl_entries, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
             [$peerId, $peer['hostname'], $firstAcl, $entries, $action, $isNegated ? 1 : 0, ($maxOrder['max'] ?? 0) + 1]
         );
+        PolicyUi::forgetCascadeRoutes();
         if ($action === 'allow' && !empty($_POST['lock_path'])) {
             self::lockPathToPeer($peerId, $entries);
             Audit::log('peer_access_create', "Added allow {$entries} to peer {$peerId} + never_direct + deny on other peers");
@@ -164,6 +180,7 @@ class CachePeerController {
         $id = (int)($_POST['id'] ?? 0);
         $peerId = (int)($_POST['peer_id'] ?? 0);
         Database::query("DELETE FROM cache_peer_access_rules WHERE id = ?", [$id]);
+        PolicyUi::forgetCascadeRoutes();
         Audit::log('peer_access_delete', "Deleted peer access rule {$id}");
         View::redirect('/peers?id=' . $peerId);
     }
@@ -203,6 +220,7 @@ class CachePeerController {
             "UPDATE cache_peer_access_rules SET acl_name = ?, acl_entries = ?, action = ?, negated = ?, updated_at = datetime('now') WHERE id = ?",
             [$firstAcl, $entries, $action, $isNegated ? 1 : 0, $id]
         );
+        PolicyUi::forgetCascadeRoutes();
         Audit::log('peer_access_update', "Updated peer access rule {$id}");
         View::redirect('/peers?id=' . (int)$rule['peer_id']);
     }
@@ -222,6 +240,7 @@ class CachePeerController {
                 [$index + 1, (int)$id, $peerId]
             );
         }
+        PolicyUi::forgetCascadeRoutes();
         Audit::log('peer_access_reorder', "Reordered access rules for peer {$peerId}");
         header('Content-Type: application/json');
         echo json_encode(['success' => true]);
@@ -248,6 +267,7 @@ class CachePeerController {
             "INSERT INTO routing_rules (directive, action, acl_name, negated, sort_order, created_at) VALUES (?, ?, ?, 0, ?, datetime('now'))",
             [$directive, $action, $entries, ($maxOrder['max'] ?? 0) + 1]
         );
+        PolicyUi::forgetCascadeRoutes();
         Audit::log('routing_create', "{$directive} {$action} {$entries}");
         View::redirect('/peers#cascade-when');
     }
@@ -257,6 +277,7 @@ class CachePeerController {
         View::verifyCsrf();
         $id = (int)($_POST['id'] ?? 0);
         Database::query("DELETE FROM routing_rules WHERE id = ?", [$id]);
+        PolicyUi::forgetCascadeRoutes();
         Audit::log('routing_delete', "Deleted routing rule {$id}");
         View::redirect('/peers#cascade-when');
     }
@@ -272,6 +293,7 @@ class CachePeerController {
         foreach ($order as $index => $id) {
             Database::query("UPDATE routing_rules SET sort_order = ? WHERE id = ?", [$index + 1, (int)$id]);
         }
+        PolicyUi::forgetCascadeRoutes();
         Audit::log('routing_reorder', 'Reordered cascade routing rules');
         header('Content-Type: application/json');
         echo json_encode(['success' => true]);
@@ -279,6 +301,86 @@ class CachePeerController {
 
     public function updateRouting($params = []) {
         $this->storeRouting($params);
+    }
+
+    public function storeRoute($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+        $catalog = PolicyAclKind::catalogByName();
+        $from = self::namedListsFromPost('from', $catalog, 'from');
+        $to = self::namedListsFromPost('to', $catalog, 'to');
+        $tokens = CascadeRouteCompiler::tokens($from, $to);
+        if ($tokens === []) {
+            http_response_code(400);
+            die('Need at least one source or destination list');
+        }
+        $channel = 'direct';
+        $peerId = null;
+        $target = (string)($_POST['target'] ?? 'direct');
+        if ($target !== 'direct') {
+            $channel = 'peer';
+            $peerId = (int)$target;
+            $peer = Database::fetch("SELECT id FROM cache_peers WHERE id = ?", [$peerId]);
+            if (!$peer) {
+                http_response_code(400);
+                die('Select a peer');
+            }
+        }
+        $maxOrder = Database::fetch("SELECT MAX(sort_order) as max FROM cascade_routes");
+        Database::query(
+            "INSERT INTO cascade_routes (from_acls, to_acls, channel, peer_id, sort_order, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+            [json_encode($from), json_encode($to), $channel, $peerId, ($maxOrder['max'] ?? 0) + 1]
+        );
+        CascadeRouteCompiler::applyFromDb();
+        Audit::log('cascade_route_create', "Route {$channel} " . implode(' ', $tokens));
+        View::redirect('/peers');
+    }
+
+    public function deleteRoute($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+        $id = (int)($_POST['id'] ?? 0);
+        Database::query("DELETE FROM cascade_routes WHERE id = ?", [$id]);
+        CascadeRouteCompiler::applyFromDb();
+        Audit::log('cascade_route_delete', "Deleted cascade route {$id}");
+        View::redirect('/peers');
+    }
+
+    public function reorderRoutes($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+        $data = View::jsonInput();
+        $order = $data['order'] ?? $_POST['order'] ?? [];
+        if (!is_array($order)) {
+            $order = [];
+        }
+        foreach ($order as $index => $id) {
+            Database::query("UPDATE cascade_routes SET sort_order = ? WHERE id = ?", [$index + 1, (int)$id]);
+        }
+        CascadeRouteCompiler::applyFromDb();
+        Audit::log('cascade_route_reorder', 'Reordered cascade routes');
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true]);
+    }
+
+    private static function namedListsFromPost($field, array $catalog, $wantKind) {
+        $raw = $_POST[$field] ?? [];
+        if (!is_array($raw)) {
+            $raw = [];
+        }
+        $names = [];
+        foreach ($raw as $name) {
+            $name = trim((string)$name);
+            if ($name === '' || !isset($catalog[$name])) {
+                continue;
+            }
+            $kind = PolicyAclKind::kind($catalog[$name]['name'], $catalog[$name]['type'], $catalog[$name]['storage'] ?? 'inline');
+            if ($kind === $wantKind) {
+                $names[] = $name;
+            }
+        }
+        return array_values(array_unique($names));
     }
 
     private static function aclEntriesFromPost() {
