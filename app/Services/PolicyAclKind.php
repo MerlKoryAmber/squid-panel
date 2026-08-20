@@ -39,7 +39,7 @@ class PolicyAclKind {
 
     public static function catalogByName() {
         $out = [];
-        foreach (Database::fetchAll("SELECT name, type, storage, description FROM acls") as $row) {
+        foreach (Database::fetchAll("SELECT name, type, storage, description, entries FROM acls") as $row) {
             $out[$row['name']] = $row;
         }
         return $out;
@@ -138,5 +138,66 @@ class PolicyAclKind {
             return 'Rule #' . (int)($rule['id'] ?? 0);
         }
         return $d;
+    }
+
+    public static function memberPreview(array $meta, $limit = 3) {
+        $limit = (int)$limit;
+        if ($limit < 1) {
+            $limit = 3;
+        }
+        $name = (string)($meta['name'] ?? '');
+        $type = strtolower(trim((string)($meta['type'] ?? '')));
+        if (($name !== '' && strpos($name, 'ad_') === 0) || $type === 'external') {
+            return ['samples' => [], 'total' => 0, 'note' => 'AD group · live LDAP'];
+        }
+        if (($meta['storage'] ?? 'inline') === 'file' && $name !== '' && class_exists('AclListFile')) {
+            $file = AclListFile::previewWorkFile($name, $limit);
+            return [
+                'samples' => $file['samples'],
+                'total' => (int)$file['total'],
+                'note' => '',
+            ];
+        }
+        $vals = json_decode((string)($meta['entries'] ?? '[]'), true);
+        if (!is_array($vals)) {
+            $vals = [];
+        }
+        $clean = [];
+        foreach ($vals as $v) {
+            $v = trim((string)$v);
+            if ($v === '' || (class_exists('AclListFile') && AclListFile::looksLikeFileRef($v))) {
+                continue;
+            }
+            $clean[] = $v;
+        }
+        return [
+            'samples' => array_slice($clean, 0, $limit),
+            'total' => count($clean),
+            'note' => '',
+        ];
+    }
+
+    public static function labelWithPreview(array $meta, $limit = 3) {
+        $name = self::label($meta, false);
+        $p = self::memberPreview($meta, $limit);
+        if ($p['note'] !== '') {
+            return $name . ' — ' . $p['note'];
+        }
+        if ($p['samples'] === []) {
+            return $name;
+        }
+        $bits = [];
+        foreach ($p['samples'] as $s) {
+            if (strlen($s) > 32) {
+                $s = substr($s, 0, 29) . '…';
+            }
+            $bits[] = $s;
+        }
+        $text = $name . ' — ' . implode(', ', $bits);
+        $more = $p['total'] - count($p['samples']);
+        if ($more > 0) {
+            $text .= ' (+' . $more . ')';
+        }
+        return $text;
     }
 }

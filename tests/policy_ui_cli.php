@@ -18,6 +18,15 @@ expect(PolicyAclKind::kind('ad_hr', 'external') === 'from', 'ad_* is from');
 expect(PolicyAclKind::kind('banks', 'dstdomain', 'file') === 'to', 'dstdomain file is to');
 expect(PolicyAclKind::label(['name' => 'localnet', 'description' => 'Imported from squid.conf']) === 'localnet', 'generic import desc uses name');
 expect(PolicyAclKind::label(['name' => 'hr', 'type' => 'src'], true) === 'hr (src)', 'label with type');
+$prev = PolicyAclKind::labelWithPreview([
+    'name' => 'office',
+    'type' => 'src',
+    'storage' => 'inline',
+    'entries' => json_encode(['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']),
+]);
+expect($prev === 'office — 10.0.0.1, 10.0.0.2, 10.0.0.3 (+1)', 'preview +N');
+$ad = PolicyAclKind::labelWithPreview(['name' => 'ad_hr', 'type' => 'external', 'entries' => '[]']);
+expect(strpos($ad, 'live LDAP') !== false, 'AD preview is LDAP note');
 
 $catalog = [
     'office' => ['name' => 'office', 'type' => 'src', 'storage' => 'inline'],

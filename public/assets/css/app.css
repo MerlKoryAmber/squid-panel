@@ -536,6 +536,15 @@ a:hover { color: var(--ir-primary-light); text-decoration: underline; }
     background: var(--ir-surface-hover);
 }
 
+#rulesTable tbody td a {
+    color: inherit;
+    text-decoration: none;
+}
+#rulesTable tbody td a:hover {
+    color: var(--ir-info);
+    text-decoration: underline;
+}
+
 .data-table tbody td {
     padding: 14px var(--space-md);
     border-bottom: 1px solid var(--ir-border-light);
@@ -1032,5 +1041,93 @@ span.acl-ref .badge { cursor: help; }
     gap: var(--space-sm);
 }
 tr.is-disabled td { opacity: 0.55; }
+
+body.spm-drawer-open { overflow: hidden; }
+
+#rulesTable tbody tr[data-rule] { cursor: pointer; }
+#rulesTable tbody tr.is-selected {
+    background: var(--ir-info-bg);
+}
+#rulesTable tbody tr.is-selected:hover {
+    background: var(--ir-info-bg);
+}
+
+.spm-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 3500;
+    display: flex;
+    justify-content: flex-end;
+}
+.spm-drawer[hidden] { display: none !important; }
+.spm-drawer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 27, 46, 0.4);
+}
+.spm-drawer-panel {
+    position: relative;
+    width: min(480px, 100%);
+    height: 100%;
+    background: var(--ir-surface);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+}
+.spm-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--ir-border);
+}
+.spm-drawer-head h3 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+.spm-drawer-close {
+    border: 0;
+    background: transparent;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: var(--ir-text-secondary);
+    cursor: pointer;
+    padding: 4px 8px;
+}
+.spm-drawer-body {
+    flex: 1;
+    overflow: auto;
+    padding: var(--space-lg);
+}
+.spm-drawer-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    border-top: 1px solid var(--ir-border);
+    background: var(--ir-surface);
+}
+.spm-drawer-foot-left,
+.spm-drawer-foot-right {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+.spm-drawer .form-group { margin-bottom: var(--space-md); }
+.spm-drawer .form-hint {
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: var(--ir-text-secondary);
+}
+.spm-preview-badge {
+    display: inline-block;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
 
 

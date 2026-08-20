@@ -108,6 +108,45 @@ class AclListFile {
         return count(self::readWorkFile($aclName));
     }
 
+    /** First $limit members + total, one pass, no full array in memory. */
+    public static function previewWorkFile($aclName, $limit = 3) {
+        $limit = (int)$limit;
+        if ($limit < 1) {
+            $limit = 3;
+        }
+        $path = self::workPath($aclName);
+        if (!is_readable($path)) {
+            $live = self::livePath($aclName);
+            $path = is_readable($live) ? $live : '';
+        }
+        if ($path === '') {
+            return ['samples' => [], 'total' => 0];
+        }
+        $fh = @fopen($path, 'rb');
+        if ($fh === false) {
+            return ['samples' => [], 'total' => 0];
+        }
+        $seen = [];
+        $samples = [];
+        $total = 0;
+        while (($raw = fgets($fh)) !== false) {
+            $line = trim($raw);
+            if ($line === '' || strpos($line, '#') === 0) {
+                continue;
+            }
+            if (isset($seen[$line])) {
+                continue;
+            }
+            $seen[$line] = true;
+            $total++;
+            if (count($samples) < $limit) {
+                $samples[] = $line;
+            }
+        }
+        fclose($fh);
+        return ['samples' => $samples, 'total' => $total];
+    }
+
     public static function installLive($aclName) {
         return PrivilegedExecutor::execute('acl_file_install', [self::fileName($aclName)]);
     }

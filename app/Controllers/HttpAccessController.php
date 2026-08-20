@@ -11,6 +11,21 @@ class HttpAccessController {
             }
             unset($rule);
         }
+        $editId = (int)($_GET['edit'] ?? 0);
+        $drawerAdd = isset($_GET['add']);
+        $drawerRule = null;
+        if ($simple && $editId > 0) {
+            foreach ($rules as $r) {
+                if ((int)$r['id'] === $editId) {
+                    if (!empty($r['_parsed']['simple'])) {
+                        $drawerRule = $r;
+                    } else {
+                        $_SESSION['flash_error'] = 'This rule is not a from/to rule. Use expert mode.';
+                    }
+                    break;
+                }
+            }
+        }
         echo View::render($simple ? 'http_access.simple' : 'http_access.index', [
             'title' => $simple ? 'Access rules' : 'HTTP Access Rules',
             'active' => 'http_access',
@@ -20,6 +35,8 @@ class HttpAccessController {
             'toLists' => PolicyAclKind::lists('to', $catalog),
             'catalog' => $catalog,
             'isAdmin' => Auth::isAdmin(),
+            'drawerAdd' => $simple && $drawerAdd,
+            'drawerRule' => $simple ? $drawerRule : null,
         ]);
     }
 
@@ -95,15 +112,7 @@ class HttpAccessController {
                 $_SESSION['flash_error'] = 'This rule is not a from/to rule. Use expert mode.';
                 View::redirect('/http_access');
             }
-            echo View::render('http_access.simple_edit', [
-                'title' => 'Edit HTTP rule',
-                'active' => 'http_access',
-                'rule' => $rule,
-                'parsed' => $parsed,
-                'fromLists' => PolicyAclKind::lists('from', $catalog),
-                'toLists' => PolicyAclKind::lists('to', $catalog),
-                'catalog' => $catalog,
-            ]);
+            View::redirect('/http_access?edit=' . $id);
             return;
         }
         echo View::render('http_access.edit', [
