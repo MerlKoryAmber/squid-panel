@@ -123,6 +123,11 @@ else
     echo "Installer already in $SPM_DIR, skipping copy"
 fi
 
+if [ ! -f "$SPM_DIR/public/index.php" ]; then
+    echo "ERROR: $SPM_DIR/public/index.php missing after copy from $SCRIPT_DIR"
+    exit 1
+fi
+
 mkdir -p "$SPM_DIR/storage/logs" "$SPM_DIR/storage/tmp" "$SPM_DIR/storage/acl" "$SPM_DIR/database" "$SPM_DIR/views/users"
 
 if [ "$HAD_EXISTING_DB" = "1" ] && [ -f "$PRESERVED_DB" ]; then
@@ -193,14 +198,22 @@ server {
     include /etc/nginx/conf.d/spm-allow.inc;
 
     location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
+        try_files \$uri \$uri/ @front;
+    }
+
+    location @front {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php-fpm/spm.sock;
+        fastcgi_param SCRIPT_FILENAME /opt/spm/public/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+        fastcgi_read_timeout 300;
     }
 
     location ~ \\.php\$ {
-        fastcgi_pass unix:/run/php-fpm/spm.sock;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         include fastcgi_params;
+        fastcgi_pass unix:/run/php-fpm/spm.sock;
+        fastcgi_param SCRIPT_FILENAME /opt/spm/public/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
         fastcgi_read_timeout 300;
     }
 
@@ -245,7 +258,9 @@ pm.start_servers = 3
 pm.min_spare_servers = 2
 pm.max_spare_servers = 5
 pm.max_requests = 500
-php_admin_value[open_basedir] = /opt/spm:/tmp:/var/log/squid:/etc/squid:/run:/proc:/etc/krb5.conf
+php_admin_value[open_basedir] = /opt/spm:/tmp:/var/log/squid:/etc/squid:/run:/proc:/etc/krb5.conf:/var/lib/php
+php_admin_value[cgi.fix_pathinfo] = 0
+php_admin_value[session.save_path] = /opt/spm/storage/tmp
 php_admin_value[disable_functions] = exec,passthru,system,curl_exec,curl_multi_exec,parse_ini_file,show_source,proc_open,popen
 php_admin_value[upload_max_filesize] = 10M
 php_admin_value[post_max_size] = 10M
@@ -332,8 +347,9 @@ if systemctl list-unit-files | grep -q '^nginx.service'; then
             systemctl restart nginx
         fi
     else
-        echo "WARNING: Nginx config test failed."
+        echo "ERROR: nginx -t failed. Panel vhost not applied."
         nginx -t || true
+        exit 1
     fi
 fi
 
