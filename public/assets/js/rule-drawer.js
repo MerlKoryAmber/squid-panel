@@ -136,7 +136,7 @@
             if (e.target.closest('.drag-handle')) {
                 return;
             }
-            if (e.target.closest('a, button, form')) {
+            if (e.target.closest('button')) {
                 return;
             }
             const tr = e.target.closest('tr[data-rule]');

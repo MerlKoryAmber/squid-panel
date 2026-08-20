@@ -45,7 +45,8 @@ if ($drTitle === ('Rule #' . (int)($drawerRule['id'] ?? 0))) {
             </thead>
             <tbody>
                 <?php foreach ($rules as $rule):
-                    $p = $rule['_parsed'] ?? ['simple' => false, 'from' => [], 'to' => []];
+                    $p = $rule['_parsed'] ?? ['simple' => false, 'from' => [], 'to' => [], 'other' => []];
+                    $cols = PolicyAclKind::columnLabels($p, $catalog);
                     $on = !isset($rule['enabled']) || (int)$rule['enabled'] === 1;
                     $title = PolicyAclKind::ruleTitle($rule);
                     $payload = [
@@ -66,31 +67,26 @@ if ($drTitle === ('Rule #' . (int)($drawerRule['id'] ?? 0))) {
                     <td><a href="/http_access?edit=<?= (int)$rule['id'] ?>"><?= htmlspecialchars($title) ?></a></td>
                     <td>
                         <?php if (empty($p['simple'])): ?>
-                        <span class="badge badge-warning">Complex</span>
-                        <form method="POST" action="/ui/policy-mode" style="display:inline">
+                        <form method="POST" action="/ui/policy-mode" hidden>
                             <?= View::csrf() ?>
                             <input type="hidden" name="mode" value="expert">
                             <input type="hidden" name="return" value="/http_access/edit?id=<?= (int)$rule['id'] ?>">
-                            <button type="submit" class="btn btn-sm btn-secondary">Open in expert</button>
                         </form>
-                        <?php elseif (empty($p['from'])): ?>
+                        <?php endif; ?>
+                        <?php if (empty($cols['from'])): ?>
                         <span class="text-secondary">Any initiator</span>
                         <?php else: ?>
-                        <?php foreach ($p['from'] as $n) {
-                            $meta = $catalog[$n] ?? ['name' => $n];
-                            echo '<span class="badge badge-default spm-preview-badge" title="' . htmlspecialchars(PolicyAclKind::labelWithPreview($meta)) . '">' . htmlspecialchars(PolicyAclKind::labelWithPreview($meta)) . '</span> ';
+                        <?php foreach ($cols['from'] as $text) {
+                            echo '<span class="badge badge-default spm-preview-badge" title="' . htmlspecialchars($text) . '">' . htmlspecialchars($text) . '</span> ';
                         } ?>
                         <?php endif; ?>
                     </td>
                     <td>
-                        <?php if (empty($p['simple'])): ?>
-                        —
-                        <?php elseif (empty($p['to'])): ?>
+                        <?php if (empty($cols['to'])): ?>
                         <span class="text-secondary">Any URL</span>
                         <?php else: ?>
-                        <?php foreach ($p['to'] as $n) {
-                            $meta = $catalog[$n] ?? ['name' => $n];
-                            echo '<span class="badge badge-default spm-preview-badge" title="' . htmlspecialchars(PolicyAclKind::labelWithPreview($meta)) . '">' . htmlspecialchars(PolicyAclKind::labelWithPreview($meta)) . '</span> ';
+                        <?php foreach ($cols['to'] as $text) {
+                            echo '<span class="badge badge-default spm-preview-badge" title="' . htmlspecialchars($text) . '">' . htmlspecialchars($text) . '</span> ';
                         } ?>
                         <?php endif; ?>
                     </td>

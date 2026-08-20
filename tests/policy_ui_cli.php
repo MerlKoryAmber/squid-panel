@@ -37,7 +37,12 @@ $a = PolicyAclKind::analyze(['office', 'banks'], $catalog);
 expect($a['simple'] === true, 'from+to simple');
 $b = PolicyAclKind::analyze(['office', 'SSL_ports'], $catalog);
 expect($b['simple'] === false, 'port makes complex');
+$cols = PolicyAclKind::columnLabels($b, $catalog);
+expect($cols['from'] === ['office'], 'complex initiator still office');
+expect($cols['to'] === ['SSL_ports'], 'port listed as traffic filter, not Complex');
 $c = PolicyAclKind::analyze(['!office', 'banks'], $catalog);
+$cCols = PolicyAclKind::columnLabels($c, $catalog);
+expect($cCols['from'][0] === 'except office', 'negation is except + name');
 expect($c['simple'] === false, 'negation complex');
 
 $peers = [

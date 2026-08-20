@@ -87,6 +87,45 @@ class PolicyAclKind {
         ];
     }
 
+    /** Same column texts as simple rules; extra tokens (port, !acl) stay in from/to, not a Complex badge. */
+    public static function columnLabels(array $parsed, array $catalog) {
+        $from = [];
+        foreach ($parsed['from'] ?? [] as $name) {
+            $from[] = self::tokenLabel((string)$name, $catalog);
+        }
+        $to = [];
+        foreach ($parsed['to'] ?? [] as $name) {
+            $to[] = self::tokenLabel((string)$name, $catalog);
+        }
+        foreach ($parsed['other'] ?? [] as $raw) {
+            $raw = (string)$raw;
+            $bare = (isset($raw[0]) && $raw[0] === '!') ? substr($raw, 1) : $raw;
+            $meta = $catalog[$bare] ?? null;
+            $kind = $meta
+                ? self::kind($meta['name'], $meta['type'], $meta['storage'] ?? 'inline')
+                : 'other';
+            $label = self::tokenLabel($raw, $catalog);
+            if ($kind === 'from') {
+                $from[] = $label;
+            } else {
+                $to[] = $label;
+            }
+        }
+        return ['from' => $from, 'to' => $to];
+    }
+
+    public static function tokenLabel($raw, array $catalog) {
+        $raw = trim((string)$raw);
+        $neg = ($raw !== '' && $raw[0] === '!');
+        $name = $neg ? substr($raw, 1) : $raw;
+        $meta = $catalog[$name] ?? ['name' => $name];
+        $text = self::labelWithPreview($meta);
+        if ($neg) {
+            $text = 'except ' . $text;
+        }
+        return $text;
+    }
+
     public static function tokensFromJson($json) {
         $decoded = json_decode((string)$json, true);
         if (!is_array($decoded)) {
