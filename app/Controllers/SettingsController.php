@@ -119,4 +119,28 @@ class SettingsController {
         }
         View::redirect('/settings');
     }
+
+    public function applyPolicy($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+        $back = (string)($_POST['return'] ?? '/settings');
+        $allowBack = ['/settings' => true, '/http_access' => true, '/peers' => true, '/acl' => true];
+        if (!isset($allowBack[$back])) {
+            $back = '/settings';
+        }
+        try {
+            SquidPolicyApply::stageFromDatabase();
+            $result = PrivilegedExecutor::execute('squid_policy_apply');
+            if (empty($result['success'])) {
+                $err = trim((string)(($result['stderr'] ?? '') ?: ($result['error'] ?? '') ?: ($result['stdout'] ?? 'policy apply failed')));
+                $_SESSION['flash_error'] = $err;
+            } else {
+                $_SESSION['flash_success'] = trim((string)($result['stdout'] ?? 'Policy applied to Squid'));
+                Audit::log('squid_policy_apply', 'acl/http_access/cascade includes');
+            }
+        } catch (Throwable $e) {
+            $_SESSION['flash_error'] = $e->getMessage();
+        }
+        View::redirect($back);
+    }
 }

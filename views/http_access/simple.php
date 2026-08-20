@@ -15,14 +15,22 @@ if ($drTitle === ('Rule #' . (int)($drawerRule['id'] ?? 0))) {
 </div>
 
 <?php if (!empty($_SESSION['flash_error'])): ?>
-<p class="text-secondary"><?= htmlspecialchars($_SESSION['flash_error']) ?></p>
+<div class="alert alert-danger"><?= htmlspecialchars($_SESSION['flash_error']) ?></div>
 <?php unset($_SESSION['flash_error']); endif; ?>
+<?php if (!empty($_SESSION['flash_success'])): ?>
+<div class="alert alert-success"><?= htmlspecialchars($_SESSION['flash_success']) ?></div>
+<?php unset($_SESSION['flash_success']); endif; ?>
 
 <div class="card">
     <div class="card-header">
         <h3>Rules</h3>
         <?php if (!empty($isAdmin)): ?>
         <a href="/http_access?add=1" class="btn btn-sm btn-primary" id="spm-rule-add">Add rule</a>
+        <form method="POST" action="/settings/apply-policy" style="display:inline" data-confirm="Apply panel policy to live Squid? Parse failure leaves live conf unchanged.">
+            <?= View::csrf() ?>
+            <input type="hidden" name="return" value="/http_access">
+            <button type="submit" class="btn btn-sm btn-secondary">Apply to Squid</button>
+        </form>
         <?php endif; ?>
     </div>
     <div class="card-body" style="padding: 0;">

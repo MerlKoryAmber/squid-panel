@@ -41,6 +41,7 @@ ALLOWED_COMMANDS = {
     "keytab_install": ["__keytab_install__"],
     "ad_ldap_groups": ["__ad_ldap_groups__"],
     "squid_listen_apply": ["__squid_listen_apply__"],
+    "squid_policy_apply": ["__squid_policy_apply__"],
     "nginx_allow_apply": ["__nginx_allow_apply__"],
 }
 
@@ -215,6 +216,30 @@ NGINX_BIN = "/usr/sbin/nginx"
 LISTEN_LINE = re.compile(
     r"^(#.*|http_port\s+\S.*|visible_hostname\s+[A-Za-z0-9._-]+)$"
 )
+POLICY_FILE_RE = re.compile(r"^spm-(acl|peers|http_access)\.conf$")
+POLICY_LINE = re.compile(
+    r"^(#.*|acl\s+\S.*|http_access\s+\S.*|cache_peer\s+\S.*|"
+    r"cache_peer_access\s+\S.*|never_direct\s+\S.*|always_direct\s+\S.*)$"
+)
+POLICY_MARK = "# SPM managed ACL / access / cascade"
+POLICY_INCLUDES = [
+    "include /etc/squid/spm-acl.conf",
+    "include /etc/squid/spm-peers.conf",
+    "include /etc/squid/spm-http_access.conf",
+]
+POLICY_DSTS = [
+    "/etc/squid/spm-acl.conf",
+    "/etc/squid/spm-peers.conf",
+    "/etc/squid/spm-http_access.conf",
+]
+POLICY_STAGING = [
+    "spm-acl.conf",
+    "spm-peers.conf",
+    "spm-http_access.conf",
+]
+MANAGED_DIR = re.compile(
+    r"^(acl|http_access|cache_peer|cache_peer_access|never_direct|always_direct)\s"
+)
 NGINX_ALLOW_LINE = re.compile(
     r"^(#.*|allow\s+[0-9a-fA-F.:/]+;|deny\s+all;)$"
 )
@@ -318,6 +343,134 @@ def apply_squid_listen():
         raise ValueError((r.stderr or r.stdout or "reconfigure failed").strip())
     logging.info("squid listen applied backup=%s", backup)
     return "listen applied, backup " + backup
+
+
+def _managed_directive(stripped):
+    if stripped.startswith("#"):
+        return False
+    return bool(MANAGED_DIR.match(stripped))
+
+
+def _comment_policy_directives(text):
+    out = []
+    for line in text.splitlines(True):
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            out.append(line)
+            continue
+        if _managed_directive(stripped):
+            ending = "\n" if line.endswith("\n") else ""
+            body = line[:-1] if line.endswith("\n") else line
+            out.append("# SPM-moved " + body + ending)
+            continue
+        out.append(line)
+    return "".join(out)
+
+
+def _strip_policy_includes(text):
+    drop = set(POLICY_INCLUDES)
+    drop.add(POLICY_MARK)
+    out = []
+    for line in text.splitlines(True):
+        if line.strip() in drop:
+            continue
+        out.append(line)
+    return "".join(out)
+
+
+def _ensure_policy_includes(text):
+    if all(inc in text for inc in POLICY_INCLUDES):
+        return text
+    text = _strip_policy_includes(text)
+    block = POLICY_MARK + "\n" + "\n".join(POLICY_INCLUDES) + "\n"
+    lines = text.splitlines(True)
+    idx = None
+    prefix = "# SPM-moved "
+    for i, line in enumerate(lines):
+        stripped = line.lstrip()
+        rest = stripped[len(prefix):] if stripped.startswith(prefix) else stripped
+        if stripped.startswith(prefix) and MANAGED_DIR.match(rest.lstrip()):
+            idx = i
+            break
+    if idx is None:
+        if text and not text.endswith("\n"):
+            text += "\n"
+        return text + block
+    return "".join(lines[:idx]) + block + "".join(lines[idx:])
+
+
+def _restore_files(saved):
+    for path, old in saved.items():
+        if old is None:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+        else:
+            _atomic_write(path, old, 0o644)
+
+
+def apply_squid_policy():
+    bodies = {}
+    for name in POLICY_STAGING:
+        _src, body = _read_tmp_named(name, POLICY_FILE_RE, 2 * 1024 * 1024)
+        _validate_lines(body, POLICY_LINE, "policy " + name)
+        bodies[name] = body
+    if "http_access deny all" not in bodies["spm-http_access.conf"]:
+        raise ValueError("http_access fragment has no deny all")
+    if not os.path.isfile(SQUID_CONF_LIVE):
+        raise ValueError("squid.conf missing")
+
+    saved = {}
+    squid_uid = None
+    squid_gid = None
+    try:
+        squid_uid = pwd.getpwnam("squid").pw_uid
+        squid_gid = pwd.getpwnam("squid").pw_gid
+    except KeyError:
+        pass
+
+    for name, dst in zip(POLICY_STAGING, POLICY_DSTS):
+        if os.path.isfile(dst):
+            with open(dst, "r", encoding="utf-8", errors="replace") as fh:
+                saved[dst] = fh.read()
+        else:
+            saved[dst] = None
+        _atomic_write(dst, bodies[name], 0o644)
+        if squid_uid is not None:
+            os.chown(dst, squid_uid, squid_gid)
+
+    with open(SQUID_CONF_LIVE, "r", encoding="utf-8", errors="replace") as fh:
+        original = fh.read()
+    ts = time.strftime("%Y%m%d%H%M%S")
+    backup = SQUID_CONF_LIVE + ".spm-policy-" + ts
+    _atomic_write(backup, original, 0o644)
+    text = _ensure_policy_includes(_comment_policy_directives(original))
+    parse_dir = os.path.dirname(PARSE_FILE)
+    os.makedirs(parse_dir, mode=0o755, exist_ok=True)
+    _atomic_write(PARSE_FILE, text, 0o600)
+    p = subprocess.run(
+        ["/usr/sbin/squid", "-f", PARSE_FILE, "-k", "parse"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if p.returncode != 0:
+        _restore_files(saved)
+        raise ValueError((p.stderr or p.stdout or "squid parse failed").strip())
+    _atomic_write(SQUID_CONF_LIVE, text, 0o644)
+    r = subprocess.run(
+        ["/usr/sbin/squid", "-k", "reconfigure"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if r.returncode != 0:
+        _atomic_write(SQUID_CONF_LIVE, original, 0o644)
+        _restore_files(saved)
+        raise ValueError((r.stderr or r.stdout or "reconfigure failed").strip())
+    logging.info("squid policy applied backup=%s", backup)
+    return "policy applied, backup " + backup
 
 
 def apply_nginx_allow():
@@ -435,6 +588,12 @@ def validate_command(command_key, extra_args):
         msg = apply_squid_listen()
         return ["__squid_listen_apply__", msg]
 
+    if command_key == "squid_policy_apply":
+        if extra_args:
+            raise ValueError("Extra arguments are not allowed")
+        msg = apply_squid_policy()
+        return ["__squid_policy_apply__", msg]
+
     if command_key == "nginx_allow_apply":
         if extra_args:
             raise ValueError("Extra arguments are not allowed")
@@ -451,7 +610,7 @@ def validate_command(command_key, extra_args):
 
 def handle_client(conn):
     # Set timeout to prevent hung connections from accumulating
-    conn.settimeout(15)
+    conn.settimeout(60)
     try:
         try:
             pid, uid, gid = peer_credentials(conn)
@@ -544,7 +703,7 @@ def handle_client(conn):
                 logging.warning(f"Failed to send response: {str(e)}")
             return
 
-        if cmd and cmd[0] in ("__squid_listen_apply__", "__nginx_allow_apply__"):
+        if cmd and cmd[0] in ("__squid_listen_apply__", "__squid_policy_apply__", "__nginx_allow_apply__"):
             response = {
                 "success": True,
                 "exit_code": 0,

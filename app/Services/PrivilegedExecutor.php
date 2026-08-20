@@ -20,6 +20,7 @@ class PrivilegedExecutor {
         'keytab_install' => ['__keytab_install__'],
         'ad_ldap_groups' => ['__ad_ldap_groups__'],
         'squid_listen_apply' => ['__squid_listen_apply__'],
+        'squid_policy_apply' => ['__squid_policy_apply__'],
         'nginx_allow_apply' => ['__nginx_allow_apply__'],
     ];
 
@@ -64,7 +65,7 @@ class PrivilegedExecutor {
             $extraArgs = [basename(self::squidKeytabPath($extraArgs[0] ?? '', false))];
         } elseif ($commandKey === 'ad_ldap_groups') {
             $extraArgs = AdGroupAcl::ldapQueryArgs();
-        } elseif ($commandKey === 'squid_listen_apply' || $commandKey === 'nginx_allow_apply') {
+        } elseif ($commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply' || $commandKey === 'nginx_allow_apply') {
             $extraArgs = [];
         } elseif ($commandKey === 'squid_syntax') {
             $extraArgs = [];
@@ -73,9 +74,9 @@ class PrivilegedExecutor {
         }
 
         if ($commandKey === 'acl_file_install' || $commandKey === 'keytab_install' || $commandKey === 'ad_ldap_groups'
-            || $commandKey === 'squid_listen_apply' || $commandKey === 'nginx_allow_apply') {
+            || $commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply' || $commandKey === 'nginx_allow_apply') {
             $recv = 10;
-            if ($commandKey === 'ad_ldap_groups' || $commandKey === 'squid_listen_apply') {
+            if ($commandKey === 'ad_ldap_groups' || $commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply') {
                 $recv = 45;
             }
             if (AGENT_ENABLED && file_exists(AGENT_SOCKET)) {
@@ -90,6 +91,8 @@ class PrivilegedExecutor {
                 $need = 'spmd is required to list AD groups via LDAP';
             } elseif ($commandKey === 'squid_listen_apply') {
                 $need = 'spmd is required to apply Squid listen settings';
+            } elseif ($commandKey === 'squid_policy_apply') {
+                $need = 'spmd is required to apply Squid policy includes';
             } elseif ($commandKey === 'nginx_allow_apply') {
                 $need = 'spmd is required to apply nginx IP allowlist';
             } else {

@@ -33,6 +33,26 @@
 </div>
 
 <div class="card">
+    <div class="card-header"><h3>Policy → Squid</h3></div>
+    <div class="card-body">
+        <p style="color:var(--ir-text-muted); font-size:0.82rem;">
+            Save on Access / Lists / Cascade writes <code>spm.db</code> only. This button writes
+            <code>/etc/squid/spm-acl.conf</code>, <code>spm-peers.conf</code>, <code>spm-http_access.conf</code>,
+            comments matching directives in live <code>squid.conf</code> (backup <code>*.spm-policy-*</code>),
+            adds <code>include</code>, then <code>squid -k parse</code> and reconfigure. Auth / ssl_bump / refresh_pattern stay in live conf.
+            ACL added only in live conf after import will disappear from Squid until imported into the panel.
+        </p>
+        <form method="POST" action="/settings/apply-policy" data-confirm="Apply panel policy to live Squid? First time comments acl/http_access/cache_peer in squid.conf and adds includes. Parse failure leaves live conf unchanged.">
+            <?= View::csrf() ?>
+            <input type="hidden" name="return" value="/settings">
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Apply to Squid</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
     <div class="card-header"><h3>Panel IP allowlist (nginx)</h3></div>
     <div class="card-body">
         <p style="color:var(--ir-text-muted); font-size:0.82rem;">

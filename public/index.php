@@ -139,6 +139,7 @@ $router->get('/settings', 'SettingsController@index');
 $router->post('/settings/save', 'SettingsController@save');
 $router->post('/settings/squid', 'SettingsController@saveSquid');
 $router->post('/settings/allow', 'SettingsController@saveAllow');
+$router->post('/settings/apply-policy', 'SettingsController@applyPolicy');
 
 // Cache Peer Access Rules
 $router->get('/peers/access', 'CachePeerController@access');

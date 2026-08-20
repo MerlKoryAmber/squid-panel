@@ -13,14 +13,15 @@
 - Группы AD: список через LDAP+GSSAPI (тот же keytab), в Squid — `ext_kerberos_ldap_group_acl`; join/winbind не обязателен.
 - Большие списки сайтов — файлы `/etc/squid/acl.d/<acl>.txt`, не тысячи строк в conf.
 - Settings: listen (`http_port`, hostname → `/etc/squid/spm-listen.conf` + include в `squid.conf`), IP-whitelist панели на nginx.
+- **Apply to Squid**: ACL / access / cascade → `/etc/squid/spm-acl.conf`, `spm-peers.conf`, `spm-http_access.conf` + include в live, backup `*.spm-policy-*`, parse, reconfigure. Save без этой кнопки на Squid не влияет.
 - Статус Squid: `/proc` и `systemctl is-active squid` (не полный `systemctl status`).
 
 ## Чего панель не делает
 
 - **Не ставит и не заменяет Squid.** Сначала должен быть рабочий прокси и непустой `squid.conf`.
 - **Install / update.sh не переписывают** живой `squid.conf` и **не рестартят Squid**.
-- Генератор conf — превью. На live целиком не выкатывается.
-- Исключение: кнопка **Save and apply to Squid** в Settings (listen) — точечно: backup, комментарий старых `http_port`/`visible_hostname`, `include /etc/squid/spm-listen.conf`, `squid -k parse`, reconfigure.
+- Генератор не перезаписывает `squid.conf` целиком. Auth / ssl_bump / refresh_pattern в v1 не выкладываются из БД.
+- Listen: отдельная кнопка **Save and apply to Squid** → `spm-listen.conf`.
 
 ## Установка
 
@@ -71,5 +72,8 @@ sudo /opt/spm/uninstall.sh
 | `/etc/nginx/conf.d/spm-allow.inc` | IP allowlist панели |
 | `/etc/squid/acl.d/` | Файловые ACL |
 | `/etc/squid/spm-listen.conf` | Listen/hostname с панели |
+| `/etc/squid/spm-acl.conf` | ACL с панели (после Apply) |
+| `/etc/squid/spm-peers.conf` | Каскад с панели (после Apply) |
+| `/etc/squid/spm-http_access.conf` | http_access с панели (после Apply) |
 
 Решения: [`docs/adr/`](docs/adr/README.md).
