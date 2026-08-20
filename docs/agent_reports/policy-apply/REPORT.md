@@ -9,6 +9,7 @@
 - Staging PHP + `spmd` `squid_policy_apply`: backup live `*.spm-policy-*`, `# SPM-moved` на acl/http_access/cache_peer*, include, parse, reconfigure; parse/reconfigure fail → откат.
 - UI: Settings **Apply to Squid**, то же на Simple Access. Save правил без кнопки live не трогает.
 - CLI: `tests/squid_fragments_cli.php`. PHP на Windows агента нет.
+- Hotfix `49a8bc3`: include после `external_acl_type` (иначе FATAL `acl … external`). **На сервере после hotfix не проверено.**
 
 ## Не в v1
 

@@ -155,14 +155,18 @@
 
 ## (проект) SPM
 
+- **Handoff (читать первым):** `docs/agent_reports/handoff/2026-08-21.md`
 - **Владелец:** Merl. Стек: PHP-панель + `spmd` (Python), SQLite `spm.db`,
   Squid на CentOS 9 / Rocky 9, nginx :8443, PHP-FPM `squidmgr`.
-- **Не трогать без команды:** живой `squid.conf`, рестарт Squid, push,
+- **Не трогать без команды:** живой `squid.conf` целиком, рестарт Squid, push,
   force-push, `git add .`.
 - **Выкладка:** `/opt/update.sh` клонирует GitHub и гоняет `install.sh`;
   на этапе внедрения `spm.db` сносится. Импорт из `/etc/squid/squid.conf`.
 - **Секреты:** keytab только `/etc/squid/*.keytab`, sudoers точные пути,
-  пароли/`.env`/дампы не в git. Генератор conf не применять частично на live.
+  пароли/`.env`/дампы не в git.
+- **Политика на Squid:** только кнопка Apply (include `spm-acl.conf` /
+  `spm-peers.conf` / `spm-http_access.conf`), не каждый Save, не полный
+  overwrite conf.
 - **Каскад:** пиры по `name=`; большие списки сайтов — файл
   `/etc/squid/acl.d/<acl>.txt`, не JSON на тысячи строк.
 - **ADR:** `docs/adr/README.md`. Отчёты агента: `docs/agent_reports/`.
