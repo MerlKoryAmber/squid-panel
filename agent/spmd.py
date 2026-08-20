@@ -379,24 +379,22 @@ def _strip_policy_includes(text):
 
 
 def _ensure_policy_includes(text):
-    if all(inc in text for inc in POLICY_INCLUDES):
-        return text
+    """acl … external TYPE needs external_acl_type TYPE already parsed — after helpers, not at first acl."""
     text = _strip_policy_includes(text)
     block = POLICY_MARK + "\n" + "\n".join(POLICY_INCLUDES) + "\n"
     lines = text.splitlines(True)
-    idx = None
-    prefix = "# SPM-moved "
+    insert_at = 0
     for i, line in enumerate(lines):
-        stripped = line.lstrip()
-        rest = stripped[len(prefix):] if stripped.startswith(prefix) else stripped
-        if stripped.startswith(prefix) and MANAGED_DIR.match(rest.lstrip()):
-            idx = i
-            break
-    if idx is None:
-        if text and not text.endswith("\n"):
-            text += "\n"
-        return text + block
-    return "".join(lines[:idx]) + block + "".join(lines[idx:])
+        s = line.lstrip()
+        if s.startswith("#"):
+            continue
+        if (
+            s.startswith("auth_param ")
+            or s.startswith("external_acl_type ")
+            or s.startswith("include /etc/squid/spm-listen.conf")
+        ):
+            insert_at = i + 1
+    return "".join(lines[:insert_at]) + block + "".join(lines[insert_at:])
 
 
 def _restore_files(saved):

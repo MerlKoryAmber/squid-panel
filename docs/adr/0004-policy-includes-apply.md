@@ -13,7 +13,7 @@
 - `/etc/squid/spm-http_access.conf` — `http_access` (включая `deny all` в конце фрагмента)
 - `/etc/squid/spm-peers.conf` — `cache_peer`, `cache_peer_access`, `never_direct` / `always_direct`
 
-В live conf: один раз закомментировать прежние директивы этих типов, добавить `include`. Чужое (`refresh_pattern`, `ssl_bump`, `http_port` уже в `spm-listen.conf`, auth helper и т.д.) не трогать в v1.
+В live conf: закомментировать прежние директивы этих типов, добавить `include` **после** последнего `auth_param` / `external_acl_type` / `spm-listen` (иначе `acl … external TYPE` падает: helper ещё не объявлен). Чужое (`refresh_pattern`, `ssl_bump`, `http_port` уже в `spm-listen.conf`, auth helper) не трогать в v1.
 
 Конвейер Apply (fail-closed):
 
