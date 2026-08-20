@@ -42,7 +42,15 @@ echo "[2/4] Removing previous panel trees (including spm.db)..."
 rm -rf "$SPM_DIR" "$CLONE_DIR"
 
 echo "[3/4] Cloning $REPO_URL ..."
-GIT_TERMINAL_PROMPT=0 git clone --depth 1 "$REPO_URL" "$CLONE_DIR"
+GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch main "$REPO_URL" "$CLONE_DIR"
+echo "Cloned commit:"
+git -C "$CLONE_DIR" log -1 --oneline
+if ! grep -q 'location @front' "$CLONE_DIR/install.sh"; then
+    echo "ERROR: cloned install.sh has no nginx @front fix. Wrong repo/branch?"
+    exit 1
+fi
+cp -a "$CLONE_DIR/update.sh" "$SELF"
+chmod 700 "$SELF"
 chmod 755 "$CLONE_DIR/install.sh" "$CLONE_DIR/uninstall.sh"
 
 echo "[4/4] Running install.sh (fresh database)..."

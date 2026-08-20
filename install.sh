@@ -183,7 +183,7 @@ fi
 
 cat > "$NGINX_SPM_CONF" << EOF
 server {
-    listen ${PANEL_PORT} ssl http2;
+    listen ${PANEL_PORT} ssl;
     server_name _;
 
     ssl_certificate /etc/pki/tls/certs/spm-selfsigned.crt;
@@ -228,6 +228,16 @@ server {
 }
 EOF
 
+if [ ! -f /etc/nginx/fastcgi_params ]; then
+    echo "ERROR: /etc/nginx/fastcgi_params missing"
+    exit 1
+fi
+
+if ! grep -q 'location @front' "$NGINX_SPM_CONF"; then
+    echo "ERROR: $NGINX_SPM_CONF has no @front location"
+    exit 1
+fi
+
 mkdir -p /etc/pki/tls/certs /etc/pki/tls/private
 if [ ! -f /etc/pki/tls/certs/spm-selfsigned.crt ]; then
     echo "Generating self-signed SSL certificate..."
@@ -259,7 +269,6 @@ pm.min_spare_servers = 2
 pm.max_spare_servers = 5
 pm.max_requests = 500
 php_admin_value[open_basedir] = /opt/spm:/tmp:/var/log/squid:/etc/squid:/run:/proc:/etc/krb5.conf:/var/lib/php
-php_admin_value[cgi.fix_pathinfo] = 0
 php_admin_value[session.save_path] = /opt/spm/storage/tmp
 php_admin_value[disable_functions] = exec,passthru,system,curl_exec,curl_multi_exec,parse_ini_file,show_source,proc_open,popen
 php_admin_value[upload_max_filesize] = 10M
@@ -340,17 +349,10 @@ fi
 
 if systemctl list-unit-files | grep -q '^nginx.service'; then
     systemctl enable nginx 2>/dev/null || true
-    if nginx -t &>/dev/null; then
-        if systemctl is-active nginx &>/dev/null; then
-            systemctl reload nginx
-        else
-            systemctl restart nginx
-        fi
-    else
-        echo "ERROR: nginx -t failed. Panel vhost not applied."
-        nginx -t || true
-        exit 1
-    fi
+    echo "nginx -t:"
+    nginx -t
+    systemctl enable nginx 2>/dev/null || true
+    systemctl restart nginx
 fi
 
 if systemctl list-unit-files | grep -q "^${PHP_FPM_SERVICE}.service"; then
