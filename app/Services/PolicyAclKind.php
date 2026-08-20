@@ -131,4 +131,12 @@ class PolicyAclKind {
         }
         return $text !== '' ? $text : $name;
     }
+
+    public static function ruleTitle(array $rule) {
+        $d = trim((string)($rule['description'] ?? ''));
+        if ($d === '' || strcasecmp($d, 'Imported from squid.conf') === 0) {
+            return 'Rule #' . (int)($rule['id'] ?? 0);
+        }
+        return $d;
+    }
 }

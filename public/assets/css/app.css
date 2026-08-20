@@ -1031,5 +1031,6 @@ span.acl-ref .badge { cursor: help; }
     justify-content: flex-end;
     gap: var(--space-sm);
 }
+tr.is-disabled td { opacity: 0.55; }
 
 

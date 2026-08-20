@@ -211,6 +211,9 @@ class SquidConfigBuilder {
         // HTTP Access
         $lines[] = "# === HTTP Access Rules ===";
         foreach ($this->config['http_access'] as $rule) {
+            if (isset($rule['enabled']) && (int)$rule['enabled'] === 0) {
+                continue;
+            }
             $acls = json_decode($rule['acls'], true) ?: [];
             $line = "http_access " . $rule['action'] . " " . implode(' ', $acls);
             $lines[] = $line;

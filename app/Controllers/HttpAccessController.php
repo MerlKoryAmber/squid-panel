@@ -12,7 +12,7 @@ class HttpAccessController {
             unset($rule);
         }
         echo View::render($simple ? 'http_access.simple' : 'http_access.index', [
-            'title' => $simple ? 'HTTP rules' : 'HTTP Access Rules',
+            'title' => $simple ? 'Access rules' : 'HTTP Access Rules',
             'active' => 'http_access',
             'rules' => $rules,
             'acls' => Database::fetchAll("SELECT name, type FROM acls ORDER BY name"),
@@ -36,7 +36,13 @@ class HttpAccessController {
             $acls = [];
         }
         $action = in_array($_POST['action'] ?? '', ['allow', 'deny']) ? $_POST['action'] : 'deny';
-        $description = $_POST['description'] ?? '';
+        $description = PolicyUi::isSimple()
+            ? trim((string)($_POST['name'] ?? $_POST['description'] ?? ''))
+            : ($_POST['description'] ?? '');
+        $enabled = empty($_POST['enabled']) ? 0 : 1;
+        if (!PolicyUi::isSimple()) {
+            $enabled = 1;
+        }
 
         if (empty($acls)) {
             http_response_code(400);
@@ -47,8 +53,8 @@ class HttpAccessController {
         $order = ($maxOrder['max'] ?? 0) + 1;
 
         Database::query(
-            "INSERT INTO http_access_rules (action, acls, description, sort_order, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
-            [$action, json_encode(array_values($acls)), $description, $order]
+            "INSERT INTO http_access_rules (action, acls, description, enabled, sort_order, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+            [$action, json_encode(array_values($acls)), $description, $enabled, $order]
         );
 
         Audit::log('http_access_create', "Created http_access {$action} " . implode(' ', $acls));
@@ -128,7 +134,13 @@ class HttpAccessController {
             $acls = [];
         }
         $action = in_array($_POST['action'] ?? '', ['allow', 'deny']) ? $_POST['action'] : $rule['action'];
-        $description = $_POST['description'] ?? '';
+        $description = PolicyUi::isSimple()
+            ? trim((string)($_POST['name'] ?? $_POST['description'] ?? ''))
+            : ($_POST['description'] ?? '');
+        $enabled = isset($_POST['enabled']) ? 1 : (int)($rule['enabled'] ?? 1);
+        if (!PolicyUi::isSimple()) {
+            $enabled = (int)($rule['enabled'] ?? 1);
+        }
 
         if (empty($acls)) {
             http_response_code(400);
@@ -136,8 +148,8 @@ class HttpAccessController {
         }
 
         Database::query(
-            "UPDATE http_access_rules SET action = ?, acls = ?, description = ?, updated_at = datetime('now') WHERE id = ?",
-            [$action, json_encode(array_values($acls)), $description, $id]
+            "UPDATE http_access_rules SET action = ?, acls = ?, description = ?, enabled = ?, updated_at = datetime('now') WHERE id = ?",
+            [$action, json_encode(array_values($acls)), $description, $enabled, $id]
         );
 
         Audit::log('http_access_update', "Updated http_access rule {$id}");
@@ -153,6 +165,22 @@ class HttpAccessController {
         if ($rule) {
             Database::query("DELETE FROM http_access_rules WHERE id = ?", [$id]);
             Audit::log('http_access_delete', "Deleted http_access rule {$id}");
+        }
+        View::redirect('/http_access');
+    }
+
+    public function toggle($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+        $id = (int)($_POST['id'] ?? 0);
+        $rule = Database::fetch("SELECT id, enabled FROM http_access_rules WHERE id = ?", [$id]);
+        if ($rule) {
+            $next = ((int)($rule['enabled'] ?? 1) === 1) ? 0 : 1;
+            Database::query(
+                "UPDATE http_access_rules SET enabled = ?, updated_at = datetime('now') WHERE id = ?",
+                [$next, $id]
+            );
+            Audit::log('http_access_toggle', "Rule {$id} enabled={$next}");
         }
         View::redirect('/http_access');
     }

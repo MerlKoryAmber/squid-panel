@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS http_access_rules (
     action TEXT NOT NULL CHECK(action IN ('allow', 'deny')),
     acls TEXT NOT NULL,
     description TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
     sort_order INTEGER DEFAULT 0,
     created_at TEXT,
     updated_at TEXT

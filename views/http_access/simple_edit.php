@@ -1,5 +1,5 @@
 <div class="page-header">
-    <h2>Edit HTTP rule</h2>
+    <h2>Edit access rule</h2>
     <a href="/http_access" class="btn btn-secondary">← Back</a>
 </div>
 
@@ -8,10 +8,14 @@
         <form method="POST" action="/http_access/update">
             <?= View::csrf() ?>
             <input type="hidden" name="id" value="<?= $rule['id'] ?>">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" name="name" required value="<?= htmlspecialchars(PolicyAclKind::ruleTitle($rule) === ('Rule #' . $rule['id']) ? '' : PolicyAclKind::ruleTitle($rule)) ?>" placeholder="Rule name">
+            </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>From</label>
-                    <select name="from[]" multiple size="6">
+                    <label>Initiator</label>
+                    <select name="from[]" multiple size="8">
                         <?php foreach ($fromLists as $item): ?>
                         <option value="<?= htmlspecialchars($item['name']) ?>" <?= in_array($item['name'], $parsed['from'], true) ? 'selected' : '' ?>>
                             <?= htmlspecialchars(PolicyAclKind::label($item, true)) ?>
@@ -20,8 +24,8 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>To</label>
-                    <select name="to[]" multiple size="6">
+                    <label>Traffic filter</label>
+                    <select name="to[]" multiple size="8">
                         <?php foreach ($toLists as $item): ?>
                         <option value="<?= htmlspecialchars($item['name']) ?>" <?= in_array($item['name'], $parsed['to'], true) ? 'selected' : '' ?>>
                             <?= htmlspecialchars(PolicyAclKind::label($item, true)) ?>
@@ -35,11 +39,11 @@
                         <option value="allow" <?= $rule['action'] === 'allow' ? 'selected' : '' ?>>Allow</option>
                         <option value="deny" <?= $rule['action'] === 'deny' ? 'selected' : '' ?>>Deny</option>
                     </select>
+                    <label class="acl-chip" style="margin-top:12px;">
+                        <input type="checkbox" name="enabled" value="1" <?= !isset($rule['enabled']) || (int)$rule['enabled'] === 1 ? 'checked' : '' ?>>
+                        <span>Rule is on</span>
+                    </label>
                 </div>
-            </div>
-            <div class="form-group">
-                <label>Note</label>
-                <input type="text" name="description" value="<?= htmlspecialchars($rule['description'] ?? '') ?>">
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Save</button>

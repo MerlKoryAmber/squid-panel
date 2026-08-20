@@ -34,7 +34,7 @@
                 <ul>
                     <li><a href="/dashboard" class="<?= ($active ?? '') === 'dashboard' ? 'active' : '' ?>">📊 Dashboard</a></li>
                     <li><a href="/acl" class="<?= ($active ?? '') === 'acl' ? 'active' : '' ?>">🛡 <?= PolicyUi::isSimple() ? 'Lists' : 'ACLs' ?></a></li>
-                    <li><a href="/http_access" class="<?= ($active ?? '') === 'http_access' ? 'active' : '' ?>">🔒 <?= PolicyUi::isSimple() ? 'HTTP rules' : 'HTTP Access' ?></a></li>
+                    <li><a href="/http_access" class="<?= ($active ?? '') === 'http_access' ? 'active' : '' ?>">🔒 <?= PolicyUi::isSimple() ? 'Access rules' : 'HTTP Access' ?></a></li>
                     <li><a href="/peers" class="<?= ($active ?? '') === 'peers' ? 'active' : '' ?>">🔗 Cascade</a></li>
                     <li><a href="/auth" class="<?= ($active ?? '') === 'auth' ? 'active' : '' ?>">🔑 Authentication</a></li>
                     <li><a href="/users" class="<?= ($active ?? '') === 'users' ? 'active' : '' ?>">👤 Users</a></li>

@@ -54,6 +54,7 @@ class Database {
         self::addColumnIfMissing('settings', 'panel_allow_ips', "TEXT NOT NULL DEFAULT ''");
         self::addColumnIfMissing('settings', 'simple_ui_enabled', "INTEGER NOT NULL DEFAULT 0");
         self::addColumnIfMissing('users', 'policy_ui', "TEXT NOT NULL DEFAULT 'expert'");
+        self::addColumnIfMissing('http_access_rules', 'enabled', 'INTEGER NOT NULL DEFAULT 1');
         self::$pdo->exec(
             "CREATE TABLE IF NOT EXISTS cascade_routes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,6 +93,7 @@ class Database {
             'acls' => true,
             'settings' => true,
             'users' => true,
+            'http_access_rules' => true,
         ];
         if (!isset($allowed[$table])) {
             return;

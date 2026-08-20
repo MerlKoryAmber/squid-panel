@@ -85,6 +85,7 @@ $router->post('/http_access/update', 'HttpAccessController@update');
 $router->post('/http_access/reorder', 'HttpAccessController@reorder');
 $router->post('/http_access/store', 'HttpAccessController@store');
 $router->post('/http_access/delete', 'HttpAccessController@delete');
+$router->post('/http_access/toggle', 'HttpAccessController@toggle');
 
 // Cache Peers (Cascade)
 $router->get('/peers', 'CachePeerController@index');
