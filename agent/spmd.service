@@ -1,0 +1,14 @@
+[Unit]
+Description=SPM Privileged Agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/spm/agent/spmd.py
+Restart=always
+RestartSec=5
+User=root
+Group=squidmgr
+
+[Install]
+WantedBy=multi-user.target

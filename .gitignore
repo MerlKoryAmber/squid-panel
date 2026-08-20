@@ -1,0 +1,38 @@
+# secrets and live data
+.env
+.env.*
+*.keytab
+*.db
+*.sqlite
+*.sqlite3
+database/spm.db
+
+# dumps / backups
+*.dump
+*.bak
+*.sql.gz
+
+# runtime
+storage/
+/var/
+*.log
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# php
+/vendor/
+
+# os / editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Cursor local (keep committed rules)
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
