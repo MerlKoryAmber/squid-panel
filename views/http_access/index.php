@@ -48,7 +48,7 @@
                     <td style="color: var(--ir-text-secondary);"><?= htmlspecialchars($rule['description'] ?? '') ?></td>
                     <td>
                         <a href="/http_access/edit?id=<?= $rule['id'] ?>" class="btn btn-sm btn-secondary">Edit</a>
-                        <form method="POST" action="/http_access/delete" style="display:inline" onsubmit="return confirm('Delete this rule?')">
+                        <form method="POST" action="/http_access/delete" style="display:inline" data-confirm="Delete this rule?">
                             <?= View::csrf() ?>
                             <input type="hidden" name="id" value="<?= $rule['id'] ?>">
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>

@@ -76,7 +76,7 @@
                         <button type="submit" class="btn btn-sm btn-secondary"><?= PolicyUi::isSimple() ? 'Expert' : 'Simple' ?></button>
                     </form>
                     <?php elseif (Auth::isAdmin()): ?>
-                    <form method="POST" action="/ui/simple-unlock" class="ui-mode-switch" onsubmit="return confirm('Simple is for rules you build in the panel (from/to, who→channel). Imported CONNECT/port rules stay in Expert and are not converted. Enable Simple?')">
+                    <form method="POST" action="/ui/simple-unlock" class="ui-mode-switch" data-confirm="Simple is for rules you build in the panel (from/to, who→channel). Imported CONNECT/port rules stay in Expert and are not converted. Enable Simple?">
                         <?= View::csrf() ?>
                         <input type="hidden" name="return" value="<?= htmlspecialchars($_SERVER['REQUEST_URI'] ?? '/') ?>">
                         <span class="ui-mode-label">Expert</span>
@@ -101,6 +101,17 @@
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     <div id="acl-tip-pop" hidden></div>
+    <div id="spm-confirm" class="spm-confirm" hidden>
+        <div class="spm-confirm-backdrop"></div>
+        <div class="spm-confirm-box" role="dialog" aria-modal="true" aria-labelledby="spm-confirm-text">
+            <p class="spm-confirm-text" id="spm-confirm-text"></p>
+            <div class="spm-confirm-actions">
+                <button type="button" class="btn btn-secondary" id="spm-confirm-cancel">Cancel</button>
+                <button type="button" class="btn btn-primary" id="spm-confirm-ok">OK</button>
+            </div>
+        </div>
+    </div>
+    <script src="<?= htmlspecialchars(View::asset('/assets/js/confirm.js')) ?>"></script>
     <script>
     function toggleSidebar() {
         document.querySelector('.sidebar').classList.toggle('open');

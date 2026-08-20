@@ -991,4 +991,45 @@ span.acl-ref .badge { cursor: help; }
     }
 }
 
+.form-group select[multiple] {
+    min-height: 10rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+}
+
+.spm-confirm {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.spm-confirm[hidden] { display: none !important; }
+.spm-confirm-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 27, 46, 0.45);
+}
+.spm-confirm-box {
+    position: relative;
+    width: min(440px, 100%);
+    background: var(--ir-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-xl);
+}
+.spm-confirm-text {
+    margin: 0 0 var(--space-lg);
+    color: var(--ir-text);
+    font-size: 0.95rem;
+    line-height: 1.45;
+}
+.spm-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+}
+
 

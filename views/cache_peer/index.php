@@ -127,7 +127,7 @@ $aclTokens = function ($entries) {
                         <?php if ($creating): ?>
                         <a href="/peers" class="btn btn-secondary">Cancel</a>
                         <?php elseif ($peer): ?>
-                        <button type="submit" form="deletePeerForm" class="btn btn-danger" onclick="return confirm('Delete this peer?')">Delete</button>
+                        <button type="submit" form="deletePeerForm" class="btn btn-danger" data-confirm="Delete this peer?">Delete</button>
                         <?php endif; ?>
                     </div>
                     <?php endif; ?>
@@ -179,7 +179,7 @@ $aclTokens = function ($entries) {
                             </td>
                             <?php if ($isAdmin): ?>
                             <td>
-                                <form method="POST" action="/peers/access/delete" onsubmit="return confirm('Delete this rule?')">
+                                <form method="POST" action="/peers/access/delete" data-confirm="Delete this rule?">
                                     <?= View::csrf() ?>
                                     <input type="hidden" name="id" value="<?= (int)$rule['id'] ?>">
                                     <input type="hidden" name="peer_id" value="<?= (int)$peer['id'] ?>">
@@ -298,7 +298,7 @@ $aclTokens = function ($entries) {
                     </td>
                     <?php if ($isAdmin): ?>
                     <td>
-                        <form method="POST" action="/peers/routing/delete" onsubmit="return confirm('Delete this rule?')">
+                        <form method="POST" action="/peers/routing/delete" data-confirm="Delete this rule?">
                             <?= View::csrf() ?>
                             <input type="hidden" name="id" value="<?= (int)$rule['id'] ?>">
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>
@@ -422,7 +422,7 @@ $aclTokens = function ($entries) {
                     <td><?= htmlspecialchars($channelLabel) ?></td>
                     <?php if ($isAdmin): ?>
                     <td>
-                        <form method="POST" action="/peers/routes/delete" onsubmit="return confirm('Delete this route?')">
+                        <form method="POST" action="/peers/routes/delete" data-confirm="Delete this route?">
                             <?= View::csrf() ?>
                             <input type="hidden" name="id" value="<?= (int)$route['id'] ?>">
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>
@@ -444,7 +444,7 @@ $aclTokens = function ($entries) {
                     <label>From</label>
                     <select name="from[]" multiple size="5">
                         <?php foreach ($fromLists as $item): ?>
-                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item)) ?></option>
+                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item, true)) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -452,7 +452,7 @@ $aclTokens = function ($entries) {
                     <label>To</label>
                     <select name="to[]" multiple size="5">
                         <?php foreach ($toLists as $item): ?>
-                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item)) ?></option>
+                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item, true)) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>

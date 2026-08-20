@@ -115,11 +115,20 @@ class PolicyAclKind {
         return $out;
     }
 
-    public static function label(array $meta) {
+    public static function label(array $meta, $withType = false) {
+        $name = trim((string)($meta['name'] ?? ''));
         $d = trim((string)($meta['description'] ?? ''));
-        if ($d !== '') {
-            return $d;
+        $generic = ($d === '' || strcasecmp($d, 'Imported from squid.conf') === 0);
+        $text = $name;
+        if (!$generic && $d !== $name) {
+            $text = $name !== '' ? $name . ' — ' . $d : $d;
         }
-        return (string)$meta['name'];
+        if ($withType) {
+            $type = trim((string)($meta['type'] ?? ''));
+            if ($type !== '') {
+                $text .= ' (' . $type . ')';
+            }
+        }
+        return $text !== '' ? $text : $name;
     }
 }

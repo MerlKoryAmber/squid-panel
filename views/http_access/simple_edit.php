@@ -14,7 +14,7 @@
                     <select name="from[]" multiple size="6">
                         <?php foreach ($fromLists as $item): ?>
                         <option value="<?= htmlspecialchars($item['name']) ?>" <?= in_array($item['name'], $parsed['from'], true) ? 'selected' : '' ?>>
-                            <?= htmlspecialchars(PolicyAclKind::label($item)) ?>
+                            <?= htmlspecialchars(PolicyAclKind::label($item, true)) ?>
                         </option>
                         <?php endforeach; ?>
                     </select>
@@ -24,7 +24,7 @@
                     <select name="to[]" multiple size="6">
                         <?php foreach ($toLists as $item): ?>
                         <option value="<?= htmlspecialchars($item['name']) ?>" <?= in_array($item['name'], $parsed['to'], true) ? 'selected' : '' ?>>
-                            <?= htmlspecialchars(PolicyAclKind::label($item)) ?>
+                            <?= htmlspecialchars(PolicyAclKind::label($item, true)) ?>
                         </option>
                         <?php endforeach; ?>
                     </select>

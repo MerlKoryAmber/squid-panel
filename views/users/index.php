@@ -104,7 +104,7 @@
                             <input type="hidden" name="password_confirm" value="">
                             <button type="submit" class="btn btn-sm btn-secondary" onclick="this.form.password_confirm.value=this.form.password.value;">Set password</button>
                         </form>
-                        <form method="POST" action="/users/delete" style="display:inline" onsubmit="return confirm('Delete user <?= htmlspecialchars($user['username'], ENT_QUOTES) ?>?')">
+                        <form method="POST" action="/users/delete" style="display:inline" data-confirm="Delete user <?= htmlspecialchars($user['username'], ENT_QUOTES) ?>?">
                             <?= View::csrf() ?>
                             <input type="hidden" name="id" value="<?= (int)$user['id'] ?>">
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>

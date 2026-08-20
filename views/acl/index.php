@@ -56,7 +56,7 @@
                     </td>
                     <td>
                         <a href="/acl/edit?id=<?= $acl['id'] ?>" class="btn btn-sm btn-secondary">Edit</a>
-                        <form method="POST" action="/acl/delete" style="display:inline" onsubmit="return confirm('Delete ACL <?= htmlspecialchars($acl['name']) ?>?')">
+                        <form method="POST" action="/acl/delete" style="display:inline" data-confirm="Delete list <?= htmlspecialchars($acl['name'], ENT_QUOTES) ?>?">
                             <?= View::csrf() ?>
                             <input type="hidden" name="id" value="<?= $acl['id'] ?>">
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>

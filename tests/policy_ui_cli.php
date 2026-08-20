@@ -16,7 +16,8 @@ function expect($ok, $msg) {
 expect(PolicyAclKind::kind('office', 'src') === 'from', 'src is from');
 expect(PolicyAclKind::kind('ad_hr', 'external') === 'from', 'ad_* is from');
 expect(PolicyAclKind::kind('banks', 'dstdomain', 'file') === 'to', 'dstdomain file is to');
-expect(PolicyAclKind::kind('SSL_ports', 'port') === 'other', 'port is other');
+expect(PolicyAclKind::label(['name' => 'localnet', 'description' => 'Imported from squid.conf']) === 'localnet', 'generic import desc uses name');
+expect(PolicyAclKind::label(['name' => 'hr', 'type' => 'src'], true) === 'hr (src)', 'label with type');
 
 $catalog = [
     'office' => ['name' => 'office', 'type' => 'src', 'storage' => 'inline'],

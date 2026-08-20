@@ -74,7 +74,7 @@
                             <button type="submit" class="btn btn-sm btn-secondary">Open in expert</button>
                         </form>
                         <?php endif; ?>
-                        <form method="POST" action="/http_access/delete" style="display:inline" onsubmit="return confirm('Delete this rule?')">
+                        <form method="POST" action="/http_access/delete" style="display:inline" data-confirm="Delete this rule?">
                             <?= View::csrf() ?>
                             <input type="hidden" name="id" value="<?= $rule['id'] ?>">
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>
@@ -99,7 +99,7 @@
                     <label>From</label>
                     <select name="from[]" multiple size="6">
                         <?php foreach ($fromLists as $item): ?>
-                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item)) ?></option>
+                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item, true)) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -107,7 +107,7 @@
                     <label>To</label>
                     <select name="to[]" multiple size="6">
                         <?php foreach ($toLists as $item): ?>
-                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item)) ?></option>
+                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item, true)) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
