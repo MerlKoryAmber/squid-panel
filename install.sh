@@ -57,25 +57,39 @@ echo ""
 GENERATED_ADMIN_PASSWORD=0
 PRINT_ADMIN_PASSWORD=""
 ADMIN_PASSWORD="${SPM_ADMIN_PASSWORD:-}"
-if [ -z "$ADMIN_PASSWORD" ]; then
+ADMIN_PASSWORD="${ADMIN_PASSWORD#"${ADMIN_PASSWORD%%[![:space:]]*}"}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD%"${ADMIN_PASSWORD##*[![:space:]]}"}"
+
+while true; do
+    if [ -n "$ADMIN_PASSWORD" ]; then
+        break
+    fi
     echo "Set the panel admin password (min 8 characters)."
-    echo "Leave empty to generate a random password."
+    echo "Leave empty and press Enter to generate a random password."
     read -s -p "Admin password: " ADMIN_PASSWORD
     echo
-    if [ -n "$ADMIN_PASSWORD" ]; then
-        read -s -p "Confirm password: " ADMIN_PASSWORD_CONFIRM
-        echo
-        if [ "$ADMIN_PASSWORD" != "$ADMIN_PASSWORD_CONFIRM" ]; then
-            echo "ERROR: Passwords do not match"
-            exit 1
-        fi
+    ADMIN_PASSWORD="${ADMIN_PASSWORD#"${ADMIN_PASSWORD%%[![:space:]]*}"}"
+    ADMIN_PASSWORD="${ADMIN_PASSWORD%"${ADMIN_PASSWORD##*[![:space:]]}"}"
+    if [ -z "$ADMIN_PASSWORD" ]; then
+        ADMIN_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)
+        GENERATED_ADMIN_PASSWORD=1
+        PRINT_ADMIN_PASSWORD="$ADMIN_PASSWORD"
+        break
     fi
-fi
-if [ -z "$ADMIN_PASSWORD" ]; then
-    ADMIN_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)
-    GENERATED_ADMIN_PASSWORD=1
-    PRINT_ADMIN_PASSWORD="$ADMIN_PASSWORD"
-fi
+    if [ "${#ADMIN_PASSWORD}" -lt 8 ]; then
+        echo "Too short (got ${#ADMIN_PASSWORD} chars). Try again or press Enter to generate."
+        ADMIN_PASSWORD=""
+        continue
+    fi
+    read -s -p "Confirm password: " ADMIN_PASSWORD_CONFIRM
+    echo
+    if [ "$ADMIN_PASSWORD" != "$ADMIN_PASSWORD_CONFIRM" ]; then
+        echo "Passwords do not match. Try again."
+        ADMIN_PASSWORD=""
+        continue
+    fi
+    break
+done
 if [ "${#ADMIN_PASSWORD}" -lt 8 ]; then
     echo "ERROR: Admin password must be at least 8 characters"
     exit 1
@@ -105,6 +119,11 @@ fi
 echo "[3/9] Setting up SPM directory..."
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$SPM_DIR" "$SPM_DIR/database" "$SPM_DIR/storage"
+
+if [ "${SPM_DROP_DB:-}" = "1" ]; then
+    echo "Dropping panel database (SPM_DROP_DB=1)."
+    rm -f "$SPM_DIR/database/spm.db"
+fi
 
 HAD_EXISTING_DB=0
 PRESERVED_DB=""
