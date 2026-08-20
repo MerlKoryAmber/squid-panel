@@ -54,46 +54,12 @@ if [ "$SQUID_STATUS" != "active" ]; then
 fi
 echo ""
 
+# DEV: no password prompt. Login admin / admin. Turn off before production.
 GENERATED_ADMIN_PASSWORD=0
-PRINT_ADMIN_PASSWORD=""
-ADMIN_PASSWORD="${SPM_ADMIN_PASSWORD:-}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD#"${ADMIN_PASSWORD%%[![:space:]]*}"}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD%"${ADMIN_PASSWORD##*[![:space:]]}"}"
-
-while true; do
-    if [ -n "$ADMIN_PASSWORD" ]; then
-        break
-    fi
-    echo "Set the panel admin password (min 8 characters)."
-    echo "Leave empty and press Enter to generate a random password."
-    read -s -p "Admin password: " ADMIN_PASSWORD
-    echo
-    ADMIN_PASSWORD="${ADMIN_PASSWORD#"${ADMIN_PASSWORD%%[![:space:]]*}"}"
-    ADMIN_PASSWORD="${ADMIN_PASSWORD%"${ADMIN_PASSWORD##*[![:space:]]}"}"
-    if [ -z "$ADMIN_PASSWORD" ]; then
-        ADMIN_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)
-        GENERATED_ADMIN_PASSWORD=1
-        PRINT_ADMIN_PASSWORD="$ADMIN_PASSWORD"
-        break
-    fi
-    if [ "${#ADMIN_PASSWORD}" -lt 8 ]; then
-        echo "Too short (got ${#ADMIN_PASSWORD} chars). Try again or press Enter to generate."
-        ADMIN_PASSWORD=""
-        continue
-    fi
-    read -s -p "Confirm password: " ADMIN_PASSWORD_CONFIRM
-    echo
-    if [ "$ADMIN_PASSWORD" != "$ADMIN_PASSWORD_CONFIRM" ]; then
-        echo "Passwords do not match. Try again."
-        ADMIN_PASSWORD=""
-        continue
-    fi
-    break
-done
-if [ "${#ADMIN_PASSWORD}" -lt 8 ]; then
-    echo "ERROR: Admin password must be at least 8 characters"
-    exit 1
-fi
+PRINT_ADMIN_PASSWORD="admin"
+ADMIN_PASSWORD="admin"
+echo "DEV: panel login admin / admin (no password prompt)."
+echo ""
 
 echo "[1/9] Installing dependencies..."
 dnf install -y -q epel-release 2>/dev/null || true
@@ -417,12 +383,8 @@ echo "  https://${SERVER_IP}:${PANEL_PORT}/"
 echo ""
 echo "Credentials:"
 echo "  Username: admin"
-if [ "$GENERATED_ADMIN_PASSWORD" = "1" ]; then
-    echo "  Password: $PRINT_ADMIN_PASSWORD"
-    echo "  This generated password is shown only once."
-else
-    echo "  Password: (the password you entered)"
-fi
+echo "  Password: admin"
+echo "  DEV default — change before production."
 echo ""
 echo "Sudoers: kinit may use only /etc/squid/*.keytab"
 if [ -f /etc/squid/krb5.keytab ]; then

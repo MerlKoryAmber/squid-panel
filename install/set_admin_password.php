@@ -7,8 +7,8 @@ if ($password === false || $password === '') {
     fwrite(STDERR, "SPM_ADMIN_PASSWORD is empty\n");
     exit(1);
 }
-if (strlen($password) < 8) {
-    fwrite(STDERR, "Admin password must be at least 8 characters\n");
+if (strlen($password) < 1) {
+    fwrite(STDERR, "SPM_ADMIN_PASSWORD is empty\n");
     exit(1);
 }
 
