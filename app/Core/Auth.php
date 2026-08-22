@@ -55,7 +55,7 @@ class Auth {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
-            $_SESSION['policy_ui'] = (($user['policy_ui'] ?? '') === 'simple') ? 'simple' : 'expert';
+            $_SESSION['policy_ui'] = 'expert';
             $_SESSION['expires'] = time() + SESSION_LIFETIME;
             Audit::log('login', "User {$username} logged in");
             return true;

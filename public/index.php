@@ -54,10 +54,6 @@ $router->get('/login', 'AuthController@loginForm');
 $router->post('/login', 'AuthController@login');
 $router->get('/logout', 'AuthController@logout');
 
-$router->post('/ui/policy-mode', 'UiModeController@set');
-$router->post('/ui/simple-unlock', 'UiModeController@unlock');
-
-// Dashboard
 $router->get('/', 'DashboardController@index');
 $router->get('/dashboard', 'DashboardController@index');
 
@@ -80,6 +76,7 @@ $router->post('/acl/ad-groups/import', 'AdGroupController@import');
 
 // HTTP Access Rules
 $router->get('/http_access', 'HttpAccessController@index');
+$router->get('/http_access/create', 'HttpAccessController@create');
 $router->get('/http_access/edit', 'HttpAccessController@edit');
 $router->post('/http_access/update', 'HttpAccessController@update');
 $router->post('/http_access/reorder', 'HttpAccessController@reorder');

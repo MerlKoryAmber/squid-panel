@@ -37,7 +37,7 @@ class PolicyUi {
     }
 
     public static function isSimple() {
-        return self::mode() === 'simple';
+        return false;
     }
 
     public static function set($mode) {

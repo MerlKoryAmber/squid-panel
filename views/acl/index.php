@@ -32,7 +32,7 @@
                 <tr>
                     <td><strong><?= htmlspecialchars($acl['name']) ?></strong>
                         <?php if (!empty($acl['group_name'])): ?>
-                        <div style="font-size:0.78rem; color:var(--ir-text-muted);"><?= htmlspecialchars($acl['group_name']) ?></div>
+                        <div style="font-size:0.95rem; color:var(--ir-text-muted);"><?= htmlspecialchars($acl['group_name']) ?></div>
                         <?php endif; ?>
                     </td>
                     <td>
@@ -41,7 +41,7 @@
                         <span class="badge badge-info">file</span>
                         <?php endif; ?>
                     </td>
-                    <td style="font-size:0.82rem; color:var(--ir-text-secondary);">
+                    <td style="font-size:1.05rem; color:var(--ir-text-secondary);">
                         <?php
                         if (($acl['storage'] ?? 'inline') === 'file') {
                             echo htmlspecialchars((int)($acl['list_count'] ?? 0) . ' values · ' . AclListFile::livePath($acl['name']));

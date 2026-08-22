@@ -150,15 +150,15 @@ function updateStatus() {
                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px;">
                     <div style="padding:12px; background:var(--ir-bg); border-radius:var(--radius-sm);">
                         <div style="font-size:0.75rem; color:var(--ir-text-muted); text-transform:uppercase; letter-spacing:0.05em;">CPU</div>
-                        <div style="font-size:1.2rem; font-weight:700; color:var(--ir-primary); margin-top:4px;">${fmt(data.cpu, '%')}</div>
+                        <div style="font-size:1.2rem; font-weight:700; color:var(--ir-text); margin-top:4px;">${fmt(data.cpu, '%')}</div>
                     </div>
                     <div style="padding:12px; background:var(--ir-bg); border-radius:var(--radius-sm);">
                         <div style="font-size:0.75rem; color:var(--ir-text-muted); text-transform:uppercase; letter-spacing:0.05em;">Memory</div>
-                        <div style="font-size:1.2rem; font-weight:700; color:var(--ir-primary); margin-top:4px;">${fmt(data.memory)}</div>
+                        <div style="font-size:1.2rem; font-weight:700; color:var(--ir-text); margin-top:4px;">${fmt(data.memory)}</div>
                     </div>
                     <div style="padding:12px; background:var(--ir-bg); border-radius:var(--radius-sm);">
                         <div style="font-size:0.75rem; color:var(--ir-text-muted); text-transform:uppercase; letter-spacing:0.05em;">Connections</div>
-                        <div style="font-size:1.2rem; font-weight:700; color:var(--ir-primary); margin-top:4px;">${fmt(data.connections)}</div>
+                        <div style="font-size:1.2rem; font-weight:700; color:var(--ir-text); margin-top:4px;">${fmt(data.connections)}</div>
                     </div>
                 </div>
             `;
@@ -213,7 +213,7 @@ function loadCharts() {
                     plugins: { legend: { display: false } },
                     scales: {
                         x: { grid: { display: false }, ticks: { color: '#8a94a3', font: { size: 11 } } },
-                        y: { grid: { color: '#e2e5e9' }, ticks: { color: '#8a94a3', font: { size: 11 } } }
+                        y: { grid: { color: '#2a3548' }, ticks: { color: '#8a94a3', font: { size: 11 } } }
                     }
                 }
             });
@@ -229,7 +229,7 @@ function loadCharts() {
                     datasets: [{
                         label: 'Requests',
                         data: domains.map(d => d.count || 0),
-                        backgroundColor: '#1a2d4a',
+                        backgroundColor: 'rgba(201,169,110,0.75)',
                         borderRadius: 4,
                         barThickness: 20
                     }]
@@ -240,8 +240,8 @@ function loadCharts() {
                     indexAxis: 'y',
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { grid: { color: '#e2e5e9' }, ticks: { color: '#8a94a3', font: { size: 11 } } },
-                        y: { grid: { display: false }, ticks: { color: '#5a6573', font: { size: 11 } } }
+                        x: { grid: { color: '#2a3548' }, ticks: { color: '#8a94a3', font: { size: 11 } } },
+                        y: { grid: { display: false }, ticks: { color: '#b89a60', font: { size: 11 } } }
                     }
                 }
             });

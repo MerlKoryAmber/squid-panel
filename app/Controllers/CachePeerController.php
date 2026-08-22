@@ -11,14 +11,18 @@ class CachePeerController {
         }
         unset($row);
         $creating = isset($_GET['new']);
+        $directTab = isset($_GET['direct']);
         $selectedId = (int)($_GET['id'] ?? 0);
-        if (!$creating && $selectedId <= 0 && !empty($peers)) {
+        if ($directTab) {
+            $creating = false;
+            $selectedId = 0;
+        } elseif (!$creating && $selectedId <= 0 && !empty($peers)) {
             $selectedId = (int)$peers[0]['id'];
         }
 
         $peer = null;
         $accessRules = [];
-        if (!$creating && $selectedId > 0) {
+        if (!$directTab && !$creating && $selectedId > 0) {
             $peer = Database::fetch("SELECT * FROM cache_peers WHERE id = ?", [$selectedId]);
             if ($peer) {
                 $peer['options'] = self::composeOptionsString($peer);
@@ -33,7 +37,8 @@ class CachePeerController {
         echo View::render('cache_peer.index', [
             'title' => 'Cascade',
             'active' => 'peers',
-            'simpleUi' => PolicyUi::isSimple(),
+            'simpleUi' => false,
+            'directTab' => $directTab,
             'peers' => $peers,
             'peer' => $peer,
             'creating' => $creating,
@@ -165,7 +170,7 @@ class CachePeerController {
             [$peerId, $peer['hostname'], $firstAcl, $entries, $action, $isNegated ? 1 : 0, ($maxOrder['max'] ?? 0) + 1]
         );
         PolicyUi::forgetCascadeRoutes();
-        if ($action === 'allow' && !empty($_POST['lock_path'])) {
+        if ($action === 'allow') {
             self::lockPathToPeer($peerId, $entries);
             Audit::log('peer_access_create', "Added allow {$entries} to peer {$peerId} + never_direct + deny on other peers");
         } else {
@@ -314,27 +319,50 @@ class CachePeerController {
             http_response_code(400);
             die('Need at least one source or destination list');
         }
-        $channel = 'direct';
-        $peerId = null;
+        $entries = implode(' ', $tokens);
         $target = (string)($_POST['target'] ?? 'direct');
-        if ($target !== 'direct') {
-            $channel = 'peer';
-            $peerId = (int)$target;
-            $peer = Database::fetch("SELECT id FROM cache_peers WHERE id = ?", [$peerId]);
-            if (!$peer) {
-                http_response_code(400);
-                die('Select a peer');
+
+        if ($target === 'direct') {
+            $exists = Database::fetch(
+                "SELECT id FROM routing_rules WHERE directive = 'always_direct' AND action = 'allow' AND acl_name = ?",
+                [$entries]
+            );
+            if (!$exists) {
+                $maxOrder = Database::fetch("SELECT MAX(sort_order) as max FROM routing_rules");
+                Database::query(
+                    "INSERT INTO routing_rules (directive, action, acl_name, negated, sort_order, created_at) VALUES ('always_direct', 'allow', ?, 0, ?, datetime('now'))",
+                    [$entries, ($maxOrder['max'] ?? 0) + 1]
+                );
             }
+            Audit::log('cascade_route_create', 'Direct only ' . $entries);
+            View::redirect('/peers#cascade-when');
+            return;
         }
-        $maxOrder = Database::fetch("SELECT MAX(sort_order) as max FROM cascade_routes");
-        Database::query(
-            "INSERT INTO cascade_routes (from_acls, to_acls, channel, peer_id, sort_order, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
-            [json_encode($from), json_encode($to), $channel, $peerId, ($maxOrder['max'] ?? 0) + 1]
+
+        $peerId = (int)$target;
+        $peer = Database::fetch("SELECT id, hostname FROM cache_peers WHERE id = ?", [$peerId]);
+        if (!$peer) {
+            http_response_code(400);
+            die('Select a peer');
+        }
+        $dup = Database::fetch(
+            "SELECT id FROM cache_peer_access_rules WHERE peer_id = ? AND action = 'allow' AND acl_entries = ?",
+            [$peerId, $entries]
         );
-        CascadeRouteCompiler::applyFromDb();
-        Audit::log('cascade_route_create', "Route {$channel} " . implode(' ', $tokens));
-        View::redirect('/peers');
+        if (!$dup) {
+            $maxOrder = Database::fetch(
+                "SELECT MAX(sort_order) as max FROM cache_peer_access_rules WHERE peer_id = ?",
+                [$peerId]
+            );
+            $firstAcl = $tokens[0];
+            Database::query(
+                "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, acl_entries, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, 'allow', 0, ?, datetime('now'))",
+                [$peerId, $peer['hostname'], $firstAcl, $entries, ($maxOrder['max'] ?? 0) + 1]
+            );
+        }
+        self::lockPathToPeer($peerId, $entries);
+        Audit::log('cascade_route_create', "Peer {$peerId} exclusive {$entries}");
+        View::redirect('/peers?id=' . $peerId);
     }
 
     public function deleteRoute($params = []) {

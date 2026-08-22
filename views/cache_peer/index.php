@@ -3,9 +3,8 @@ $isAdmin = !empty($isAdmin);
 $creating = !empty($creating);
 $selectedId = (int)($peer['id'] ?? 0);
 $csrf = View::csrfToken();
-$simpleUi = !empty($simpleUi);
+$directTab = !empty($directTab);
 $catalog = $catalog ?? [];
-$cascadeRoutes = $cascadeRoutes ?? [];
 $fromLists = $fromLists ?? [];
 $toLists = $toLists ?? [];
 $aclTokens = function ($entries) {
@@ -20,54 +19,26 @@ $aclTokens = function ($entries) {
     <?php endif; ?>
 </div>
 
-<?php if (!$simpleUi): ?>
 <p class="text-secondary" style="margin-top:-12px; margin-bottom: var(--space-lg);">
-    Peers are upstream proxies. Access rules decide which requests may use the selected peer.
-    “When to use cascade” decides whether Squid must go via a peer or direct.
-    Large destination lists belong in an ACL stored as a file (ACLs → Large list), then select that one ACL here — do not paste thousands of sites into Cascade.
+    Peers are upstream proxies. Switch peers with the tabs. A new rule is From + To for the open tab.
+    On a peer tab matching traffic goes <strong>only</strong> to that peer: no DIRECT, no other peers.
+    Large destination lists belong in an ACL stored as a file (ACLs → Large list).
 </p>
-<?php else: ?>
-<p class="text-secondary" style="margin-top:-12px; margin-bottom: var(--space-lg);">
-    Peers are upstream channels. Rules below send matching traffic to one peer or direct.
-    Saving routes rebuilds channel policy from this table.
-</p>
-<?php endif; ?>
+
+<nav class="peer-tabs" aria-label="Peers">
+    <?php foreach ($peers as $p): ?>
+    <a class="peer-tab<?= (!$creating && !$directTab && (int)$p['id'] === $selectedId) ? ' active' : '' ?>" href="/peers?id=<?= (int)$p['id'] ?>">
+        <?= htmlspecialchars($p['name'] ?: $p['hostname']) ?>
+        <small><?= htmlspecialchars($p['status'] ?? 'active') ?></small>
+    </a>
+    <?php endforeach; ?>
+    <a class="peer-tab<?= $directTab ? ' active' : '' ?>" href="/peers?direct=1">Direct</a>
+    <?php if ($creating): ?>
+    <span class="peer-tab active">New peer</span>
+    <?php endif; ?>
+</nav>
 
 <div class="cascade">
-    <aside class="cascade-list card">
-        <div class="card-header">
-            <h3>Peers</h3>
-            <span class="subtitle"><?= count($peers) ?></span>
-        </div>
-        <div class="cascade-list-body">
-            <?php if (empty($peers) && !$creating): ?>
-            <div class="empty-state" style="padding: var(--space-lg);">
-                <h4>No peers</h4>
-                <p>Add a parent proxy to send traffic upstream.</p>
-            </div>
-            <?php endif; ?>
-            <?php if ($creating): ?>
-            <div class="cascade-peer-item active">
-                <strong>New peer</strong>
-                <span class="cascade-peer-meta">Fill connection on the right</span>
-            </div>
-            <?php endif; ?>
-            <?php foreach ($peers as $p): ?>
-            <a class="cascade-peer-item<?= (!$creating && (int)$p['id'] === $selectedId) ? ' active' : '' ?>" href="/peers?id=<?= (int)$p['id'] ?>">
-                <span class="cascade-peer-top">
-                    <strong><?= htmlspecialchars($p['name'] ?: $p['hostname']) ?></strong>
-                    <span class="badge badge-<?= ($p['status'] ?? 'active') === 'active' ? 'success' : 'default' ?>"><?= htmlspecialchars($p['status'] ?? 'active') ?></span>
-                </span>
-                <span class="cascade-peer-meta">
-                    <?= htmlspecialchars($p['hostname']) ?>:<?= (int)($p['http_port'] ?? 3128) ?>
-                    · <?= htmlspecialchars($p['peer_type']) ?>
-                    · <?= (int)($p['rule_count'] ?? 0) ?> rule(s)
-                </span>
-            </a>
-            <?php endforeach; ?>
-        </div>
-    </aside>
-
     <section class="cascade-detail">
         <?php if ($creating || $peer): ?>
         <div class="card">
@@ -141,7 +112,7 @@ $aclTokens = function ($entries) {
             </div>
         </div>
 
-        <?php if (!$simpleUi && $peer && !$creating): ?>
+        <?php if ($peer && !$creating): ?>
         <div class="card">
             <div class="card-header">
                 <h3>Who may use this peer</h3>
@@ -193,73 +164,63 @@ $aclTokens = function ($entries) {
                 </table>
                 <?php endif; ?>
             </div>
-            <?php if ($isAdmin): ?>
-            <div class="card-body" style="border-top:1px solid var(--ir-border-light);">
-                <form method="POST" action="/peers/access/store">
-                    <?= View::csrf() ?>
-                    <input type="hidden" name="peer_id" value="<?= (int)$peer['id'] ?>">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Action</label>
-                            <select name="action">
-                                <option value="allow">allow — send matching requests to this peer</option>
-                                <option value="deny">deny — do not use this peer</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>ACLs (AND)</label>
-                        <?php if (empty($acls)): ?>
-                        <p class="text-muted">No ACLs yet. Create them under ACLs first.</p>
-                        <?php else: ?>
-                        <div class="acl-chip-list">
-                            <?php foreach ($acls as $acl): ?>
-                            <label class="acl-chip" data-acl-tip="<?= htmlspecialchars(View::aclTipText($acl['name']), ENT_QUOTES, 'UTF-8') ?>">
-                                <input type="checkbox" name="acls[]" value="<?= htmlspecialchars($acl['name']) ?>">
-                                <?php
-                                $meta = View::aclCatalog()[$acl['name']] ?? null;
-                                if ($meta) {
-                                    echo '<a class="acl-ref" href="/acl/edit?id=' . (int)$meta['id'] . '" data-acl-tip="' . htmlspecialchars(View::aclTipText($acl['name']), ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($acl['name']) . '</a>';
-                                } else {
-                                    echo '<span>' . htmlspecialchars($acl['name']) . '</span>';
-                                }
-                                ?>
-                                <small><?= htmlspecialchars($acl['type']) ?></small>
-                            </label>
-                            <?php endforeach; ?>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                    <div class="form-group" id="lockPathWrap">
-                        <label class="acl-chip">
-                            <input type="checkbox" name="lock_path" value="1" checked>
-                            <span>Forbid DIRECT and other peers</span>
-                        </label>
-                        <p class="text-muted" style="font-size:0.82rem; margin-top:6px;">
-                            Adds <code>never_direct allow</code> with the same ACLs and <code>deny</code> on every other peer (skipped if already present). Uncheck if this peer may be used but DIRECT is still allowed.
-                        </p>
-                    </div>
-                    <div class="form-actions" style="border:0; margin-top:0; padding-top:0;">
-                        <button type="submit" class="btn btn-primary" <?= empty($acls) ? 'disabled' : '' ?>>Add rule</button>
-                    </div>
-                </form>
-            </div>
-            <?php endif; ?>
         </div>
         <?php endif; ?>
 
+        <?php elseif ($directTab): ?>
+        <div class="card">
+            <div class="empty-state" style="padding: var(--space-lg);">
+                <h4>Direct</h4>
+                <p>New rule on this tab is always_direct: matching traffic does not use cascade.</p>
+            </div>
+        </div>
         <?php else: ?>
         <div class="card">
             <div class="empty-state">
-                <h4>Select a peer</h4>
-                <p>Choose a peer on the left or add a new upstream.</p>
+                <h4>No peer yet</h4>
+                <p>Add an upstream or open the Direct tab.</p>
             </div>
         </div>
         <?php endif; ?>
     </section>
 </div>
 
-<?php if (!$simpleUi): ?>
+<?php if ($isAdmin && !$creating && ($peer || $directTab)): ?>
+<div class="card" id="cascade-add-route">
+    <div class="card-header">
+        <h3>New rule</h3>
+        <span class="subtitle"><?= $directTab ? 'Direct only · always_direct' : 'From + To · only this peer, never DIRECT' ?></span>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="/peers/routes/store">
+            <?= View::csrf() ?>
+            <input type="hidden" name="target" value="<?= $directTab ? 'direct' : (int)$selectedId ?>">
+            <div class="cascade-rule-row">
+                <div class="form-group">
+                    <label>From</label>
+                    <select name="from[]" multiple size="8">
+                        <?php foreach ($fromLists as $item): ?>
+                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item, true)) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>To</label>
+                    <select name="to[]" multiple size="8">
+                        <?php foreach ($toLists as $item): ?>
+                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item, true)) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions" style="border:0; margin-top: var(--space-md); padding-top:0;">
+                <button type="submit" class="btn btn-primary" <?= (empty($fromLists) && empty($toLists)) || (!$directTab && $selectedId <= 0) ? 'disabled' : '' ?>>Add rule</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="card" id="cascade-when">
     <div class="card-header">
         <h3>When to use cascade</h3>
@@ -311,169 +272,7 @@ $aclTokens = function ($entries) {
         </table>
         <?php endif; ?>
     </div>
-    <?php if ($isAdmin): ?>
-    <div class="card-body" style="border-top:1px solid var(--ir-border-light);">
-        <form method="POST" action="/peers/routing/store">
-            <?= View::csrf() ?>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Policy</label>
-                    <select name="intent">
-                        <option value="cascade">Use cascade (never_direct)</option>
-                        <option value="direct">Direct only (always_direct)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Match</label>
-                    <select name="action">
-                        <option value="allow">allow</option>
-                        <option value="deny">deny</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>ACLs (AND)</label>
-                <?php if (empty($acls)): ?>
-                <p class="text-muted">No ACLs yet. Create them under ACLs first.</p>
-                <?php else: ?>
-                <div class="acl-chip-list">
-                    <?php foreach ($acls as $acl): ?>
-                    <label class="acl-chip" data-acl-tip="<?= htmlspecialchars(View::aclTipText($acl['name']), ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="checkbox" name="acls[]" value="<?= htmlspecialchars($acl['name']) ?>">
-                        <?php
-                        $meta = View::aclCatalog()[$acl['name']] ?? null;
-                        if ($meta) {
-                            echo '<a class="acl-ref" href="/acl/edit?id=' . (int)$meta['id'] . '" data-acl-tip="' . htmlspecialchars(View::aclTipText($acl['name']), ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($acl['name']) . '</a>';
-                        } else {
-                            echo '<span>' . htmlspecialchars($acl['name']) . '</span>';
-                        }
-                        ?>
-                        <small><?= htmlspecialchars($acl['type']) ?></small>
-                    </label>
-                    <?php endforeach; ?>
-                </div>
-                <?php endif; ?>
-            </div>
-            <div class="form-actions" style="border:0; margin-top:0; padding-top:0;">
-                <button type="submit" class="btn btn-primary" <?= empty($acls) ? 'disabled' : '' ?>>Add policy</button>
-            </div>
-        </form>
-    </div>
-    <?php endif; ?>
 </div>
-<?php endif; ?>
-
-<?php if ($simpleUi): ?>
-<div class="card">
-    <div class="card-header">
-        <h3>Who goes where</h3>
-        <span class="subtitle">First match wins · drag to reorder</span>
-    </div>
-    <div class="card-body" style="padding: 0;">
-        <?php if (empty($cascadeRoutes)): ?>
-        <div class="empty-state">
-            <h4>No routes in simple view</h4>
-            <p>If traffic already uses expert channel rules, switch to Expert. Saving a route here rebuilds channel policy from this table.</p>
-        </div>
-        <?php else: ?>
-        <table class="data-table" id="cascadeRouteTable">
-            <thead>
-                <tr>
-                    <?php if ($isAdmin): ?><th style="width:40px;"></th><?php endif; ?>
-                    <th>From</th>
-                    <th>To</th>
-                    <th>Channel</th>
-                    <?php if ($isAdmin): ?><th style="width:90px;"></th><?php endif; ?>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($cascadeRoutes as $route):
-                    $from = json_decode($route['from_acls'], true) ?: [];
-                    $to = json_decode($route['to_acls'], true) ?: [];
-                    $channelLabel = 'Direct';
-                    if (($route['channel'] ?? '') === 'peer') {
-                        $channelLabel = 'Peer';
-                        foreach ($peers as $pp) {
-                            if ((int)$pp['id'] === (int)$route['peer_id']) {
-                                $channelLabel = $pp['name'] ?: $pp['hostname'];
-                                break;
-                            }
-                        }
-                    }
-                ?>
-                <tr data-id="<?= (int)$route['id'] ?>">
-                    <?php if ($isAdmin): ?><td class="drag-handle">⋮⋮</td><?php endif; ?>
-                    <td>
-                        <?php if (empty($from)): ?>
-                        <span class="text-secondary">Anyone</span>
-                        <?php else: foreach ($from as $n) {
-                            $meta = $catalog[$n] ?? ['name' => $n];
-                            echo '<span class="badge badge-default">' . htmlspecialchars(PolicyAclKind::label($meta)) . '</span> ';
-                        } endif; ?>
-                    </td>
-                    <td>
-                        <?php if (empty($to)): ?>
-                        <span class="text-secondary">Any site</span>
-                        <?php else: foreach ($to as $n) {
-                            $meta = $catalog[$n] ?? ['name' => $n];
-                            echo '<span class="badge badge-default">' . htmlspecialchars(PolicyAclKind::label($meta)) . '</span> ';
-                        } endif; ?>
-                    </td>
-                    <td><?= htmlspecialchars($channelLabel) ?></td>
-                    <?php if ($isAdmin): ?>
-                    <td>
-                        <form method="POST" action="/peers/routes/delete" data-confirm="Delete this route?">
-                            <?= View::csrf() ?>
-                            <input type="hidden" name="id" value="<?= (int)$route['id'] ?>">
-                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                        </form>
-                    </td>
-                    <?php endif; ?>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-        <?php endif; ?>
-    </div>
-    <?php if ($isAdmin): ?>
-    <div class="card-body" style="border-top:1px solid var(--ir-border-light);">
-        <form method="POST" action="/peers/routes/store">
-            <?= View::csrf() ?>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>From</label>
-                    <select name="from[]" multiple size="5">
-                        <?php foreach ($fromLists as $item): ?>
-                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item, true)) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>To</label>
-                    <select name="to[]" multiple size="5">
-                        <?php foreach ($toLists as $item): ?>
-                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item, true)) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Channel</label>
-                    <select name="target">
-                        <option value="direct">Direct</option>
-                        <?php foreach ($peers as $pp): ?>
-                        <option value="<?= (int)$pp['id'] ?>"><?= htmlspecialchars($pp['name'] ?: $pp['hostname']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-            </div>
-            <div class="form-actions" style="border:0; margin-top:0; padding-top:0;">
-                <button type="submit" class="btn btn-primary" <?= (empty($fromLists) && empty($toLists)) ? 'disabled' : '' ?>>Add route</button>
-            </div>
-        </form>
-    </div>
-    <?php endif; ?>
-</div>
-<?php endif; ?>
 
 <?php if ($isAdmin): ?>
 <script src="/assets/js/sortable.js"></script>
@@ -505,18 +304,5 @@ function bindReorder(tableId, url, extra) {
 }
 bindReorder('peerAccessTable', '/peers/access/reorder', { peer_id: <?= (int)$selectedId ?> });
 bindReorder('routingTable', '/peers/routing/reorder', {});
-bindReorder('cascadeRouteTable', '/peers/routes/reorder', {});
-(function () {
-    const form = document.querySelector('form[action="/peers/access/store"]');
-    if (!form) return;
-    const action = form.querySelector('select[name="action"]');
-    const wrap = document.getElementById('lockPathWrap');
-    if (!action || !wrap) return;
-    const sync = function () {
-        wrap.style.display = action.value === 'allow' ? '' : 'none';
-    };
-    action.addEventListener('change', sync);
-    sync();
-})();
 </script>
 <?php endif; ?>
