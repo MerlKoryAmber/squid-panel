@@ -41,6 +41,7 @@
                     <li><a href="/logs" class="<?= ($active ?? '') === 'logs' ? 'active' : '' ?>">📋 Logs</a></li>
                     <li><a href="/stats" class="<?= ($active ?? '') === 'stats' ? 'active' : '' ?>">📈 Statistics</a></li>
                     <li><a href="/audit" class="<?= ($active ?? '') === 'audit' ? 'active' : '' ?>">📜 Audit</a></li>
+                    <li><a href="/live-config" class="<?= ($active ?? '') === 'live_config' ? 'active' : '' ?>">📄 Live config</a></li>
                     <?php if (Auth::isAdmin()): ?>
                     <li><a href="/settings" class="<?= ($active ?? '') === 'settings' ? 'active' : '' ?>">⚙ Settings</a></li>
                     <?php endif; ?>

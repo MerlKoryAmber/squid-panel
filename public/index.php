@@ -130,6 +130,8 @@ $router->get('/stats/api/data', 'StatsController@data');
 
 // Audit
 $router->get('/audit', 'AuditController@index');
+$router->get('/live-config', 'SquidConfController@index');
+$router->get('/squid-conf', 'SquidConfController@index');
 
 // Settings
 $router->get('/settings', 'SettingsController@index');

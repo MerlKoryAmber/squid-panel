@@ -1251,4 +1251,20 @@ body.spm-drawer-open { overflow: hidden; }
     vertical-align: bottom;
 }
 
+.conf-readonly {
+    margin: 0;
+    padding: 16px;
+    max-height: calc(100vh - 240px);
+    overflow: auto;
+    font-family: ui-monospace, Consolas, "Courier New", monospace;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    white-space: pre;
+    color: var(--ir-text);
+    background: var(--ir-bg);
+    border: 0;
+    user-select: text;
+}
+
+
 
