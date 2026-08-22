@@ -24,6 +24,12 @@ class View {
         }
         $content = ob_get_clean();
 
+        $toastSuccess = (string)($data['flashSuccess'] ?? $_SESSION['flash_success'] ?? '');
+        $toastError = (string)($data['flashError'] ?? $_SESSION['flash_error'] ?? '');
+        unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+
+        $panelTheme = class_exists('PanelTheme') ? PanelTheme::current() : 'gold';
+
         ob_start();
         if (file_exists($layoutFile)) {
             include $layoutFile;

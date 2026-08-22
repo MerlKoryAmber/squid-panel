@@ -325,6 +325,8 @@ fi
 if php "$SPM_DIR/install/format_live.php"; then
     echo "Live squid.conf replaced after squid -k parse."
     echo "Rollback copies: ${SQUID_CONF}.spm-install-${TS} and ${SQUID_CONF}.spm-lab-baseline (if present)."
+    chown "$WEB_USER:$WEB_USER" "$SPM_DIR/storage/tmp/squid.conf.parse" 2>/dev/null || true
+    chmod 600 "$SPM_DIR/storage/tmp/squid.conf.parse" 2>/dev/null || true
 else
     echo "ERROR: format/parse failed. Restoring ${SQUID_CONF}.spm-install-${TS}"
     cp -a "${SQUID_CONF}.spm-install-${TS}" "$SQUID_CONF"

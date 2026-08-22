@@ -1,12 +1,12 @@
 <div class="page-header">
-    <h2><?= isset($acl) ? 'Edit' : 'Add' ?> ACL</h2>
+    <h2><?= !empty($acl['id']) ? 'Edit' : 'Add' ?> ACL</h2>
     <a href="/acl" class="btn btn-secondary">← Back to ACLs</a>
 </div>
 
 <?php
 $isFile = isset($acl) && (($acl['storage'] ?? 'inline') === 'file');
 $fileTypes = 'dstdomain, srcdomain, dst, src';
-$livePath = isset($acl['name']) ? AclListFile::livePath($acl['name']) : '/etc/squid/acl.d/<name>.txt';
+$livePath = !empty($acl['name']) ? AclListFile::livePath($acl['name']) : '/etc/squid/acl.d/<name>.txt';
 ?>
 
 <?php if (!empty($installNote)): ?>
@@ -15,12 +15,12 @@ $livePath = isset($acl['name']) ? AclListFile::livePath($acl['name']) : '/etc/sq
 
 <div class="card">
     <div class="card-header">
-        <h3><?= isset($acl) ? 'Edit ' . htmlspecialchars($acl['name']) : 'New ACL' ?></h3>
+        <h3><?= !empty($acl['id']) ? 'Edit ' . htmlspecialchars($acl['name']) : 'New ACL' ?></h3>
     </div>
     <div class="card-body">
-        <form method="POST" action="/acl/<?= isset($acl) ? 'update' : 'store' ?>">
+        <form method="POST" action="/acl/<?= !empty($acl['id']) ? 'update' : 'store' ?>">
             <?= View::csrf() ?>
-            <?php if (isset($acl)): ?><input type="hidden" name="id" value="<?= $acl['id'] ?>"><?php endif; ?>
+            <?php if (!empty($acl['id'])): ?><input type="hidden" name="id" value="<?= (int)$acl['id'] ?>"><?php endif; ?>
             <div class="form-row">
                 <div class="form-group">
                     <label>Name</label>

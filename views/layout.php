@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="<?= DEFAULT_LANG ?? 'ru' ?>">
+<html lang="<?= DEFAULT_LANG ?? 'ru' ?>" data-theme="<?= htmlspecialchars($panelTheme ?? 'gold', ENT_QUOTES) ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <style>
-        .brand-mark{box-sizing:border-box;flex:0 0 48px;width:48px;height:30px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #c9a96e;border-radius:6px}
+        .brand-mark{box-sizing:border-box;flex:0 0 48px;width:48px;height:30px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--ir-accent);border-radius:6px}
         .brand-mark img{display:block;max-width:42px;max-height:24px;width:auto;height:auto}
         .brand-mark-lg{flex:0 0 88px;width:88px;height:52px;margin:0 auto 14px;border-radius:8px}
         .brand-mark-lg img{max-width:78px;max-height:44px}
@@ -82,6 +82,15 @@
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     <div id="acl-tip-pop" hidden></div>
+    <?php
+    $toastError = (string)($toastError ?? '');
+    $toastSuccess = (string)($toastSuccess ?? '');
+    if ($toastError !== ''):
+    ?>
+    <div id="spm-toast" class="spm-toast spm-toast-error" data-ttl="8000" role="alert"><?= htmlspecialchars($toastError, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
+    <?php elseif ($toastSuccess !== ''): ?>
+    <div id="spm-toast" class="spm-toast spm-toast-success" data-ttl="3000" role="status"><?= htmlspecialchars($toastSuccess, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
+    <?php endif; ?>
     <div id="spm-confirm" class="spm-confirm" hidden>
         <div class="spm-confirm-backdrop"></div>
         <div class="spm-confirm-box" role="dialog" aria-modal="true" aria-labelledby="spm-confirm-text">

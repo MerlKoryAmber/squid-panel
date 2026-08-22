@@ -23,7 +23,7 @@ class SettingsController {
         View::verifyCsrf();
 
         $lang = in_array($_POST['language'] ?? '', ['ru', 'en']) ? $_POST['language'] : 'ru';
-        $theme = $_POST['theme'] ?? 'light';
+        $theme = PanelTheme::normalize($_POST['theme'] ?? 'gold');
         $prev = Database::fetch("SELECT panel_allow_ips, simple_ui_enabled FROM settings LIMIT 1") ?: [];
         $allow = (string)($prev['panel_allow_ips'] ?? '');
         $simpleUi = (int)($prev['simple_ui_enabled'] ?? 0);
@@ -35,6 +35,7 @@ class SettingsController {
         );
 
         Audit::log('settings_save', 'Updated panel settings');
+        $_SESSION['flash_success'] = 'Config saved';
         View::redirect('/settings');
     }
 
@@ -89,7 +90,7 @@ class SettingsController {
             $store = implode("\n", $ips);
 
             $lang = 'ru';
-            $theme = 'light';
+            $theme = 'gold';
             $simpleUi = 0;
             $row = Database::fetch("SELECT * FROM settings LIMIT 1");
             if ($row) {

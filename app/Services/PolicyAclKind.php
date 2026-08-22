@@ -216,14 +216,13 @@ class PolicyAclKind {
         ];
     }
 
-    public static function labelWithPreview(array $meta, $limit = 3) {
-        $name = self::label($meta, false);
+    public static function previewSuffix(array $meta, $limit = 3) {
         $p = self::memberPreview($meta, $limit);
         if ($p['note'] !== '') {
-            return $name . ' — ' . $p['note'];
+            return $p['note'];
         }
         if ($p['samples'] === []) {
-            return $name;
+            return '';
         }
         $bits = [];
         foreach ($p['samples'] as $s) {
@@ -232,11 +231,25 @@ class PolicyAclKind {
             }
             $bits[] = $s;
         }
-        $text = $name . ' — ' . implode(', ', $bits);
+        $text = implode(', ', $bits);
         $more = $p['total'] - count($p['samples']);
         if ($more > 0) {
             $text .= ' (+' . $more . ')';
         }
         return $text;
+    }
+
+    public static function labelWithPreview(array $meta, $limit = 3) {
+        $name = self::label($meta, false);
+        $suf = self::previewSuffix($meta, $limit);
+        return $suf === '' ? $name : $name . ' — ' . $suf;
+    }
+
+    public static function selectOption(array $meta, $limit = 4) {
+        $name = trim((string)($meta['name'] ?? ''));
+        $type = trim((string)($meta['type'] ?? ''));
+        $left = $type !== '' ? $name . ' (' . $type . ')' : $name;
+        $suf = self::previewSuffix($meta, $limit);
+        return $suf === '' ? $left : $left . ' — ' . $suf;
     }
 }

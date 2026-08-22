@@ -25,6 +25,12 @@ $prev = PolicyAclKind::labelWithPreview([
     'entries' => json_encode(['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']),
 ]);
 expect($prev === 'office — 10.0.0.1, 10.0.0.2, 10.0.0.3 (+1)', 'preview +N');
+expect(PolicyAclKind::selectOption([
+    'name' => 'office',
+    'type' => 'src',
+    'storage' => 'inline',
+    'entries' => json_encode(['10.0.0.1', '10.0.0.2']),
+]) === 'office (src) — 10.0.0.1, 10.0.0.2', 'select option shows values');
 $ad = PolicyAclKind::labelWithPreview(['name' => 'ad_hr', 'type' => 'external', 'entries' => '[]']);
 expect(strpos($ad, 'live LDAP') !== false, 'AD preview is LDAP note');
 

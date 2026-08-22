@@ -20,10 +20,10 @@
                 </div>
                 <div class="form-group" style="flex: 2;">
                     <label>ACLs (hold Ctrl/Cmd to select multiple)</label>
-                    <select name="acls[]" multiple size="6" required>
+                    <select name="acls[]" multiple size="16" required class="acl-pick">
                         <?php foreach ($acls as $acl): ?>
                         <option value="<?= htmlspecialchars($acl['name']) ?>">
-                            <?= htmlspecialchars($acl['name']) ?> (<?= htmlspecialchars($acl['type']) ?>)
+                            <?= htmlspecialchars(PolicyAclKind::selectOption($acl)) ?>
                         </option>
                         <?php endforeach; ?>
                     </select>

@@ -160,6 +160,9 @@ class PanelNet {
             throw new Exception('Cannot create staging directory');
         }
         $path = $dir . '/' . $name;
+        if (is_file($path) && !is_writable($path) && !@unlink($path)) {
+            throw new Exception('Cannot write ' . $name . ' (not writable)');
+        }
         if (file_put_contents($path, $body) === false) {
             throw new Exception('Cannot write ' . $name);
         }

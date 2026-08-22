@@ -16,8 +16,8 @@ class SquidLiveApply {
                 $_SESSION['flash_error'] = self::errorText($result);
                 return false;
             }
-            $msg = trim((string)($result['stdout'] ?? 'Squid configuration applied'));
             $prev = trim((string)($_SESSION['flash_success'] ?? ''));
+            $msg = 'Config saved';
             $_SESSION['flash_success'] = $prev === '' ? $msg : ($prev . '. ' . $msg);
             return true;
         } catch (Throwable $e) {
@@ -43,7 +43,12 @@ class SquidLiveApply {
         } catch (Throwable $e) {
             $err = $e->getMessage();
         }
+        if ($ok) {
+            $_SESSION['flash_success'] = 'Config saved';
+        } elseif ($err !== '') {
+            $_SESSION['flash_error'] = $err;
+        }
         header('Content-Type: application/json');
-        echo json_encode(array_merge(['success' => $ok, 'error' => $err], $extra));
+        echo json_encode(array_merge(['success' => $ok, 'error' => $err, 'message' => $ok ? 'Config saved' : $err], $extra));
     }
 }

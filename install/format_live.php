@@ -53,6 +53,14 @@ if (file_put_contents($parse, $body) === false) {
     exit(1);
 }
 @chmod($parse, 0600);
+$tmpOwner = @fileowner(SPM_STORAGE);
+$tmpGroup = @filegroup(SPM_STORAGE);
+if ($tmpOwner !== false && function_exists('posix_chown')) {
+    @posix_chown($parse, $tmpOwner);
+}
+if ($tmpGroup !== false && function_exists('posix_chgrp')) {
+    @posix_chgrp($parse, $tmpGroup);
+}
 
 $out = [];
 $rc = 0;

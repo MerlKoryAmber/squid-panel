@@ -49,6 +49,16 @@
         });
     });
 
+    const toast = document.getElementById('spm-toast');
+    if (toast) {
+        const ttl = parseInt(toast.getAttribute('data-ttl') || '3000', 10);
+        setTimeout(function () {
+            toast.classList.add('spm-toast-hide');
+            setTimeout(function () { toast.remove(); }, 250);
+        }, isNaN(ttl) ? 3000 : ttl);
+        toast.addEventListener('click', function () { toast.remove(); });
+    }
+
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('[data-confirm]');
         if (!btn || btn.tagName !== 'BUTTON') return;

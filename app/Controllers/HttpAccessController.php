@@ -16,7 +16,7 @@ class HttpAccessController {
         echo View::render('http_access.create', [
             'title' => 'Add HTTP Access Rule',
             'active' => 'http_access',
-            'acls' => Database::fetchAll("SELECT name, type FROM acls ORDER BY name"),
+            'acls' => Database::fetchAll("SELECT name, type, entries, storage FROM acls ORDER BY name"),
         ]);
     }
 
@@ -78,7 +78,7 @@ class HttpAccessController {
             'title' => 'Edit HTTP Access Rule',
             'active' => 'http_access',
             'rule' => $rule,
-            'acls' => Database::fetchAll("SELECT name, type FROM acls ORDER BY name")
+            'acls' => Database::fetchAll("SELECT name, type, entries, storage FROM acls ORDER BY name")
         ]);
     }
 

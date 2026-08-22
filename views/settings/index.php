@@ -98,8 +98,10 @@
                 <div class="form-group">
                     <label>Theme</label>
                     <select name="theme">
-                        <option value="light" <?= ($settings['theme'] ?? 'light') === 'light' ? 'selected' : '' ?>>Light</option>
-                        <option value="dark" <?= ($settings['theme'] ?? '') === 'dark' ? 'selected' : '' ?>>Dark</option>
+                        <?php $themeNow = PanelTheme::normalize($settings['theme'] ?? 'gold'); ?>
+                        <option value="gold" <?= $themeNow === 'gold' ? 'selected' : '' ?>>Gold</option>
+                        <option value="silver" <?= $themeNow === 'silver' ? 'selected' : '' ?>>Silver</option>
+                        <option value="bronze" <?= $themeNow === 'bronze' ? 'selected' : '' ?>>Bronze</option>
                     </select>
                 </div>
             </div>

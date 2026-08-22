@@ -174,6 +174,10 @@ function updateStatus() {
 }
 
 function loadCharts() {
+    const css = getComputedStyle(document.documentElement);
+    const accent = (css.getPropertyValue('--ir-accent') || '#c9a96e').trim();
+    const accentHover = (css.getPropertyValue('--ir-accent-hover') || '#b89a60').trim();
+    const accentFill = (css.getPropertyValue('--ir-accent-light') || 'rgba(201,169,110,0.16)').trim();
     fetch('/api/squid/stats', { credentials: 'same-origin' })
         .then(r => {
             if (r.status === 401) throw new Error('session');
@@ -198,12 +202,12 @@ function loadCharts() {
                     datasets: [{
                         label: 'Requests',
                         data: traffic.map(h => h.count || 0),
-                        borderColor: '#c9a96e',
-                        backgroundColor: 'rgba(201,169,110,0.08)',
+                        borderColor: accent,
+                        backgroundColor: accentFill,
                         fill: true,
                         tension: 0.3,
                         pointRadius: 3,
-                        pointBackgroundColor: '#c9a96e',
+                        pointBackgroundColor: accent,
                         borderWidth: 2
                     }]
                 },
@@ -229,7 +233,7 @@ function loadCharts() {
                     datasets: [{
                         label: 'Requests',
                         data: domains.map(d => d.count || 0),
-                        backgroundColor: 'rgba(201,169,110,0.75)',
+                        backgroundColor: accent,
                         borderRadius: 4,
                         barThickness: 20
                     }]
@@ -241,7 +245,7 @@ function loadCharts() {
                     plugins: { legend: { display: false } },
                     scales: {
                         x: { grid: { color: '#2a3548' }, ticks: { color: '#8a94a3', font: { size: 11 } } },
-                        y: { grid: { display: false }, ticks: { color: '#b89a60', font: { size: 11 } } }
+                        y: { grid: { display: false }, ticks: { color: accentHover, font: { size: 11 } } }
                     }
                 }
             });

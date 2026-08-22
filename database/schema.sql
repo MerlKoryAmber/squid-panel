@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS external_acl_types (
 CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     language TEXT DEFAULT 'ru',
-    theme TEXT DEFAULT 'light',
+    theme TEXT DEFAULT 'gold',
     panel_allow_ips TEXT NOT NULL DEFAULT '',
     simple_ui_enabled INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT

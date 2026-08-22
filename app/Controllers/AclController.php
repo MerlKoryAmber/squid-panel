@@ -16,8 +16,9 @@ class AclController {
         $types = (require SPM_CONFIG . '/squid.php')['acl_types'];
         echo View::render('acl.edit', [
             'title' => 'Create ACL',
+            'active' => 'acl',
             'types' => $types,
-            'acl' => null,
+            'acl' => self::takeDraft([]),
             'isAdmin' => true,
             'installNote' => '',
         ]);
@@ -41,9 +42,11 @@ class AclController {
         if (($acl['storage'] ?? 'inline') === 'file') {
             $acl['entries'] = json_encode(AclListFile::readWorkFile($acl['name']));
         }
+        $acl = self::takeDraft($acl);
         $types = (require SPM_CONFIG . '/squid.php')['acl_types'];
         echo View::render('acl.edit', [
             'title' => 'Edit ACL',
+            'active' => 'acl',
             'types' => $types,
             'acl' => $acl,
             'isAdmin' => Auth::isAdmin(),
@@ -108,14 +111,12 @@ class AclController {
         $wantFile = !empty($_POST['storage_file']);
 
         if ($name === '' || $type === '' || empty($values)) {
-            http_response_code(400);
-            die('Name, type and values are required');
+            $this->bounceSave($existing, 'Name, type and values are required');
         }
 
         foreach ($values as $val) {
             if (!$this->validateAclValue($type, $val)) {
-                http_response_code(400);
-                die("Invalid value for type {$type}: {$val}");
+                $this->bounceSave($existing, self::invalidValueMessage($type, $val));
             }
         }
 
@@ -150,6 +151,49 @@ class AclController {
         }
 
         return ['id' => $id, 'installed' => $installed];
+    }
+
+    private static function takeDraft($acl) {
+        $d = $_SESSION['acl_draft'] ?? null;
+        unset($_SESSION['acl_draft']);
+        if (!is_array($d)) {
+            return $acl;
+        }
+        if (is_array($acl) && !empty($acl['id']) && (int)($d['id'] ?? 0) !== (int)$acl['id']) {
+            return $acl;
+        }
+        if ($acl === null) {
+            unset($d['id']);
+            return $d;
+        }
+        return array_merge($acl, $d);
+    }
+
+    private function bounceSave($existing, $error) {
+        $existing = is_array($existing) ? $existing : [];
+        $_SESSION['flash_error'] = $error;
+        $raw = (string)($_POST['entries'] ?? $_POST['values'] ?? '');
+        $_SESSION['acl_draft'] = [
+            'id' => $existing['id'] ?? null,
+            'name' => (string)($_POST['name'] ?? ($existing['name'] ?? '')),
+            'type' => (string)($_POST['type'] ?? ($existing['type'] ?? '')),
+            'entries' => json_encode(AclListFile::parseLines($raw)),
+            'storage' => !empty($_POST['storage_file']) ? 'file' : 'inline',
+            'description' => (string)($_POST['description'] ?? ($existing['description'] ?? '')),
+            'group_name' => (string)($_POST['group_name'] ?? ($existing['group_name'] ?? '')),
+        ];
+        if (!empty($existing['id'])) {
+            View::redirect('/acl/edit?id=' . (int)$existing['id']);
+        }
+        View::redirect('/acl/create');
+    }
+
+    private static function invalidValueMessage($type, $val) {
+        $msg = 'Invalid value for type ' . $type . ': ' . $val;
+        if (($type === 'dst' || $type === 'src') && preg_match('/[A-Za-z]/', $val)) {
+            $msg .= '. Hostnames use dstdomain or srcdomain, not dst/src.';
+        }
+        return $msg;
     }
 
     private static function entryCount($acl) {
