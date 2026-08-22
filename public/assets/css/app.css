@@ -138,8 +138,10 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: var(--space-lg) var(--space-md) var(--space-md);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    height: 64px;
+    flex-shrink: 0;
+    padding: 0 var(--space-md);
+    border-bottom: 1px solid var(--ir-border);
 }
 
 .brand-mark {
@@ -278,7 +280,9 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
 .top-header {
     background: var(--ir-surface);
     border-bottom: 1px solid var(--ir-border);
-    padding: var(--space-md) clamp(12px, 2vw, var(--space-xl));
+    height: 64px;
+    flex-shrink: 0;
+    padding: 0 clamp(12px, 2vw, var(--space-xl));
     display: flex;
     align-items: center;
     justify-content: space-between;
