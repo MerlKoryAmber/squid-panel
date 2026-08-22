@@ -14,6 +14,7 @@ class AuditController {
 
         echo View::render('audit.index', [
             'title' => 'Audit Log',
+            'active' => 'audit',
             'logs' => $logs,
             'filters' => $filters,
         ]);
