@@ -5,6 +5,7 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 /opt/spm/agent/spmd.py
+ExecStartPost=-/usr/sbin/restorecon /run/spmd.sock
 Restart=always
 RestartSec=5
 User=root

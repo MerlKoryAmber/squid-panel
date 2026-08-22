@@ -62,6 +62,11 @@ echo "[2/8] Removing systemd unit..."
 rm -f /etc/systemd/system/spmd.service
 systemctl daemon-reload 2>/dev/null || true
 
+if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce 2>/dev/null || echo Disabled)" != "Disabled" ]; then
+    semodule -r spm 2>/dev/null || true
+    semanage fcontext -d '/run/spmd\.sock' 2>/dev/null || true
+fi
+
 echo "[3/8] Removing Nginx vhost and panel allowlist..."
 rm -f "$NGINX_SPM_CONF"
 rm -f "$NGINX_ALLOW_INC"

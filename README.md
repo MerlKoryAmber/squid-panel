@@ -68,6 +68,7 @@ sudo /opt/spm/uninstall.sh
 |------|------------|
 | `/opt/spm` | Панель, `database/spm.db` |
 | `/run/spmd.sock` | Агент |
+| `agent/selinux/` | Политика php-fpm→spmd (инсталлер; skip если SELinux Disabled) |
 | `/etc/nginx/conf.d/spm.conf` | Vhost панели |
 | `/etc/nginx/conf.d/spm-allow.inc` | IP allowlist панели |
 | `/etc/squid/acl.d/` | Файловые ACL |

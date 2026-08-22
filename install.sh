@@ -281,6 +281,10 @@ if [ -S /run/spmd.sock ]; then
     chown root:"$WEB_USER" /run/spmd.sock 2>/dev/null || true
     chmod 660 /run/spmd.sock
 fi
+if [ -f "$SPM_DIR/agent/selinux/apply.sh" ]; then
+    chmod 755 "$SPM_DIR/agent/selinux/apply.sh"
+    bash "$SPM_DIR/agent/selinux/apply.sh" "$SPM_DIR/agent/selinux/spm.te" || echo "WARNING: SELinux policy not applied"
+fi
 
 echo "[7/9] Granting the panel read access to Squid files (squid.conf is not rewritten)..."
 TS=$(date +%Y%m%d%H%M%S)
