@@ -92,7 +92,7 @@ class PrivilegedExecutor {
             } elseif ($commandKey === 'squid_listen_apply') {
                 $need = 'spmd is required to apply Squid listen settings';
             } elseif ($commandKey === 'squid_policy_apply') {
-                $need = 'spmd is required to apply Squid policy includes';
+                $need = 'spmd is required to apply live squid.conf';
             } elseif ($commandKey === 'nginx_allow_apply') {
                 $need = 'spmd is required to apply nginx IP allowlist';
             } else {

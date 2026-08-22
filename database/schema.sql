@@ -115,10 +115,13 @@ CREATE TABLE IF NOT EXISTS auth_config (
 CREATE TABLE IF NOT EXISTS squid_globals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     http_port TEXT DEFAULT '3128',
-    icp_port TEXT DEFAULT '3130',
-    cache_dir TEXT DEFAULT 'ufs /var/spool/squid 100 16 256',
+    icp_port TEXT DEFAULT '',
+    cache_dir TEXT DEFAULT '',
     visible_hostname TEXT DEFAULT '',
     dns_nameservers TEXT DEFAULT '',
+    coredump_dir TEXT DEFAULT '',
+    extra_conf TEXT DEFAULT '',
+    request_header_access TEXT DEFAULT '',
     updated_at TEXT
 );
 

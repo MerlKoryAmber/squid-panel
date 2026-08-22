@@ -27,7 +27,7 @@ class AclController {
         Auth::requireAdmin();
         View::verifyCsrf();
         $saved = $this->saveFromPost(null);
-        View::redirect('/acl/edit?id=' . (int)$saved['id']);
+        SquidLiveApply::redirect('/acl/edit?id=' . (int)$saved['id']);
     }
 
     public function edit($params = []) {
@@ -62,7 +62,7 @@ class AclController {
         }
         $saved = $this->saveFromPost($acl);
         $q = !empty($saved['installed']) ? '&installed=1' : '';
-        View::redirect('/acl/edit?id=' . (int)$saved['id'] . $q);
+        SquidLiveApply::redirect('/acl/edit?id=' . (int)$saved['id'] . $q);
     }
 
     public function delete($params = []) {
@@ -92,7 +92,7 @@ class AclController {
             }
             Audit::log('acl_delete', "Deleted ACL {$acl['name']}");
         }
-        View::redirect('/acl');
+        SquidLiveApply::redirect('/acl');
     }
 
     private function saveFromPost($existing) {

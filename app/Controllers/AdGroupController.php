@@ -80,9 +80,12 @@ class AdGroupController {
             $_SESSION['flash_error'] = implode('; ', $errors);
         }
         if ($msg) {
-            $_SESSION['flash_success'] = implode('. ', $msg) . '. Live squid.conf was not rewritten. Use these ACLs in HTTP Access / Cascade.';
+            $_SESSION['flash_success'] = implode('. ', $msg) . '.';
         } elseif (!$errors) {
             $_SESSION['flash_error'] = 'No groups selected';
+        }
+        if ($created) {
+            SquidLiveApply::remember();
         }
         View::redirect('/acl/ad-groups');
     }

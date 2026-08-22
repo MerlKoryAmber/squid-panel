@@ -13,7 +13,7 @@
     <div class="card-header"><h3>Squid listen</h3></div>
     <div class="card-body">
         <p style="color:var(--ir-text-muted); font-size:0.82rem;">
-            Imported from live conf. Apply writes <code>/etc/squid/spm-listen.conf</code>, comments <code>http_port</code> / <code>visible_hostname</code> in main <code>squid.conf</code> (backup), adds <code>include</code>, then parse + reconfigure.
+            Imported from live conf. Save rewrites <code>/etc/squid/squid.conf</code> after <code>squid -k parse</code>.
         </p>
         <form method="POST" action="/settings/squid">
             <?= View::csrf() ?>
@@ -24,6 +24,18 @@
             <div class="form-group">
                 <label>visible_hostname</label>
                 <input type="text" name="visible_hostname" value="<?= htmlspecialchars((string)($globals['visible_hostname'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" placeholder="proxy.example.com">
+            </div>
+            <div class="form-group">
+                <label>coredump_dir</label>
+                <input type="text" name="coredump_dir" value="<?= htmlspecialchars((string)($globals['coredump_dir'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" placeholder="/var/spool/squid">
+            </div>
+            <div class="form-group">
+                <label>request_header_access (one line per rule)</label>
+                <p style="color:var(--ir-text-muted); font-size:0.82rem;">
+                    Testhost: <code>X-Forwarded-For deny all</code> — Squid не шлёт этот заголовок на origin и parent.
+                    Без него каскад часто ломается (upstream видит IP клиента).
+                </p>
+                <textarea name="request_header_access" rows="3" placeholder="X-Forwarded-For deny all"><?= htmlspecialchars((string)($globals['request_header_access'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></textarea>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Save and apply to Squid</button>
@@ -36,13 +48,11 @@
     <div class="card-header"><h3>Policy → Squid</h3></div>
     <div class="card-body">
         <p style="color:var(--ir-text-muted); font-size:0.82rem;">
-            Save on Access / Lists / Cascade writes <code>spm.db</code> only. This button writes
-            <code>/etc/squid/spm-acl.conf</code>, <code>spm-peers.conf</code>, <code>spm-http_access.conf</code>,
-            comments matching directives in live <code>squid.conf</code> (backup <code>*.spm-policy-*</code>),
-            adds <code>include</code>, then <code>squid -k parse</code> and reconfigure. Auth / ssl_bump / refresh_pattern stay in live conf.
-            ACL added only in live conf after import will disappear from Squid until imported into the panel.
+            Save on Access / Lists / Cascade / Listen writes <code>spm.db</code> then live <code>/etc/squid/squid.conf</code>
+            (backup <code>*.spm-policy-*</code>) after parse. Unmanaged lines (<code>cache</code>, <code>cache_mem</code>) stay in extra.
+            This button is the same pipeline if a Save was skipped.
         </p>
-        <form method="POST" action="/settings/apply-policy" data-confirm="Apply panel policy to live Squid? First time comments acl/http_access/cache_peer in squid.conf and adds includes. Parse failure leaves live conf unchanged.">
+        <form method="POST" action="/settings/apply-policy" data-confirm="Rewrite live squid.conf from the panel database? Parse failure leaves live conf unchanged.">
             <?= View::csrf() ?>
             <input type="hidden" name="return" value="/settings">
             <div class="form-actions">

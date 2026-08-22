@@ -49,9 +49,9 @@
 коммит`. Без dry-run не менять. Бэкап до записи. Post-check — запросом к
 данным до/после, не кодами ответа.
 
-**SPM:** живой `/etc/squid/squid.conf` не переписывать генератором. Импорт в
-`spm.db` ≠ apply на Squid. `update.sh` на этапе внедрения — полная
-переустановка панели, `spm.db` не сохранять.
+**SPM:** install и Save политики переписывают `/etc/squid/squid.conf` после
+`squid -k parse`. Импорт в `spm.db` ≠ apply без parse. Live без parse не
+трогать. Откат лабы: `squid.conf.spm-lab-baseline`.
 
 ## 6. Дисциплина коммитов и веток
 
@@ -158,15 +158,14 @@
 - **Handoff (читать первым):** `docs/agent_reports/handoff/2026-08-21.md`
 - **Владелец:** Merl. Стек: PHP-панель + `spmd` (Python), SQLite `spm.db`,
   Squid на CentOS 9 / Rocky 9, nginx :8443, PHP-FPM `squidmgr`.
-- **Не трогать без команды:** живой `squid.conf` целиком, рестарт Squid, push,
-  force-push, `git add .`.
+- **Не трогать без команды:** рестарт Squid (`systemctl restart`), push,
+  force-push, `git add .`. Live `squid.conf` — только через parse+apply/install.
 - **Выкладка:** `/opt/update.sh` клонирует GitHub и гоняет `install.sh`;
   на этапе внедрения `spm.db` сносится. Импорт из `/etc/squid/squid.conf`.
 - **Секреты:** keytab только `/etc/squid/*.keytab`, sudoers точные пути,
   пароли/`.env`/дампы не в git.
-- **Политика на Squid:** только кнопка Apply (include `spm-acl.conf` /
-  `spm-peers.conf` / `spm-http_access.conf`), не каждый Save, не полный
-  overwrite conf.
+- **Политика на Squid:** Save ACL / HTTP Access / Cascade / Listen → полный
+  `squid.conf` (auth + extra + coredump), backup `*.spm-policy-*`, parse, reconfigure.
 - **Каскад:** пиры по `name=`; большие списки сайтов — файл
   `/etc/squid/acl.d/<acl>.txt`, не JSON на тысячи строк.
 - **ADR:** `docs/adr/README.md`. Отчёты агента: `docs/agent_reports/`.

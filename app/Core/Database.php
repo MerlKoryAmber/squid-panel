@@ -55,6 +55,9 @@ class Database {
         self::addColumnIfMissing('settings', 'simple_ui_enabled', "INTEGER NOT NULL DEFAULT 0");
         self::addColumnIfMissing('users', 'policy_ui', "TEXT NOT NULL DEFAULT 'expert'");
         self::addColumnIfMissing('http_access_rules', 'enabled', 'INTEGER NOT NULL DEFAULT 1');
+        self::addColumnIfMissing('squid_globals', 'coredump_dir', "TEXT DEFAULT ''");
+        self::addColumnIfMissing('squid_globals', 'extra_conf', "TEXT DEFAULT ''");
+        self::addColumnIfMissing('squid_globals', 'request_header_access', "TEXT DEFAULT ''");
         self::$pdo->exec(
             "CREATE TABLE IF NOT EXISTS cascade_routes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,6 +97,7 @@ class Database {
             'settings' => true,
             'users' => true,
             'http_access_rules' => true,
+            'squid_globals' => true,
         ];
         if (!isset($allowed[$table])) {
             return;

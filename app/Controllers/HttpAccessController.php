@@ -45,7 +45,7 @@ class HttpAccessController {
         );
 
         Audit::log('http_access_create', "Created http_access {$action} " . implode(' ', $acls));
-        View::redirect('/http_access');
+        SquidLiveApply::redirect('/http_access');
     }
 
     public function reorder($params = []) {
@@ -63,8 +63,7 @@ class HttpAccessController {
         }
 
         Audit::log('http_access_reorder', 'Reordered HTTP access rules');
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true]);
+        SquidLiveApply::jsonFinish();
     }
 
     public function edit($params = []) {
@@ -113,7 +112,7 @@ class HttpAccessController {
         );
 
         Audit::log('http_access_update', "Updated http_access rule {$id}");
-        View::redirect('/http_access');
+        SquidLiveApply::redirect('/http_access');
     }
 
     public function delete($params = []) {
@@ -126,7 +125,7 @@ class HttpAccessController {
             Database::query("DELETE FROM http_access_rules WHERE id = ?", [$id]);
             Audit::log('http_access_delete', "Deleted http_access rule {$id}");
         }
-        View::redirect('/http_access');
+        SquidLiveApply::redirect('/http_access');
     }
 
     public function toggle($params = []) {
@@ -142,6 +141,6 @@ class HttpAccessController {
             );
             Audit::log('http_access_toggle', "Rule {$id} enabled={$next}");
         }
-        View::redirect('/http_access');
+        SquidLiveApply::redirect('/http_access');
     }
 }

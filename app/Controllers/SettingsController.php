@@ -44,32 +44,32 @@ class SettingsController {
         try {
             $http = (string)($_POST['http_port'] ?? '');
             $host = trim((string)($_POST['visible_hostname'] ?? ''));
-            $body = PanelNet::listenFile($http, $host);
+            $core = trim((string)($_POST['coredump_dir'] ?? ''));
+            if ($core !== '' && !preg_match('#^/[A-Za-z0-9._/-]+$#', $core)) {
+                throw new Exception('Invalid coredump_dir');
+            }
+            $hdrJoin = implode("\n", PanelNet::parseRequestHeaderAccessLines((string)($_POST['request_header_access'] ?? '')));
             $ports = PanelNet::parseHttpPortLines($http);
             $portJoin = implode("\n", $ports);
 
             $existing = Database::fetch("SELECT * FROM squid_globals LIMIT 1");
             if ($existing) {
                 Database::query(
-                    "UPDATE squid_globals SET http_port = ?, visible_hostname = ?, updated_at = datetime('now') WHERE id = ?",
-                    [$portJoin, $host, (int)$existing['id']]
+                    "UPDATE squid_globals SET http_port = ?, visible_hostname = ?, coredump_dir = ?, request_header_access = ?, updated_at = datetime('now') WHERE id = ?",
+                    [$portJoin, $host, $core, $hdrJoin, (int)$existing['id']]
                 );
             } else {
                 Database::query(
-                    "INSERT INTO squid_globals (http_port, visible_hostname, updated_at) VALUES (?, ?, datetime('now'))",
-                    [$portJoin, $host]
+                    "INSERT INTO squid_globals (http_port, visible_hostname, coredump_dir, request_header_access, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
+                    [$portJoin, $host, $core, $hdrJoin]
                 );
             }
 
-            PanelNet::writeTmp('spm-listen.conf', $body);
-            $result = PrivilegedExecutor::execute('squid_listen_apply');
-            if (empty($result['success'])) {
-                $err = trim((string)(($result['stderr'] ?? '') ?: ($result['error'] ?? '') ?: ($result['stdout'] ?? 'listen apply failed')));
-                $_SESSION['flash_error'] = $err;
-            } else {
-                $_SESSION['flash_success'] = trim((string)($result['stdout'] ?? 'Listen settings applied'));
-                Audit::log('squid_listen_save', 'http_port ' . str_replace("\n", ', ', $portJoin));
+            if (!SquidLiveApply::remember()) {
+                View::redirect('/settings');
+                return;
             }
+            Audit::log('squid_listen_save', 'http_port ' . str_replace("\n", ', ', $portJoin));
         } catch (Throwable $e) {
             $_SESSION['flash_error'] = $e->getMessage();
         }
@@ -129,15 +129,8 @@ class SettingsController {
             $back = '/settings';
         }
         try {
-            SquidPolicyApply::stageFromDatabase();
-            $result = PrivilegedExecutor::execute('squid_policy_apply');
-            if (empty($result['success'])) {
-                $err = trim((string)(($result['stderr'] ?? '') ?: ($result['error'] ?? '') ?: ($result['stdout'] ?? 'policy apply failed')));
-                $_SESSION['flash_error'] = $err;
-            } else {
-                $_SESSION['flash_success'] = trim((string)($result['stdout'] ?? 'Policy applied to Squid'));
-                Audit::log('squid_policy_apply', 'acl/http_access/cascade includes');
-            }
+            SquidLiveApply::remember();
+            Audit::log('squid_policy_apply', 'full squid.conf');
         } catch (Throwable $e) {
             $_SESSION['flash_error'] = $e->getMessage();
         }

@@ -122,6 +122,38 @@ class PanelNet {
         );
     }
 
+    public static function parseRequestHeaderAccessLines($raw) {
+        $out = [];
+        foreach (preg_split("/\r\n|\n|\r/", (string)$raw) as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] === '#') {
+                continue;
+            }
+            if (stripos($line, 'request_header_access ') === 0) {
+                $line = trim(substr($line, strlen('request_header_access ')));
+            }
+            if (!self::validRequestHeaderAccessLine($line)) {
+                throw new Exception('Invalid request_header_access: ' . $line);
+            }
+            $out[] = $line;
+        }
+        return $out;
+    }
+
+    public static function validRequestHeaderAccessLine($line) {
+        $line = trim((string)$line);
+        if ($line === '' || strlen($line) > 300) {
+            return false;
+        }
+        if (strpbrk($line, ";|&<>`\n\r") !== false) {
+            return false;
+        }
+        return (bool)preg_match(
+            '/^[A-Za-z0-9_:-]+ (allow|deny)(?:\s+[A-Za-z0-9._:!*-]+)*$/',
+            $line
+        );
+    }
+
     public static function writeTmp($name, $body) {
         $dir = (defined('SPM_STORAGE') ? SPM_STORAGE : '/opt/spm/storage') . '/tmp';
         if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {

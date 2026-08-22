@@ -10,7 +10,7 @@ $livePath = isset($acl['name']) ? AclListFile::livePath($acl['name']) : '/etc/sq
 ?>
 
 <?php if (!empty($installNote)): ?>
-<div class="alert alert-success">List file copied to <?= htmlspecialchars(AclListFile::liveDir()) ?>. squid.conf was not rewritten — add the quoted path below if it is not there yet, then reconfigure Squid.</div>
+<div class="alert alert-success">List file copied to <?= htmlspecialchars(AclListFile::liveDir()) ?>. Save also rewrites live squid.conf after parse.</div>
 <?php endif; ?>
 
 <div class="card">
@@ -45,7 +45,7 @@ $livePath = isset($acl['name']) ? AclListFile::livePath($acl['name']) : '/etc/sq
                     For <?= htmlspecialchars($fileTypes) ?>. One value per line. From <?= (int)AclListFile::AUTO_FILE_MIN ?> entries the list is stored as a file automatically.
                     Squid then uses one line:
                     <code>acl <?= htmlspecialchars($acl['name'] ?? 'Name') ?> <?= htmlspecialchars($acl['type'] ?? 'dstdomain') ?> "<?= htmlspecialchars($livePath) ?>"</code>
-                    Live squid.conf is not overwritten by Save.
+                    Live squid.conf is rewritten on Save (after parse).
                 </p>
                 <label>Values (one per line)</label>
                 <textarea name="entries" rows="<?= $isFile ? 18 : 8 ?>" placeholder=".example.com&#10;.other.org" <?= empty($isAdmin) ? 'readonly' : '' ?>><?php

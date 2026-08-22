@@ -2,8 +2,8 @@
 # Squid Proxy Manager — rollout updater (keep at /opt/update.sh during deployment)
 #
 # Full panel reinstall from GitHub. Drops spm.db after a successful clone.
-# Does not stop Squid and does not rewrite /etc/squid/squid.conf.
-# Does not delete /opt/spm until install.sh is ready (password prompt first).
+# install.sh then imports and formats /etc/squid/squid.conf (parse first).
+# Does not systemctl restart Squid.
 
 set -e
 
@@ -15,7 +15,7 @@ SELF="/opt/update.sh"
 
 echo "=== SPM update.sh ==="
 echo "Repo: $REPO_URL"
-echo "Will drop panel database during install. Squid and squid.conf are not touched."
+echo "Will drop panel database during install. squid.conf is formatted after parse."
 echo ""
 
 if [ "$EUID" -ne 0 ]; then

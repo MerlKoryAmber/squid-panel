@@ -1,8 +1,11 @@
 <?php
 /**
- * Placement of policy includes: after auth/external_acl_type, not at first acl.
- * Keep in sync with agent/spmd.py _ensure_policy_includes.
+ * Generated squid.conf order: auth_param then external_acl_type then acl … external.
  */
+require_once __DIR__ . '/../app/Services/AclListFile.php';
+require_once __DIR__ . '/../app/Services/PanelNet.php';
+require_once __DIR__ . '/../app/Services/SquidConfigBuilder.php';
+
 $fail = 0;
 function expect($ok, $msg) {
     global $fail;
@@ -14,51 +17,40 @@ function expect($ok, $msg) {
     }
 }
 
-function spm_ensure_policy_includes($text) {
-    $mark = '# SPM managed ACL / access / cascade';
-    $incs = [
-        'include /etc/squid/spm-acl.conf',
-        'include /etc/squid/spm-peers.conf',
-        'include /etc/squid/spm-http_access.conf',
-    ];
-    $drop = array_flip(array_merge([$mark], $incs));
-    $outLines = [];
-    foreach (preg_split("/\r\n|\n|\r/", $text) as $line) {
-        if (isset($drop[trim($line)])) {
-            continue;
-        }
-        $outLines[] = $line;
-    }
-    $insertAt = 0;
-    foreach ($outLines as $i => $line) {
-        $s = ltrim($line);
-        if ($s === '' || (isset($s[0]) && $s[0] === '#')) {
-            continue;
-        }
-        if (strpos($s, 'auth_param ') === 0
-            || strpos($s, 'external_acl_type ') === 0
-            || strpos($s, 'include /etc/squid/spm-listen.conf') === 0) {
-            $insertAt = $i + 1;
-        }
-    }
-    array_splice($outLines, $insertAt, 0, array_merge([$mark], $incs));
-    return implode("\n", $outLines);
-}
-
-$src = implode("\n", [
-    'cache_mem 0',
-    'auth_param negotiate program /usr/lib64/squid/negotiate_kerberos_auth -k /etc/krb5.keytab',
-    'acl CYPInet dstdomain .zoom.us',
-    'external_acl_type www_DIT_Allow ttl=3600 %LOGIN /usr/lib64/squid/ext_kerberos_ldap_group_acl',
-    'acl DIT_AD external www_DIT_Allow',
-    'http_access allow DIT_AD',
+$b = (new SquidConfigBuilder())->loadFromArray([
+    'auth' => [[
+        'scheme' => 'negotiate',
+        'program' => '/usr/lib64/squid/negotiate_kerberos_auth -k /etc/krb5.keytab',
+        'children' => 5,
+        'children_extra' => '',
+        'keep_alive' => 'on',
+    ]],
+    'ext_acl' => [[
+        'name' => 'www_DIT_Allow',
+        'format' => '%LOGIN',
+        'ttl' => 3600,
+        'negative_ttl' => 60,
+        'children' => 10,
+        'program' => '/usr/lib64/squid/ext_kerberos_ldap_group_acl',
+        'options' => '',
+    ]],
+    'acls' => [[
+        'name' => 'DIT_AD',
+        'type' => 'external',
+        'storage' => 'inline',
+        'entries' => json_encode(['www_DIT_Allow']),
+    ]],
+    'http_access' => [],
+    'peers' => [],
+    'globals' => ['http_port' => '3128', 'extra_conf' => 'cache_mem 0'],
 ]);
-$out = spm_ensure_policy_includes($src);
-$aclInc = strpos($out, 'include /etc/squid/spm-acl.conf');
-$ext = strpos($out, 'external_acl_type www_DIT_Allow');
+$out = $b->generate();
 $auth = strpos($out, 'auth_param negotiate');
-expect($aclInc !== false && $ext !== false && $aclInc > $ext, 'spm-acl include after external_acl_type');
-expect($auth !== false && $aclInc > $auth, 'include after auth_param');
+$ext = strpos($out, 'external_acl_type www_DIT_Allow');
+$acl = strpos($out, 'acl DIT_AD external');
+expect($auth !== false && $ext !== false && $acl !== false, 'all three present');
+expect($ext > $auth, 'external_acl after auth_param');
+expect($acl > $ext, 'acl after external_acl_type');
 
 if ($fail > 0) {
     exit(1);

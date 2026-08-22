@@ -43,6 +43,7 @@ class SquidConfigParser {
         $globals = [];
         $authParams = [];
         $extAclTypes = [];
+        $extraLines = [];
 
         $count = count($lines);
         for ($i = 0; $i < $count; $i++) {
@@ -76,7 +77,7 @@ class SquidConfigParser {
                     break;
                 case 'http_access':
                     $parsed = self::parseHttpAccess($tokens);
-                    if ($parsed) {
+                    if ($parsed && !($parsed['action'] === 'deny' && $parsed['acls'] === ['all'])) {
                         $httpAccess[] = $parsed;
                     }
                     break;
@@ -123,7 +124,21 @@ class SquidConfigParser {
                 case 'cache_dir':
                 case 'visible_hostname':
                 case 'dns_nameservers':
+                case 'coredump_dir':
                     $globals[$tokens[0]] = implode(' ', array_slice($tokens, 1));
+                    break;
+                case 'request_header_access':
+                    $v = implode(' ', array_slice($tokens, 1));
+                    if (!empty($globals['request_header_access'])) {
+                        $globals['request_header_access'] .= "\n" . $v;
+                    } else {
+                        $globals['request_header_access'] = $v;
+                    }
+                    break;
+                default:
+                    if (preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $tokens[0])) {
+                        $extraLines[] = $line;
+                    }
                     break;
             }
         }
@@ -151,7 +166,10 @@ class SquidConfigParser {
             self::importRouting($rule);
             $stats['routing']++;
         }
-        if (!empty($globals)) {
+        if (!empty($globals) || !empty($extraLines)) {
+            if (!empty($extraLines)) {
+                $globals['extra_conf'] = implode("\n", $extraLines);
+            }
             self::importGlobals($globals);
             $stats['globals'] = count($globals);
         }
@@ -680,13 +698,16 @@ class SquidConfigParser {
 
     private static function importGlobals($globals) {
         Database::query(
-            "INSERT INTO squid_globals (http_port, icp_port, cache_dir, visible_hostname, dns_nameservers, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+            "INSERT INTO squid_globals (http_port, icp_port, cache_dir, visible_hostname, dns_nameservers, coredump_dir, extra_conf, request_header_access, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
             [
                 $globals['http_port'] ?? '3128',
-                $globals['icp_port'] ?? '3130',
-                $globals['cache_dir'] ?? 'ufs /var/spool/squid 100 16 256',
+                $globals['icp_port'] ?? '',
+                $globals['cache_dir'] ?? '',
                 $globals['visible_hostname'] ?? '',
                 $globals['dns_nameservers'] ?? '',
+                $globals['coredump_dir'] ?? '',
+                $globals['extra_conf'] ?? '',
+                $globals['request_header_access'] ?? '',
             ]
         );
     }

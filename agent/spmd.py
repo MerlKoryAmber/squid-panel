@@ -409,44 +409,23 @@ def _restore_files(saved):
 
 
 def apply_squid_policy():
-    bodies = {}
-    for name in POLICY_STAGING:
-        _src, body = _read_tmp_named(name, POLICY_FILE_RE, 2 * 1024 * 1024)
-        _validate_lines(body, POLICY_LINE, "policy " + name)
-        bodies[name] = body
-    if "http_access deny all" not in bodies["spm-http_access.conf"]:
-        raise ValueError("http_access fragment has no deny all")
+    if not os.path.isfile(PARSE_FILE):
+        raise ValueError("staging squid.conf.parse missing")
+    if os.path.getsize(PARSE_FILE) > 2 * 1024 * 1024:
+        raise ValueError("staging squid.conf.parse too large")
+    with open(PARSE_FILE, "r", encoding="utf-8", errors="replace") as fh:
+        body = fh.read()
+    if "http_access deny all" not in body:
+        raise ValueError("generated conf has no http_access deny all")
+    if "http_port " not in body:
+        raise ValueError("generated conf has no http_port")
     if not os.path.isfile(SQUID_CONF_LIVE):
         raise ValueError("squid.conf missing")
-
-    saved = {}
-    squid_uid = None
-    squid_gid = None
-    try:
-        squid_uid = pwd.getpwnam("squid").pw_uid
-        squid_gid = pwd.getpwnam("squid").pw_gid
-    except KeyError:
-        pass
-
-    for name, dst in zip(POLICY_STAGING, POLICY_DSTS):
-        if os.path.isfile(dst):
-            with open(dst, "r", encoding="utf-8", errors="replace") as fh:
-                saved[dst] = fh.read()
-        else:
-            saved[dst] = None
-        _atomic_write(dst, bodies[name], 0o644)
-        if squid_uid is not None:
-            os.chown(dst, squid_uid, squid_gid)
-
     with open(SQUID_CONF_LIVE, "r", encoding="utf-8", errors="replace") as fh:
         original = fh.read()
     ts = time.strftime("%Y%m%d%H%M%S")
     backup = SQUID_CONF_LIVE + ".spm-policy-" + ts
     _atomic_write(backup, original, 0o644)
-    text = _ensure_policy_includes(_comment_policy_directives(original))
-    parse_dir = os.path.dirname(PARSE_FILE)
-    os.makedirs(parse_dir, mode=0o755, exist_ok=True)
-    _atomic_write(PARSE_FILE, text, 0o600)
     p = subprocess.run(
         ["/usr/sbin/squid", "-f", PARSE_FILE, "-k", "parse"],
         capture_output=True,
@@ -454,9 +433,8 @@ def apply_squid_policy():
         timeout=30,
     )
     if p.returncode != 0:
-        _restore_files(saved)
         raise ValueError((p.stderr or p.stdout or "squid parse failed").strip())
-    _atomic_write(SQUID_CONF_LIVE, text, 0o644)
+    _atomic_write(SQUID_CONF_LIVE, body, 0o644)
     r = subprocess.run(
         ["/usr/sbin/squid", "-k", "reconfigure"],
         capture_output=True,
@@ -465,10 +443,9 @@ def apply_squid_policy():
     )
     if r.returncode != 0:
         _atomic_write(SQUID_CONF_LIVE, original, 0o644)
-        _restore_files(saved)
         raise ValueError((r.stderr or r.stdout or "reconfigure failed").strip())
-    logging.info("squid policy applied backup=%s", backup)
-    return "policy applied, backup " + backup
+    logging.info("squid.conf applied backup=%s", backup)
+    return "squid.conf applied, backup " + backup
 
 
 def apply_nginx_allow():

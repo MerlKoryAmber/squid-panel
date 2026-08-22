@@ -1,10 +1,6 @@
 <?php
 class SquidPolicyApply {
-    public const FILES = [
-        'spm-acl.conf',
-        'spm-peers.conf',
-        'spm-http_access.conf',
-    ];
+    public const PARSE_NAME = 'squid.conf.parse';
 
     public static function stageFromDatabase() {
         $builder = (new SquidConfigBuilder())->loadFromDatabase();
@@ -17,17 +13,17 @@ class SquidPolicyApply {
                 }
             }
         }
-        $parts = [
-            'spm-acl.conf' => $builder->fragmentAcl(),
-            'spm-peers.conf' => $builder->fragmentPeers(),
-            'spm-http_access.conf' => $builder->fragmentHttpAccess(),
-        ];
-        foreach ($parts as $name => $body) {
-            if (strlen($body) > 2 * 1024 * 1024) {
-                throw new Exception($name . ' is too large to apply');
-            }
-            PanelNet::writeTmp($name, $body);
+        $body = $builder->generate();
+        if (strlen($body) > 2 * 1024 * 1024) {
+            throw new Exception('generated squid.conf is too large to apply');
         }
-        return $parts;
+        if (strpos($body, 'http_access deny all') === false) {
+            throw new Exception('generated squid.conf has no http_access deny all');
+        }
+        if (strpos($body, 'http_port ') === false) {
+            throw new Exception('generated squid.conf has no http_port');
+        }
+        PanelNet::writeTmp(self::PARSE_NAME, $body);
+        return $body;
     }
 }

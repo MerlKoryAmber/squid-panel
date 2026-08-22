@@ -78,7 +78,7 @@ class CachePeerController {
             ]
         );
         Audit::log('peer_create', "Created cache_peer {$data['hostname']}");
-        View::redirect('/peers?id=' . (int)$id);
+        SquidLiveApply::redirect('/peers?id=' . (int)$id);
     }
 
     public function edit($params = []) {
@@ -113,7 +113,7 @@ class CachePeerController {
         if ((int)($left['c'] ?? 0) > 0) {
             CascadeRouteCompiler::applyFromDb();
         }
-        View::redirect('/peers?id=' . $id);
+        SquidLiveApply::redirect('/peers?id=' . $id);
     }
 
     public function delete($params = []) {
@@ -131,7 +131,7 @@ class CachePeerController {
                 CascadeRouteCompiler::applyFromDb();
             }
         }
-        View::redirect('/peers');
+        SquidLiveApply::redirect('/peers');
     }
 
     public function access($params = []) {
@@ -176,7 +176,7 @@ class CachePeerController {
         } else {
             Audit::log('peer_access_create', "Added {$action} {$entries} to peer {$peerId}");
         }
-        View::redirect('/peers?id=' . $peerId);
+        SquidLiveApply::redirect('/peers?id=' . $peerId);
     }
 
     public function deleteAccess($params = []) {
@@ -187,7 +187,7 @@ class CachePeerController {
         Database::query("DELETE FROM cache_peer_access_rules WHERE id = ?", [$id]);
         PolicyUi::forgetCascadeRoutes();
         Audit::log('peer_access_delete', "Deleted peer access rule {$id}");
-        View::redirect('/peers?id=' . $peerId);
+        SquidLiveApply::redirect('/peers?id=' . $peerId);
     }
 
     public function editAccess($params = []) {
@@ -227,7 +227,7 @@ class CachePeerController {
         );
         PolicyUi::forgetCascadeRoutes();
         Audit::log('peer_access_update', "Updated peer access rule {$id}");
-        View::redirect('/peers?id=' . (int)$rule['peer_id']);
+        SquidLiveApply::redirect('/peers?id=' . (int)$rule['peer_id']);
     }
 
     public function reorderAccess($params = []) {
@@ -247,8 +247,7 @@ class CachePeerController {
         }
         PolicyUi::forgetCascadeRoutes();
         Audit::log('peer_access_reorder', "Reordered access rules for peer {$peerId}");
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true]);
+        SquidLiveApply::jsonFinish();
     }
 
     public function routing($params = []) {
@@ -274,7 +273,7 @@ class CachePeerController {
         );
         PolicyUi::forgetCascadeRoutes();
         Audit::log('routing_create', "{$directive} {$action} {$entries}");
-        View::redirect('/peers#cascade-when');
+        SquidLiveApply::redirect('/peers#cascade-when');
     }
 
     public function deleteRouting($params = []) {
@@ -284,7 +283,7 @@ class CachePeerController {
         Database::query("DELETE FROM routing_rules WHERE id = ?", [$id]);
         PolicyUi::forgetCascadeRoutes();
         Audit::log('routing_delete', "Deleted routing rule {$id}");
-        View::redirect('/peers#cascade-when');
+        SquidLiveApply::redirect('/peers#cascade-when');
     }
 
     public function reorderRouting($params = []) {
@@ -300,8 +299,7 @@ class CachePeerController {
         }
         PolicyUi::forgetCascadeRoutes();
         Audit::log('routing_reorder', 'Reordered cascade routing rules');
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true]);
+        SquidLiveApply::jsonFinish();
     }
 
     public function updateRouting($params = []) {
@@ -335,7 +333,7 @@ class CachePeerController {
                 );
             }
             Audit::log('cascade_route_create', 'Direct only ' . $entries);
-            View::redirect('/peers#cascade-when');
+            SquidLiveApply::redirect('/peers#cascade-when');
             return;
         }
 
@@ -362,7 +360,7 @@ class CachePeerController {
         }
         self::lockPathToPeer($peerId, $entries);
         Audit::log('cascade_route_create', "Peer {$peerId} exclusive {$entries}");
-        View::redirect('/peers?id=' . $peerId);
+        SquidLiveApply::redirect('/peers?id=' . $peerId);
     }
 
     public function deleteRoute($params = []) {
@@ -372,7 +370,7 @@ class CachePeerController {
         Database::query("DELETE FROM cascade_routes WHERE id = ?", [$id]);
         CascadeRouteCompiler::applyFromDb();
         Audit::log('cascade_route_delete', "Deleted cascade route {$id}");
-        View::redirect('/peers');
+        SquidLiveApply::redirect('/peers');
     }
 
     public function reorderRoutes($params = []) {
@@ -388,8 +386,7 @@ class CachePeerController {
         }
         CascadeRouteCompiler::applyFromDb();
         Audit::log('cascade_route_reorder', 'Reordered cascade routes');
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true]);
+        SquidLiveApply::jsonFinish();
     }
 
     private static function namedListsFromPost($field, array $catalog, $wantKind) {

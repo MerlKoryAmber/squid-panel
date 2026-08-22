@@ -3,7 +3,8 @@
 # Target: CentOS 9 Stream / Rocky 9 / AlmaLinux 9
 #
 # Installs the web panel alongside an existing Squid installation.
-# Does not replace squid.conf and does not restart or stop Squid.
+# After import, formats /etc/squid/squid.conf for the panel (parse first).
+# Does not systemctl restart Squid (reconfigure only).
 
 set -e
 
@@ -286,7 +287,7 @@ if [ -f "$SPM_DIR/agent/selinux/apply.sh" ]; then
     bash "$SPM_DIR/agent/selinux/apply.sh" "$SPM_DIR/agent/selinux/spm.te" || echo "WARNING: SELinux policy not applied"
 fi
 
-echo "[7/9] Granting the panel read access to Squid files (squid.conf is not rewritten)..."
+echo "[7/9] Granting the panel read access to Squid files..."
 TS=$(date +%Y%m%d%H%M%S)
 cp -a "$SQUID_CONF" "${SQUID_CONF}.spm-install-${TS}"
 echo "Copied squid.conf to ${SQUID_CONF}.spm-install-${TS}"
@@ -309,15 +310,25 @@ if command -v semanage &>/dev/null; then
     setsebool -P httpd_can_network_connect 1 2>/dev/null || true
 fi
 
-echo "[8/9] Importing existing squid.conf into the panel database..."
+echo "[8/9] Importing existing squid.conf and formatting it for the panel..."
 if [ "$HAD_EXISTING_DB" = "1" ]; then
     echo "Skipped re-import because an existing SPM database was preserved."
 else
     if php "$SPM_DIR/install/import.php"; then
-        echo "Imported live Squid configuration. squid.conf was not modified."
+        echo "Imported live Squid configuration into spm.db."
     else
-        echo "WARNING: Import reported an error. Squid itself was not changed."
+        echo "ERROR: Import failed. Live squid.conf was not modified."
+        exit 1
     fi
+fi
+
+if php "$SPM_DIR/install/format_live.php"; then
+    echo "Live squid.conf replaced after squid -k parse."
+    echo "Rollback copies: ${SQUID_CONF}.spm-install-${TS} and ${SQUID_CONF}.spm-lab-baseline (if present)."
+else
+    echo "ERROR: format/parse failed. Restoring ${SQUID_CONF}.spm-install-${TS}"
+    cp -a "${SQUID_CONF}.spm-install-${TS}" "$SQUID_CONF"
+    exit 1
 fi
 
 export SPM_ADMIN_PASSWORD="$ADMIN_PASSWORD"
@@ -394,8 +405,9 @@ echo "Sudoers: kinit may use only /etc/squid/*.keytab"
 if [ -f /etc/squid/krb5.keytab ]; then
     echo "Panel keytab copy: /etc/squid/krb5.keytab (live helper path in squid.conf was not edited)."
 fi
-echo "Live squid.conf was not replaced. A copy is at:"
+echo "Live squid.conf was formatted for the panel after parse. Copies:"
 echo "  ${SQUID_CONF}.spm-install-${TS}"
+echo "  ${SQUID_CONF}.spm-lab-baseline  (lab rollback, if copied)"
 echo ""
 echo "To uninstall the panel only (Squid stays):"
 echo "  $SPM_DIR/uninstall.sh"
