@@ -211,6 +211,13 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
     padding: var(--space-md) 0;
 }
 
+.sidebar-nav-end {
+    flex: 0 0 auto;
+    padding-top: 0;
+    padding-bottom: var(--space-sm);
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+
 .sidebar-nav ul { list-style: none; }
 
 .sidebar-nav li a,
@@ -248,6 +255,11 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
 
 .sidebar-footer a { color: color-mix(in srgb, var(--ir-accent) 72%, transparent); }
 .sidebar-footer a:hover { color: var(--ir-accent); }
+
+.guide-body p { margin-bottom: 0.75rem; }
+.guide-body ol { margin: 0 0 0.75rem 1.2rem; }
+.guide-body li { margin-bottom: 0.4rem; }
+.guide-body .code-block { margin: 0.75rem 0 1rem; white-space: pre-wrap; }
 
 /* Main Content */
 .main-content {

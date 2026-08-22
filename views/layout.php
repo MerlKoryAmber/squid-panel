@@ -47,6 +47,11 @@
                     <?php endif; ?>
                 </ul>
             </nav>
+            <nav class="sidebar-nav sidebar-nav-end">
+                <ul>
+                    <li><a href="/instructions" class="<?= ($active ?? '') === 'instructions' ? 'active' : '' ?>">📄 Instructions</a></li>
+                </ul>
+            </nav>
             <div class="sidebar-footer">
                 <?php if (Auth::check()): ?>
                 <div style="margin-bottom: 8px;">

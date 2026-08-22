@@ -133,6 +133,9 @@ $router->get('/audit', 'AuditController@index');
 $router->get('/live-config', 'SquidConfController@index');
 $router->get('/squid-conf', 'SquidConfController@index');
 
+$router->get('/instructions', 'InstructionsController@index');
+$router->get('/instructions/{slug}', 'InstructionsController@show');
+
 // Settings
 $router->get('/settings', 'SettingsController@index');
 $router->post('/settings/save', 'SettingsController@save');
