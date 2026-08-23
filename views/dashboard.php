@@ -36,6 +36,54 @@
     </div>
 </div>
 
+<?php
+$nh = $negotiateHelpers ?? [];
+$nhOk = !empty($nh['ok']);
+$nhReadable = !empty($nh['readable']);
+?>
+<div class="card" style="margin-bottom: var(--space-lg);">
+    <div class="card-header">
+        <h3>Negotiate helpers</h3>
+        <span class="subtitle">cache.log · last <?= (int)($nh['window_h'] ?? 24) ?>h · not live poll</span>
+    </div>
+    <div class="card-body">
+        <?php if (!$nhReadable): ?>
+        <p style="color:var(--ir-text-muted); margin:0;">Cannot read <code>/var/log/squid/cache.log</code>. Panel user needs ACL like access.log.</p>
+        <?php else: ?>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+            <span class="badge <?= $nhOk ? 'badge-success' : 'badge-danger' ?>">
+                <?= $nhOk ? 'No helper queue' : 'Queue / overload' ?>
+            </span>
+            <?php if (!empty($nh['configured'])): ?>
+            <span style="color:var(--ir-text-muted); font-size:0.85rem;">
+                children <?= (int)$nh['children'] ?>
+                · startup <?= (int)$nh['startup'] ?>
+                · idle <?= (int)$nh['idle'] ?>
+            </span>
+            <?php else: ?>
+            <span style="color:var(--ir-text-muted); font-size:0.85rem;">No negotiate scheme in DB</span>
+            <?php endif; ?>
+        </div>
+        <?php if ($nhOk): ?>
+        <p style="color:var(--ir-text-secondary); margin:0; font-size:0.9rem;">
+            No <code>negotiateauthenticator</code> busy/FATAL in the log window. Children is enough for that period (or there was no Negotiate load).
+        </p>
+        <?php else: ?>
+        <p style="color:var(--ir-text-secondary); margin:0; font-size:0.9rem;">
+            Busy warnings: <strong><?= (int)$nh['busy_count'] ?></strong>
+            <?php if ($nh['busy_ratio'] !== ''): ?> (<?= htmlspecialchars($nh['busy_ratio']) ?>)<?php endif; ?>
+            · max queued: <strong><?= (int)$nh['max_queued'] ?></strong>
+            · FATAL: <strong><?= (int)$nh['fatal_count'] ?></strong>
+            <?php if (!empty($nh['last_busy'])): ?>
+            · last: <?= htmlspecialchars($nh['last_busy']) ?>
+            <?php endif; ?>
+            <br>Raise <strong>Children</strong> (Kerberos). FATAL means overload lasted and Squid worker may have died.
+        </p>
+        <?php endif; ?>
+        <?php endif; ?>
+    </div>
+</div>
+
 <div class="dashboard-grid">
     <div class="dashboard-main">
         <div class="card">

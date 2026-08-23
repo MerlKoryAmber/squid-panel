@@ -76,13 +76,28 @@ $canTest = !empty($keytabManaged) && !empty($keytabExists) && !empty($isAdmin);
                 <label>KDC Realm</label>
                 <input type="text" name="realm" value="<?= htmlspecialchars($config['realm'] ?? '') ?>" <?= empty($isAdmin) ? 'readonly' : '' ?>>
             </div>
-            <div class="form-group">
-                <label>Children</label>
-                <input type="number" name="children" min="1" value="<?= (int)($config['children'] ?? 20) ?>" <?= empty($isAdmin) ? 'readonly' : '' ?>>
-            </div>
-            <div class="form-group">
-                <label>Children extra</label>
-                <input type="text" name="children_extra" value="<?= htmlspecialchars($config['children_extra'] ?? '') ?>" placeholder="startup=0 idle=10" <?= empty($isAdmin) ? 'readonly' : '' ?>>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Children</label>
+                    <input type="number" name="children" min="1" max="1024" value="<?= (int)($config['children'] ?? 20) ?>" <?= empty($isAdmin) ? 'readonly' : '' ?>>
+                    <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">
+                        Squid 5/6 <code>auth_param negotiate children</code>: max helper processes (<code>negotiate_kerberos_auth</code>). Too few → Squid waits on a backlog. Sample: 20.
+                    </p>
+                </div>
+                <div class="form-group">
+                    <label>Startup</label>
+                    <input type="number" name="startup" min="0" max="1024" value="<?= (int)($childrenStartup ?? 0) ?>" <?= empty($isAdmin) ? 'readonly' : '' ?>>
+                    <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">
+                        <code>startup=N</code>: how many helpers to spawn at start and reconfigure. <code>0</code> = do not pre-start (on demand).
+                    </p>
+                </div>
+                <div class="form-group">
+                    <label>Idle</label>
+                    <input type="number" name="idle" min="0" max="1024" value="<?= (int)($childrenIdle ?? 10) ?>" <?= empty($isAdmin) ? 'readonly' : '' ?>>
+                    <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">
+                        <code>idle=N</code>: spare helpers Squid tries to keep ready; it starts more in groups of N, never above Children.
+                    </p>
+                </div>
             </div>
             <div class="form-group">
                 <label>keep_alive</label>

@@ -29,6 +29,7 @@ class AuthConfigController {
         $flashError = $_SESSION['flash_error'] ?? '';
         $flashSuccess = $_SESSION['flash_success'] ?? '';
         unset($_SESSION['flash_error'], $_SESSION['flash_success']);
+        $childOpts = self::childrenStartupIdle((string)($config['children_extra'] ?? ''));
         echo View::render('auth.kerberos', [
             'title' => 'Kerberos (Negotiate)',
             'active' => 'auth',
@@ -38,6 +39,8 @@ class AuthConfigController {
             'keytabManaged' => $managed,
             'keytabExists' => $keytabExists,
             'destName' => $destName,
+            'childrenStartup' => $childOpts['startup'],
+            'childrenIdle' => $childOpts['idle'],
             'flashError' => $flashError,
             'flashSuccess' => $flashSuccess,
         ]);
@@ -53,15 +56,28 @@ class AuthConfigController {
         $admin_server = trim((string)($_POST['admin_server'] ?? ''));
         $principal = trim((string)($_POST['principal'] ?? ''));
         $keep_alive = (($_POST['keep_alive'] ?? 'on') === 'off') ? 'off' : 'on';
-        $children = (int)($_POST['children'] ?? 10);
+        $children = (int)($_POST['children'] ?? 20);
         if ($children < 1) {
-            $children = 10;
+            $children = 20;
         }
-        $children_extra = trim((string)($_POST['children_extra'] ?? ''));
-        if ($children_extra !== '' && !preg_match('/^[A-Za-z0-9._=\s-]+$/', $children_extra)) {
-            $this->flashRedirect('/auth/kerberos', 'Invalid children options');
-            return;
+        if ($children > 1024) {
+            $children = 1024;
         }
+        $startup = (int)($_POST['startup'] ?? 0);
+        $idle = (int)($_POST['idle'] ?? 10);
+        if ($startup < 0) {
+            $startup = 0;
+        }
+        if ($idle < 0) {
+            $idle = 0;
+        }
+        if ($startup > $children) {
+            $startup = $children;
+        }
+        if ($idle > $children) {
+            $idle = $children;
+        }
+        $children_extra = self::composeChildrenExtra($startup, $idle, (string)($existing['children_extra'] ?? ''));
         try {
             $keytab_path = $this->resolveKeytabForSave($_POST['keytab_path'] ?? '', $existing);
         } catch (Exception $e) {
@@ -348,5 +364,33 @@ class AuthConfigController {
         $ver = unpack('n', substr($bytes, 0, 2));
         $code = (int)($ver[1] ?? 0);
         return $code === 0x0501 || $code === 0x0502;
+    }
+
+    /** Squid 5/6: auth_param negotiate children N startup=A idle=B */
+    private static function childrenStartupIdle($extra) {
+        $startup = 0;
+        $idle = 10;
+        if (preg_match('/\bstartup=(\d+)/', $extra, $m)) {
+            $startup = (int)$m[1];
+        }
+        if (preg_match('/\bidle=(\d+)/', $extra, $m)) {
+            $idle = (int)$m[1];
+        }
+        return ['startup' => $startup, 'idle' => $idle];
+    }
+
+    private static function composeChildrenExtra($startup, $idle, $existingExtra) {
+        $rest = [];
+        foreach (preg_split('/\s+/', trim((string)$existingExtra)) as $token) {
+            if ($token === '' || preg_match('/^(startup|idle)=/', $token)) {
+                continue;
+            }
+            if (!preg_match('/^[A-Za-z0-9._=-]+$/', $token)) {
+                continue;
+            }
+            $rest[] = $token;
+        }
+        $parts = ['startup=' . (int)$startup, 'idle=' . (int)$idle];
+        return implode(' ', array_merge($parts, $rest));
     }
 }

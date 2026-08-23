@@ -37,6 +37,7 @@ class DashboardController {
             'stats' => $stats,
             'httpPort' => trim((string)($globals['http_port'] ?? '')),
             'visibleHostname' => trim((string)($globals['visible_hostname'] ?? '')),
+            'negotiateHelpers' => NegotiateHelperStats::dashboard(),
             'auditLogs' => Audit::getRecent(5),
             'isAdmin' => Auth::isAdmin(),
         ]);
