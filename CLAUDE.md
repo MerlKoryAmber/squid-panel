@@ -156,7 +156,7 @@
 
 ## (проект) SPM
 
-- **Handoff (читать первым):** `docs/agent_reports/handoff/2026-08-21.md`
+- **Handoff (читать первым):** `docs/agent_reports/handoff/2026-08-23.md`
 - **Владелец:** Merl. Стек: PHP-панель + `spmd` (Python), SQLite `spm.db`,
   Squid на CentOS 9 / Rocky 9, nginx :8443, PHP-FPM `squidmgr`.
 - **Не трогать без команды:** рестарт Squid (`systemctl restart`), push,
