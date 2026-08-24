@@ -121,7 +121,7 @@ $canTest = !empty($keytabManaged) && !empty($keytabExists) && !empty($isAdmin);
             </div>
         </form>
         <?php if (!empty($isAdmin)): ?>
-        <form method="POST" action="/auth/kerberos/test" style="margin-top:12px;">
+        <form method="POST" action="/auth/kerberos/test" style="margin-top:12px;" onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Testing…';">
             <?= View::csrf() ?>
             <input type="hidden" name="keytab_path" value="<?= htmlspecialchars($keytabPath) ?>">
             <button type="submit" class="btn btn-secondary" <?= $canTest ? '' : 'disabled' ?>>Test kinit</button>

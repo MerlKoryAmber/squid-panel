@@ -126,9 +126,12 @@ class PrivilegedExecutor {
             }
         }
 
+        $agentRecv = $commandKey === 'kinit_test' ? 20 : 10;
+        $sudoTimeout = $commandKey === 'kinit_test' ? 15 : 0;
+
         // Try agent first
         if (AGENT_ENABLED && file_exists(AGENT_SOCKET)) {
-            $result = self::executeViaAgent($commandKey, $extraArgs);
+            $result = self::executeViaAgent($commandKey, $extraArgs, $agentRecv);
             if ($result !== null) {
                 return $result;
             }
@@ -136,7 +139,7 @@ class PrivilegedExecutor {
         }
 
         // Fallback to sudo
-        return self::executeViaSudo($cmd);
+        return self::executeViaSudo($cmd, $sudoTimeout);
     }
 
     private static function executeViaAgent($commandKey, $extraArgs, $recvSec = 10) {
@@ -196,7 +199,12 @@ class PrivilegedExecutor {
 
         $result = json_decode($response, true);
         if (!is_array($result) || !array_key_exists('success', $result)) {
-            return null;
+            return [
+                'success' => false,
+                'exit_code' => 1,
+                'stdout' => '',
+                'stderr' => 'spmd timeout or invalid reply',
+            ];
         }
         if (!empty($result['error']) && !isset($result['exit_code'])) {
             $result['success'] = false;
@@ -212,9 +220,14 @@ class PrivilegedExecutor {
         return $result;
     }
 
-    private static function executeViaSudo($cmd) {
+    private static function executeViaSudo($cmd, $timeoutSec = 0) {
         $escaped = array_map('escapeshellarg', $cmd);
-        $fullCmd = '/usr/bin/sudo -n ' . implode(' ', $escaped) . ' 2>&1; echo __SPM_EXIT__:$?';
+        $sudo = '/usr/bin/sudo -n ' . implode(' ', $escaped);
+        $timeoutSec = (int)$timeoutSec;
+        if ($timeoutSec > 0 && is_executable('/usr/bin/timeout')) {
+            $sudo = '/usr/bin/timeout --signal=KILL ' . $timeoutSec . ' ' . $sudo;
+        }
+        $fullCmd = $sudo . ' 2>&1; echo __SPM_EXIT__:$?';
         $stdout = shell_exec($fullCmd);
         $exitCode = 1;
         $body = (string)$stdout;
@@ -224,6 +237,15 @@ class PrivilegedExecutor {
         } elseif ($stdout === null) {
             $exitCode = 1;
             $body = '';
+        }
+
+        if ($timeoutSec > 0 && $exitCode === 124) {
+            return [
+                'success' => false,
+                'exit_code' => 124,
+                'stdout' => '',
+                'stderr' => 'kinit timed out (KDC/DNS). Check Service Principal and krb5.conf.',
+            ];
         }
 
         $success = $exitCode === 0;

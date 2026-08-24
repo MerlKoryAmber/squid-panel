@@ -696,12 +696,41 @@ def handle_client(conn):
                 logging.warning(f"Failed to send response: {str(e)}")
             return
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        run_kw = {"capture_output": True, "text": True, "timeout": 30}
+        if command_key == "kinit_test":
+            os.makedirs("/run/spmd", mode=0o700, exist_ok=True)
+            env = os.environ.copy()
+            env["KRB5CCNAME"] = "FILE:/run/spmd/kinit-test.ccache"
+            run_kw["env"] = env
+            run_kw["timeout"] = 12
+        try:
+            result = subprocess.run(cmd, **run_kw)
+        except subprocess.TimeoutExpired:
+            response = {
+                "success": False,
+                "exit_code": 124,
+                "stdout": "",
+                "stderr": "kinit timed out (KDC/DNS). Check Service Principal and krb5.conf.",
+            }
+            try:
+                conn.sendall(json.dumps(response).encode("utf-8"))
+            except (BrokenPipeError, OSError) as e:
+                logging.warning(f"Failed to send response: {str(e)}")
+            return
+        finally:
+            if command_key == "kinit_test":
+                try:
+                    subprocess.run(
+                        [KDESTROY, "-c", "FILE:/run/spmd/kinit-test.ccache"],
+                        capture_output=True,
+                        timeout=5,
+                    )
+                except Exception:
+                    pass
+                try:
+                    os.unlink("/run/spmd/kinit-test.ccache")
+                except OSError:
+                    pass
 
         exit_ok = result.returncode == 0
         if command_key in ("squid_status", "winbind_status") and result.returncode in (0, 3, 4):
