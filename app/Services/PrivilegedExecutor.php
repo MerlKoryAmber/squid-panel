@@ -58,7 +58,11 @@ class PrivilegedExecutor {
         }
 
         if ($commandKey === 'kinit_test') {
-            $extraArgs = [self::squidKeytabPath($extraArgs[0] ?? '', true)];
+            $princ = trim((string)($extraArgs[1] ?? ''));
+            if ($princ === '' || !preg_match('/^[A-Za-z0-9.\/_@-]+$/', $princ)) {
+                throw new Exception('kinit test needs a valid Service Principal');
+            }
+            $extraArgs = [self::squidKeytabPath($extraArgs[0] ?? '', true), $princ];
         } elseif ($commandKey === 'acl_file_install') {
             $extraArgs = [AclListFile::fileName(preg_replace('/\.txt$/', '', (string)($extraArgs[0] ?? '')))];
         } elseif ($commandKey === 'keytab_install') {

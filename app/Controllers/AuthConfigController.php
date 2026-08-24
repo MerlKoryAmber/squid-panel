@@ -199,7 +199,11 @@ class AuthConfigController {
         $path = $posted !== '' ? $posted : (string)($config['keytab_path'] ?? '');
         try {
             $keytab = PrivilegedExecutor::squidKeytabPath($path, true);
-            $result = PrivilegedExecutor::execute('kinit_test', [$keytab]);
+            $principal = self::kinitPrincipal($config);
+            if ($principal === '') {
+                $this->flashRedirect('/auth/kerberos', 'Set Service Principal (HTTP/fqdn@REALM) before kinit test');
+            }
+            $result = PrivilegedExecutor::execute('kinit_test', [$keytab, $principal]);
             $ok = !empty($result['success']);
             $out = trim((string)(($result['stdout'] ?? '') ?: ($result['stderr'] ?? '') ?: ($result['error'] ?? '')));
             if ($ok) {
@@ -341,6 +345,21 @@ class AuthConfigController {
             $kept[] = $tokens[$i];
         }
         return implode(' ', $kept);
+    }
+
+    private static function kinitPrincipal(array $config) {
+        $principal = trim((string)($config['principal'] ?? ''));
+        if ($principal !== '' && preg_match('/^[A-Za-z0-9.\/_@-]+$/', $principal)) {
+            return $principal;
+        }
+        $program = (string)($config['program'] ?? '');
+        if (preg_match('/(?:^|\s)-s\s+(\S+)/', $program, $m)) {
+            $fromProg = trim($m[1]);
+            if (preg_match('/^[A-Za-z0-9.\/_@-]+$/', $fromProg)) {
+                return $fromProg;
+            }
+        }
+        return '';
     }
 
     private function buildNegotiateProgram($helper, $keytab, $principal) {

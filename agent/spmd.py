@@ -534,9 +534,13 @@ def validate_command(command_key, extra_args):
     cmd = list(ALLOWED_COMMANDS[command_key])
 
     if command_key == "kinit_test":
-        if len(extra_args) != 1:
-            raise ValueError("kinit_test requires exactly one keytab argument")
+        if len(extra_args) != 2:
+            raise ValueError("kinit_test requires keytab and principal")
         cmd.append(validate_keytab(extra_args[0]))
+        princ = extra_args[1]
+        if not isinstance(princ, str) or not PRINC_RE.fullmatch(princ):
+            raise ValueError("Invalid principal")
+        cmd.append(princ)
         return cmd
 
     if command_key == "acl_file_install":
