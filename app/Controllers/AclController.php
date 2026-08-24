@@ -99,7 +99,7 @@ class AclController {
     }
 
     private function saveFromPost($existing) {
-        $name = preg_replace('/[^a-zA-Z0-9_-]/', '', $_POST['name'] ?? ($existing['name'] ?? ''));
+        $name = preg_replace('/[^A-Za-z0-9._-]/', '', $_POST['name'] ?? ($existing['name'] ?? ''));
         $type = $_POST['type'] ?? ($existing['type'] ?? '');
         if ($existing) {
             $type = $existing['type'];
@@ -109,9 +109,18 @@ class AclController {
         $description = $_POST['description'] ?? ($existing['description'] ?? '');
         $group = $_POST['group_name'] ?? ($existing['group_name'] ?? '');
         $wantFile = !empty($_POST['storage_file']);
+        $oldName = (string)($existing['name'] ?? '');
 
         if ($name === '' || $type === '' || empty($values)) {
             $this->bounceSave($existing, 'Name, type and values are required');
+        }
+
+        $dup = Database::fetch(
+            "SELECT id FROM acls WHERE name = ? AND id != ?",
+            [$name, (int)($existing['id'] ?? 0)]
+        );
+        if ($dup) {
+            $this->bounceSave($existing, 'ACL name already exists: ' . $name);
         }
 
         foreach ($values as $val) {
@@ -137,10 +146,20 @@ class AclController {
 
         if ($existing) {
             Database::query(
-                "UPDATE acls SET entries = ?, storage = ?, description = ?, group_name = ?, updated_at = datetime('now') WHERE id = ?",
-                [$entriesJson, $storage, $description, $group, (int)$existing['id']]
+                "UPDATE acls SET name = ?, entries = ?, storage = ?, description = ?, group_name = ?, updated_at = datetime('now') WHERE id = ?",
+                [$name, $entriesJson, $storage, $description, $group, (int)$existing['id']]
             );
             $id = (int)$existing['id'];
+            if ($oldName !== '' && $oldName !== $name) {
+                self::retargetAclName($oldName, $name);
+                if (($existing['storage'] ?? '') === 'file' || $useFile) {
+                    self::dropWorkFile($oldName);
+                }
+            }
+            if (!$useFile && ($existing['storage'] ?? '') === 'file') {
+                self::dropWorkFile($oldName !== '' ? $oldName : $name);
+                self::dropWorkFile($name);
+            }
             Audit::log('acl_update', "Updated ACL {$name} ({$storage}, " . count($values) . " values)");
         } else {
             $id = (int)Database::insert(
@@ -151,6 +170,62 @@ class AclController {
         }
 
         return ['id' => $id, 'installed' => $installed];
+    }
+
+    private static function dropWorkFile($aclName) {
+        $aclName = (string)$aclName;
+        if ($aclName === '') {
+            return;
+        }
+        try {
+            $path = AclListFile::workPath($aclName);
+        } catch (Exception $e) {
+            return;
+        }
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    private static function retargetAclName($old, $new) {
+        foreach (Database::fetchAll("SELECT id, acls FROM http_access_rules") as $row) {
+            $next = AclNameRefs::rewriteJsonList($row['acls'] ?? '', $old, $new);
+            if ($next !== (string)$row['acls']) {
+                Database::query("UPDATE http_access_rules SET acls = ? WHERE id = ?", [$next, (int)$row['id']]);
+            }
+        }
+        foreach (Database::fetchAll("SELECT id, from_acls, to_acls FROM cascade_routes") as $row) {
+            $from = AclNameRefs::rewriteJsonList($row['from_acls'] ?? '[]', $old, $new);
+            $to = AclNameRefs::rewriteJsonList($row['to_acls'] ?? '[]', $old, $new);
+            if ($from !== (string)$row['from_acls'] || $to !== (string)$row['to_acls']) {
+                Database::query(
+                    "UPDATE cascade_routes SET from_acls = ?, to_acls = ?, updated_at = datetime('now') WHERE id = ?",
+                    [$from, $to, (int)$row['id']]
+                );
+            }
+        }
+        foreach (Database::fetchAll("SELECT id, acl_name, acl_entries FROM cache_peer_access_rules") as $row) {
+            $n = AclNameRefs::rewriteSpaceList($row['acl_name'] ?? '', $old, $new);
+            $e = AclNameRefs::rewriteSpaceList($row['acl_entries'] ?? '', $old, $new);
+            if ($n !== (string)$row['acl_name'] || $e !== (string)$row['acl_entries']) {
+                Database::query(
+                    "UPDATE cache_peer_access_rules SET acl_name = ?, acl_entries = ?, updated_at = datetime('now') WHERE id = ?",
+                    [$n, $e, (int)$row['id']]
+                );
+            }
+        }
+        foreach (Database::fetchAll("SELECT id, acl_name FROM routing_rules") as $row) {
+            $n = AclNameRefs::rewriteSpaceList($row['acl_name'] ?? '', $old, $new);
+            if ($n !== (string)$row['acl_name']) {
+                Database::query("UPDATE routing_rules SET acl_name = ? WHERE id = ?", [$n, (int)$row['id']]);
+            }
+        }
+        foreach (Database::fetchAll("SELECT id, access_acl FROM cache_peers") as $row) {
+            $a = AclNameRefs::rewriteSpaceList($row['access_acl'] ?? '', $old, $new);
+            if ($a !== (string)$row['access_acl']) {
+                Database::query("UPDATE cache_peers SET access_acl = ? WHERE id = ?", [$a, (int)$row['id']]);
+            }
+        }
     }
 
     private static function takeDraft($acl) {
