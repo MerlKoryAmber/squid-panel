@@ -1,8 +1,9 @@
 #!/bin/bash
 # Squid Proxy Manager — rollout updater (keep at /opt/update.sh during deployment)
 #
-# Full panel reinstall from GitHub. Drops spm.db after a successful clone.
-# install.sh then imports and formats /etc/squid/squid.conf (parse first).
+# Clones GitHub main, then runs install.sh.
+# Asks whether to drop spm.db (default: no).
+# Flags: --drop-db / --keep-db (skip prompt). Env SPM_DROP_DB=1|0 also works.
 # Does not systemctl restart Squid.
 #
 # Do not overwrite this running script in place (bash then parses garbage).
@@ -12,19 +13,71 @@ set -e
 REPO_URL="https://github.com/MerlKoryAmber/squid-panel"
 CLONE_DIR="/opt/squid-panel"
 CLONE_NEW="/opt/squid-panel.new"
-SPM_DIR="/opt/spm"
 SELF="/opt/update.sh"
+
+drop_db=""
+
+for arg in "$@"; do
+    case "$arg" in
+        --drop-db) drop_db=1 ;;
+        --keep-db) drop_db=0 ;;
+        --continue) ;;
+        *)
+            if [ "$arg" != "" ]; then
+                echo "ERROR: unknown argument: $arg"
+                echo "Usage: sudo bash /opt/update.sh [--drop-db|--keep-db]"
+                exit 1
+            fi
+            ;;
+    esac
+done
+
+if [ -z "$drop_db" ]; then
+    if [ "${SPM_DROP_DB:-}" = "1" ]; then
+        drop_db=1
+    elif [ "${SPM_DROP_DB:-}" = "0" ]; then
+        drop_db=0
+    fi
+fi
+
+ask_drop_db() {
+    if [ -n "$drop_db" ]; then
+        return
+    fi
+    echo "Drop panel database (spm.db)?"
+    echo "  y = drop, then import live squid.conf"
+    echo "  N = keep current spm.db (default)"
+    if [ -t 0 ]; then
+        read -r -p "Drop spm.db? [y/N] " reply
+    else
+        echo "No TTY: keeping spm.db."
+        reply=""
+    fi
+    case "$reply" in
+        y|Y|yes|YES) drop_db=1 ;;
+        *) drop_db=0 ;;
+    esac
+}
 
 if [ "$1" != "--continue" ]; then
     echo "=== SPM update.sh ==="
     echo "Repo: $REPO_URL"
-    echo "Will drop panel database during install. squid.conf is formatted after parse."
+    echo "squid.conf format after parse still runs in install.sh."
     echo ""
 
     if [ "$EUID" -ne 0 ]; then
         echo "ERROR: Please run as root"
-        echo "  sudo bash /opt/update.sh"
+        echo "  sudo bash /opt/update.sh [--drop-db|--keep-db]"
         exit 1
+    fi
+
+    ask_drop_db
+    if [ "$drop_db" = "1" ]; then
+        echo "Will DROP spm.db."
+        cont_flag="--drop-db"
+    else
+        echo "Will KEEP spm.db."
+        cont_flag="--keep-db"
     fi
 
     if ! command -v git &>/dev/null; then
@@ -43,13 +96,15 @@ if [ "$1" != "--continue" ]; then
         exit 1
     fi
     chmod 755 "$CLONE_NEW/install.sh" "$CLONE_NEW/uninstall.sh" "$CLONE_NEW/update.sh"
-    exec /bin/bash "$CLONE_NEW/update.sh" --continue
+    exec /bin/bash "$CLONE_NEW/update.sh" --continue "$cont_flag"
 fi
 
 if [ "$EUID" -ne 0 ]; then
     echo "ERROR: Please run as root"
     exit 1
 fi
+
+ask_drop_db
 
 install -m 700 "$CLONE_NEW/update.sh" "$SELF"
 
@@ -63,5 +118,5 @@ mv "$CLONE_NEW" "$CLONE_DIR"
 echo "[4/4] Running install.sh..."
 echo ""
 cd "$CLONE_DIR"
-export SPM_DROP_DB=1
+export SPM_DROP_DB="$drop_db"
 exec ./install.sh

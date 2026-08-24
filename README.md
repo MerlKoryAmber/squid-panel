@@ -41,9 +41,7 @@ sudo ./install.sh
 
 ## Обновление (внедрение)
 
-`/opt/update.sh` клонирует GitHub и снова гоняет `install.sh`.
-
-**Сносит `/opt/spm`, включая `spm.db`.** После обновления — повторный импорт и формат `squid.conf` (parse first). `systemctl restart spmd`.
+`/opt/update.sh` клонирует GitHub и гоняет `install.sh`. Спросит, сносить ли `spm.db` (по умолчанию нет). `--drop-db` / `--keep-db`. При drop — импорт live conf; `squid.conf` всё равно формат после parse. `systemctl restart spmd`.
 
 ## Снятие панели
 
