@@ -40,10 +40,6 @@ class AdGroupController {
         Auth::requireAdmin();
         View::verifyCsrf();
         $names = $_POST['groups'] ?? [];
-        $manual = trim((string)($_POST['manual'] ?? ''));
-        if ($manual !== '') {
-            $names[] = $manual;
-        }
         if (!is_array($names)) {
             $names = [];
         }
