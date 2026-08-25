@@ -33,7 +33,13 @@ $canTest = !empty($keytabManaged) && !empty($keytabExists) && !empty($isAdmin);
             <?= View::csrf() ?>
             <div class="form-group">
                 <label>MIT keytab file</label>
-                <input type="file" name="keytab" accept=".keytab,application/octet-stream" <?= empty($isAdmin) ? 'disabled' : '' ?> required>
+                <div class="file-pick" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <input type="file" id="keytab-file" name="keytab" accept=".keytab,application/octet-stream" required hidden <?= empty($isAdmin) ? 'disabled' : '' ?>>
+                    <?php if (!empty($isAdmin)): ?>
+                    <button type="button" class="btn btn-secondary" id="keytab-browse">Choose file</button>
+                    <?php endif; ?>
+                    <span id="keytab-name" style="color:var(--ir-text-muted); font-size:0.85rem;">No file chosen</span>
+                </div>
                 <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">Max 512 KB. Installed as <code>/etc/squid/&lt;name&gt;.keytab</code> (mode 640, owner squid).</p>
             </div>
             <div class="form-group">
@@ -46,6 +52,22 @@ $canTest = !empty($keytabManaged) && !empty($keytabExists) && !empty($isAdmin);
                 <?php endif; ?>
             </div>
         </form>
+        <?php if (!empty($isAdmin)): ?>
+        <script>
+        (function () {
+            var input = document.getElementById('keytab-file');
+            var browse = document.getElementById('keytab-browse');
+            var name = document.getElementById('keytab-name');
+            if (!input || !browse || !name) {
+                return;
+            }
+            browse.addEventListener('click', function () { input.click(); });
+            input.addEventListener('change', function () {
+                name.textContent = (input.files && input.files[0]) ? input.files[0].name : 'No file chosen';
+            });
+        })();
+        </script>
+        <?php endif; ?>
     </div>
 </div>
 
