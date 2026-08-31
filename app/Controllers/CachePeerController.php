@@ -10,26 +10,61 @@ class CachePeerController {
             $row['options'] = self::composeOptionsString($row);
         }
         unset($row);
-        $creating = isset($_GET['new']);
-        $directTab = isset($_GET['direct']);
-        $selectedId = (int)($_GET['id'] ?? 0);
-        if ($directTab) {
-            $creating = false;
-            $selectedId = 0;
-        } elseif (!$creating && $selectedId <= 0 && !empty($peers)) {
-            $selectedId = (int)$peers[0]['id'];
+
+        self::ensureCascadeRoutesFromLegacy();
+
+        $peerById = [];
+        foreach ($peers as $p) {
+            $peerById[(int)$p['id']] = $p;
         }
 
-        $peer = null;
-        $accessRules = [];
-        if (!$directTab && !$creating && $selectedId > 0) {
-            $peer = Database::fetch("SELECT * FROM cache_peers WHERE id = ?", [$selectedId]);
-            if ($peer) {
-                $peer['options'] = self::composeOptionsString($peer);
-                $accessRules = Database::fetchAll(
-                    "SELECT * FROM cache_peer_access_rules WHERE peer_id = ? ORDER BY sort_order, id",
-                    [$peer['id']]
-                );
+        $ruleRows = [];
+        foreach (Database::fetchAll("SELECT * FROM cascade_routes ORDER BY sort_order, id") as $route) {
+            $from = json_decode($route['from_acls'] ?? '[]', true);
+            $to = json_decode($route['to_acls'] ?? '[]', true);
+            if (!is_array($from)) {
+                $from = [];
+            }
+            if (!is_array($to)) {
+                $to = [];
+            }
+            $acls = array_values(array_unique(array_merge($from, $to)));
+            $channel = ($route['channel'] ?? '') === 'direct' ? 'direct' : 'peer';
+            $peerId = (int)($route['peer_id'] ?? 0);
+            $peerLabel = 'Direct';
+            if ($channel === 'peer' && $peerId > 0 && isset($peerById[$peerId])) {
+                $p = $peerById[$peerId];
+                $peerLabel = (string)($p['name'] !== '' ? $p['name'] : $p['hostname']);
+            } elseif ($channel === 'peer') {
+                $peerLabel = '(missing peer)';
+            }
+            $ruleRows[] = [
+                'id' => (int)$route['id'],
+                'acls' => $acls,
+                'peer_label' => $peerLabel,
+                'peer_id' => $peerId,
+                'action' => $channel === 'direct' ? 'Direct only' : 'Use peer',
+            ];
+        }
+
+        $newPeer = isset($_GET['new_peer']);
+        $editPeerId = (int)($_GET['peer_id'] ?? 0);
+        $editPeer = null;
+        if ($newPeer) {
+            $editPeer = [
+                'id' => 0,
+                'name' => '',
+                'hostname' => '',
+                'peer_type' => 'parent',
+                'http_port' => 3128,
+                'icp_port' => 0,
+                'options' => '',
+                'status' => 'active',
+            ];
+        } elseif ($editPeerId > 0) {
+            $editPeer = Database::fetch("SELECT * FROM cache_peers WHERE id = ?", [$editPeerId]);
+            if ($editPeer) {
+                $editPeer['options'] = self::composeOptionsString($editPeer);
             }
         }
 
@@ -38,24 +73,19 @@ class CachePeerController {
             'title' => 'Cascade',
             'active' => 'peers',
             'simpleUi' => false,
-            'directTab' => $directTab,
             'peers' => $peers,
-            'peer' => $peer,
-            'creating' => $creating,
-            'accessRules' => $accessRules,
-            'routingRules' => Database::fetchAll("SELECT * FROM routing_rules ORDER BY sort_order, id"),
-            'cascadeRoutes' => Database::fetchAll("SELECT * FROM cascade_routes ORDER BY sort_order, id"),
-            'acls' => Database::fetchAll("SELECT name, type FROM acls ORDER BY name"),
+            'ruleRows' => $ruleRows,
+            'editPeer' => $editPeer,
+            'newPeer' => $newPeer,
             'catalog' => $catalog,
             'fromLists' => PolicyAclKind::lists('from', $catalog),
-            'toLists' => PolicyAclKind::lists('to', $catalog),
             'isAdmin' => Auth::isAdmin(),
         ]);
     }
 
     public function create($params = []) {
         Auth::requireAdmin();
-        View::redirect('/peers?new=1');
+        View::redirect('/peers?new_peer=1');
     }
 
     public function store($params = []) {
@@ -78,13 +108,13 @@ class CachePeerController {
             ]
         );
         Audit::log('peer_create', "Created cache_peer {$data['hostname']}");
-        SquidLiveApply::redirect('/peers?id=' . (int)$id);
+        SquidLiveApply::redirect('/peers?peer_id=' . (int)$id);
     }
 
     public function edit($params = []) {
         Auth::requireAdmin();
         $id = (int)($_GET['id'] ?? 0);
-        View::redirect($id > 0 ? '/peers?id=' . $id : '/peers');
+        View::redirect($id > 0 ? '/peers?peer_id=' . $id : '/peers');
     }
 
     public function update($params = []) {
@@ -109,11 +139,8 @@ class CachePeerController {
             ]
         );
         Audit::log('peer_update', "Updated cache_peer {$peer['hostname']}");
-        $left = Database::fetch("SELECT COUNT(*) AS c FROM cascade_routes");
-        if ((int)($left['c'] ?? 0) > 0) {
-            CascadeRouteCompiler::applyFromDb();
-        }
-        SquidLiveApply::redirect('/peers?id=' . $id);
+        CascadeRouteCompiler::applyFromDb();
+        SquidLiveApply::redirect('/peers?peer_id=' . $id);
     }
 
     public function delete($params = []) {
@@ -126,18 +153,14 @@ class CachePeerController {
             Database::query("DELETE FROM cascade_routes WHERE peer_id = ?", [$id]);
             Database::query("DELETE FROM cache_peers WHERE id = ?", [$id]);
             Audit::log('peer_delete', "Deleted cache_peer {$peer['hostname']}");
-            $left = Database::fetch("SELECT COUNT(*) AS c FROM cascade_routes");
-            if ((int)($left['c'] ?? 0) > 0) {
-                CascadeRouteCompiler::applyFromDb();
-            }
+            CascadeRouteCompiler::applyFromDb();
         }
         SquidLiveApply::redirect('/peers');
     }
 
     public function access($params = []) {
         Auth::requireAuth();
-        $peerId = (int)($_GET['peer_id'] ?? $_GET['id'] ?? 0);
-        View::redirect($peerId > 0 ? '/peers?id=' . $peerId : '/peers');
+        View::redirect('/peers');
     }
 
     public function storeAccess($params = []) {
@@ -176,7 +199,7 @@ class CachePeerController {
         } else {
             Audit::log('peer_access_create', "Added {$action} {$entries} to peer {$peerId}");
         }
-        SquidLiveApply::redirect('/peers?id=' . $peerId);
+        SquidLiveApply::redirect('/peers');
     }
 
     public function deleteAccess($params = []) {
@@ -187,14 +210,14 @@ class CachePeerController {
         Database::query("DELETE FROM cache_peer_access_rules WHERE id = ?", [$id]);
         PolicyUi::forgetCascadeRoutes();
         Audit::log('peer_access_delete', "Deleted peer access rule {$id}");
-        SquidLiveApply::redirect('/peers?id=' . $peerId);
+        SquidLiveApply::redirect('/peers');
     }
 
     public function editAccess($params = []) {
         Auth::requireAuth();
         $id = (int)($_GET['id'] ?? 0);
         $rule = Database::fetch("SELECT peer_id FROM cache_peer_access_rules WHERE id = ?", [$id]);
-        View::redirect($rule ? '/peers?id=' . (int)$rule['peer_id'] : '/peers');
+        View::redirect($rule ? '/peers' : '/peers');
     }
 
     public function updateAccess($params = []) {
@@ -227,7 +250,7 @@ class CachePeerController {
         );
         PolicyUi::forgetCascadeRoutes();
         Audit::log('peer_access_update', "Updated peer access rule {$id}");
-        SquidLiveApply::redirect('/peers?id=' . (int)$rule['peer_id']);
+        SquidLiveApply::redirect('/peers');
     }
 
     public function reorderAccess($params = []) {
@@ -252,7 +275,7 @@ class CachePeerController {
 
     public function routing($params = []) {
         Auth::requireAuth();
-        View::redirect('/peers#cascade-when');
+        View::redirect('/peers');
     }
 
     public function storeRouting($params = []) {
@@ -273,7 +296,7 @@ class CachePeerController {
         );
         PolicyUi::forgetCascadeRoutes();
         Audit::log('routing_create', "{$directive} {$action} {$entries}");
-        SquidLiveApply::redirect('/peers#cascade-when');
+        SquidLiveApply::redirect('/peers');
     }
 
     public function deleteRouting($params = []) {
@@ -283,7 +306,7 @@ class CachePeerController {
         Database::query("DELETE FROM routing_rules WHERE id = ?", [$id]);
         PolicyUi::forgetCascadeRoutes();
         Audit::log('routing_delete', "Deleted routing rule {$id}");
-        SquidLiveApply::redirect('/peers#cascade-when');
+        SquidLiveApply::redirect('/peers');
     }
 
     public function reorderRouting($params = []) {
@@ -311,56 +334,35 @@ class CachePeerController {
         View::verifyCsrf();
         $catalog = PolicyAclKind::catalogByName();
         $from = self::namedListsFromPost('from', $catalog, 'from');
-        $to = self::namedListsFromPost('to', $catalog, 'to');
-        $tokens = CascadeRouteCompiler::tokens($from, $to);
-        if ($tokens === []) {
+        if ($from === []) {
             http_response_code(400);
-            die('Need at least one source or destination list');
+            die('Select at least one source ACL');
         }
-        $entries = implode(' ', $tokens);
-        $target = (string)($_POST['target'] ?? 'direct');
-
+        $target = (string)($_POST['peer_id'] ?? '');
+        $channel = 'peer';
+        $peerId = null;
         if ($target === 'direct') {
-            $exists = Database::fetch(
-                "SELECT id FROM routing_rules WHERE directive = 'always_direct' AND action = 'allow' AND acl_name = ?",
-                [$entries]
-            );
-            if (!$exists) {
-                $maxOrder = Database::fetch("SELECT MAX(sort_order) as max FROM routing_rules");
-                Database::query(
-                    "INSERT INTO routing_rules (directive, action, acl_name, negated, sort_order, created_at) VALUES ('always_direct', 'allow', ?, 0, ?, datetime('now'))",
-                    [$entries, ($maxOrder['max'] ?? 0) + 1]
-                );
+            $channel = 'direct';
+        } else {
+            $peerId = (int)$target;
+            if ($peerId <= 0) {
+                http_response_code(400);
+                die('Select a peer or Direct');
             }
-            Audit::log('cascade_route_create', 'Direct only ' . $entries);
-            SquidLiveApply::redirect('/peers#cascade-when');
-            return;
+            $peer = Database::fetch("SELECT id FROM cache_peers WHERE id = ?", [$peerId]);
+            if (!$peer) {
+                http_response_code(400);
+                die('Peer not found');
+            }
         }
-
-        $peerId = (int)$target;
-        $peer = Database::fetch("SELECT id, hostname FROM cache_peers WHERE id = ?", [$peerId]);
-        if (!$peer) {
-            http_response_code(400);
-            die('Select a peer');
-        }
-        $dup = Database::fetch(
-            "SELECT id FROM cache_peer_access_rules WHERE peer_id = ? AND action = 'allow' AND acl_entries = ?",
-            [$peerId, $entries]
+        $maxOrder = Database::fetch("SELECT MAX(sort_order) as max FROM cascade_routes");
+        Database::insert(
+            "INSERT INTO cascade_routes (from_acls, to_acls, channel, peer_id, sort_order, created_at, updated_at) VALUES (?, '[]', ?, ?, ?, datetime('now'), datetime('now'))",
+            [json_encode(array_values($from)), $channel, $peerId, ($maxOrder['max'] ?? 0) + 1]
         );
-        if (!$dup) {
-            $maxOrder = Database::fetch(
-                "SELECT MAX(sort_order) as max FROM cache_peer_access_rules WHERE peer_id = ?",
-                [$peerId]
-            );
-            $firstAcl = $tokens[0];
-            Database::query(
-                "INSERT INTO cache_peer_access_rules (peer_id, hostname, acl_name, acl_entries, action, negated, sort_order, created_at) VALUES (?, ?, ?, ?, 'allow', 0, ?, datetime('now'))",
-                [$peerId, $peer['hostname'], $firstAcl, $entries, ($maxOrder['max'] ?? 0) + 1]
-            );
-        }
-        self::lockPathToPeer($peerId, $entries);
-        Audit::log('cascade_route_create', "Peer {$peerId} exclusive {$entries}");
-        SquidLiveApply::redirect('/peers?id=' . $peerId);
+        CascadeRouteCompiler::applyFromDb();
+        Audit::log('cascade_route_create', ($channel === 'direct' ? 'Direct' : "Peer {$peerId}") . ' · ' . implode(' ', $from));
+        SquidLiveApply::redirect('/peers');
     }
 
     public function deleteRoute($params = []) {
@@ -387,6 +389,66 @@ class CachePeerController {
         CascadeRouteCompiler::applyFromDb();
         Audit::log('cascade_route_reorder', 'Reordered cascade routes');
         SquidLiveApply::jsonFinish();
+    }
+
+    private static function ensureCascadeRoutesFromLegacy() {
+        $count = Database::fetch("SELECT COUNT(*) AS c FROM cascade_routes");
+        if ((int)($count['c'] ?? 0) > 0) {
+            return;
+        }
+        $catalog = PolicyAclKind::catalogByName();
+        $sort = 0;
+        $seen = [];
+
+        foreach (Database::fetchAll(
+            "SELECT peer_id, acl_entries FROM cache_peer_access_rules WHERE action = 'allow' ORDER BY sort_order, id"
+        ) as $row) {
+            $key = (int)$row['peer_id'] . '|' . trim((string)$row['acl_entries']);
+            if ($key === '|' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $from = self::splitLegacyAclTokens($row['acl_entries'], $catalog, 'from');
+            $to = self::splitLegacyAclTokens($row['acl_entries'], $catalog, 'to');
+            $sort++;
+            Database::insert(
+                "INSERT INTO cascade_routes (from_acls, to_acls, channel, peer_id, sort_order, created_at, updated_at) VALUES (?, ?, 'peer', ?, ?, datetime('now'), datetime('now'))",
+                [json_encode($from), json_encode($to), (int)$row['peer_id'], $sort]
+            );
+        }
+
+        foreach (Database::fetchAll(
+            "SELECT acl_name FROM routing_rules WHERE directive = 'always_direct' AND action = 'allow' ORDER BY sort_order, id"
+        ) as $row) {
+            $entries = trim((string)($row['acl_name'] ?? ''));
+            if ($entries === '' || isset($seen['direct|' . $entries])) {
+                continue;
+            }
+            $seen['direct|' . $entries] = true;
+            $from = self::splitLegacyAclTokens($entries, $catalog, 'from');
+            $to = self::splitLegacyAclTokens($entries, $catalog, 'to');
+            $sort++;
+            Database::insert(
+                "INSERT INTO cascade_routes (from_acls, to_acls, channel, peer_id, sort_order, created_at, updated_at) VALUES (?, ?, 'direct', NULL, ?, datetime('now'), datetime('now'))",
+                [json_encode($from), json_encode($to), $sort]
+            );
+        }
+    }
+
+    private static function splitLegacyAclTokens($entries, array $catalog, $wantKind) {
+        $out = [];
+        foreach (preg_split('/\s+/', trim((string)$entries)) as $name) {
+            $name = trim((string)$name);
+            if ($name === '' || !isset($catalog[$name])) {
+                continue;
+            }
+            $meta = $catalog[$name];
+            $kind = PolicyAclKind::kind($meta['name'], $meta['type'], $meta['storage'] ?? 'inline');
+            if ($kind === $wantKind) {
+                $out[] = $name;
+            }
+        }
+        return array_values(array_unique($out));
     }
 
     private static function namedListsFromPost($field, array $catalog, $wantKind) {

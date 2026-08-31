@@ -990,7 +990,7 @@ select[multiple] { min-height: 120px; }
 
 .cascade-rule-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 2fr 1fr;
     gap: var(--space-md);
     align-items: start;
 }
