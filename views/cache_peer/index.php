@@ -10,9 +10,6 @@ $newPeer = !empty($newPeer);
 ?>
 <div class="page-header">
     <h2>Cascade</h2>
-    <?php if ($isAdmin): ?>
-    <a href="/peers?new_peer=1" class="btn btn-secondary">+ Add peer</a>
-    <?php endif; ?>
 </div>
 
 <p class="text-secondary" style="margin-top:-12px; margin-bottom: var(--space-lg);">
@@ -148,6 +145,11 @@ $newPeer = !empty($newPeer);
                 <?php endforeach; ?>
             </tbody>
         </table>
+        <?php endif; ?>
+        <?php if ($isAdmin): ?>
+        <div class="form-actions" style="border-top: 1px solid var(--ir-border-light); margin: 0; padding: var(--space-md);">
+            <a href="/peers?new_peer=1" class="btn btn-secondary">+ Add peer</a>
+        </div>
         <?php endif; ?>
     </div>
 </div>
