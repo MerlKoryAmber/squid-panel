@@ -17,97 +17,6 @@ $newPeer = !empty($newPeer);
     Large destination lists belong in an ACL file (ACLs → Large list).
 </p>
 
-<?php if ($isAdmin): ?>
-<div class="card" id="cascade-add-rule">
-    <div class="card-header">
-        <h3>New rule</h3>
-    </div>
-    <div class="card-body">
-        <form method="POST" action="/peers/routes/store">
-            <?= View::csrf() ?>
-            <div class="cascade-rule-row">
-                <div class="form-group">
-                    <label>ACL</label>
-                    <select name="acls[]" multiple size="10" class="acl-pick" required>
-                        <?php foreach ($cascadeAclLists as $item): ?>
-                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item, true)) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">Source (src, AD) or destination (dstdomain, dst). Ctrl/Cmd for multiple.</p>
-                </div>
-                <div class="form-group">
-                    <label>Peer</label>
-                    <select name="peer_id" required>
-                        <option value="">— select —</option>
-                        <option value="direct">Direct</option>
-                        <?php foreach ($peers as $p): ?>
-                        <option value="<?= (int)$p['id'] ?>"><?= htmlspecialchars($p['name'] ?: $p['hostname']) ?> (<?= htmlspecialchars($p['hostname']) ?>)</option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-            </div>
-            <div class="form-actions" style="border:0; margin-top: var(--space-md); padding-top:0;">
-                <button type="submit" class="btn btn-primary" <?= empty($cascadeAclLists) ? 'disabled' : '' ?>>Add rule</button>
-            </div>
-        </form>
-    </div>
-</div>
-<?php endif; ?>
-
-<div class="card">
-    <div class="card-header">
-        <h3>Rules</h3>
-        <span class="subtitle">First match wins · drag to reorder</span>
-    </div>
-    <div class="card-body" style="padding: 0;">
-        <?php if (empty($ruleRows)): ?>
-        <div class="empty-state">
-            <h4>No cascade rules yet</h4>
-            <p>Add a rule above: source ACLs on the left, peer or Direct on the right.</p>
-        </div>
-        <?php else: ?>
-        <table class="data-table" id="cascadeRulesTable">
-            <thead>
-                <tr>
-                    <?php if ($isAdmin): ?><th style="width:40px;"></th><?php endif; ?>
-                    <th>ACL</th>
-                    <th>Peer</th>
-                    <th>Action</th>
-                    <?php if ($isAdmin): ?><th style="width:90px;"></th><?php endif; ?>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($ruleRows as $rule): ?>
-                <tr data-id="<?= (int)$rule['id'] ?>">
-                    <?php if ($isAdmin): ?><td class="drag-handle">⋮⋮</td><?php endif; ?>
-                    <td>
-                        <?php foreach ($rule['acls'] as $acl) {
-                            echo View::aclBadge($acl);
-                        } ?>
-                    </td>
-                    <td><strong><?= htmlspecialchars($rule['peer_label']) ?></strong></td>
-                    <td>
-                        <span class="badge badge-<?= $rule['action'] === 'Direct only' ? 'info' : 'success' ?>">
-                            <?= htmlspecialchars($rule['action']) ?>
-                        </span>
-                    </td>
-                    <?php if ($isAdmin): ?>
-                    <td>
-                        <form method="POST" action="/peers/routes/delete" data-confirm="Delete this rule?">
-                            <?= View::csrf() ?>
-                            <input type="hidden" name="id" value="<?= (int)$rule['id'] ?>">
-                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                        </form>
-                    </td>
-                    <?php endif; ?>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-        <?php endif; ?>
-    </div>
-</div>
-
 <div class="card">
     <div class="card-header">
         <h3>Upstream peers</h3>
@@ -222,6 +131,97 @@ $newPeer = !empty($newPeer);
             <input type="hidden" name="id" value="<?= (int)$editPeer['id'] ?>">
         </form>
         <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Rules</h3>
+        <span class="subtitle">First match wins · drag to reorder</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <?php if (empty($ruleRows)): ?>
+        <div class="empty-state">
+            <h4>No cascade rules yet</h4>
+            <p>Add a rule below: source ACLs on the left, peer or Direct on the right.</p>
+        </div>
+        <?php else: ?>
+        <table class="data-table" id="cascadeRulesTable">
+            <thead>
+                <tr>
+                    <?php if ($isAdmin): ?><th style="width:40px;"></th><?php endif; ?>
+                    <th>ACL</th>
+                    <th>Peer</th>
+                    <th>Action</th>
+                    <?php if ($isAdmin): ?><th style="width:90px;"></th><?php endif; ?>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($ruleRows as $rule): ?>
+                <tr data-id="<?= (int)$rule['id'] ?>">
+                    <?php if ($isAdmin): ?><td class="drag-handle">⋮⋮</td><?php endif; ?>
+                    <td>
+                        <?php foreach ($rule['acls'] as $acl) {
+                            echo View::aclBadge($acl);
+                        } ?>
+                    </td>
+                    <td><strong><?= htmlspecialchars($rule['peer_label']) ?></strong></td>
+                    <td>
+                        <span class="badge badge-<?= $rule['action'] === 'Direct only' ? 'info' : 'success' ?>">
+                            <?= htmlspecialchars($rule['action']) ?>
+                        </span>
+                    </td>
+                    <?php if ($isAdmin): ?>
+                    <td>
+                        <form method="POST" action="/peers/routes/delete" data-confirm="Delete this rule?">
+                            <?= View::csrf() ?>
+                            <input type="hidden" name="id" value="<?= (int)$rule['id'] ?>">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
+                    <?php endif; ?>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
+    </div>
+</div>
+
+<?php if ($isAdmin): ?>
+<div class="card" id="cascade-add-rule">
+    <div class="card-header">
+        <h3>New rule</h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="/peers/routes/store">
+            <?= View::csrf() ?>
+            <div class="cascade-rule-row">
+                <div class="form-group">
+                    <label>ACL</label>
+                    <select name="acls[]" multiple size="10" class="acl-pick" required>
+                        <?php foreach ($cascadeAclLists as $item): ?>
+                        <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item, true)) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">Source (src, AD) or destination (dstdomain, dst). Ctrl/Cmd for multiple.</p>
+                </div>
+                <div class="form-group">
+                    <label>Peer</label>
+                    <select name="peer_id" required>
+                        <option value="">— select —</option>
+                        <option value="direct">Direct</option>
+                        <?php foreach ($peers as $p): ?>
+                        <option value="<?= (int)$p['id'] ?>"><?= htmlspecialchars($p['name'] ?: $p['hostname']) ?> (<?= htmlspecialchars($p['hostname']) ?>)</option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions" style="border:0; margin-top: var(--space-md); padding-top:0;">
+                <button type="submit" class="btn btn-primary" <?= empty($cascadeAclLists) ? 'disabled' : '' ?>>Add rule</button>
+            </div>
+        </form>
     </div>
 </div>
 <?php endif; ?>
