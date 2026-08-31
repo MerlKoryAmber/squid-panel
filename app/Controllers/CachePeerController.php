@@ -78,7 +78,7 @@ class CachePeerController {
             'editPeer' => $editPeer,
             'newPeer' => $newPeer,
             'catalog' => $catalog,
-            'fromLists' => PolicyAclKind::lists('from', $catalog),
+            'cascadeAclLists' => PolicyAclKind::listsForCascade($catalog),
             'isAdmin' => Auth::isAdmin(),
         ]);
     }
@@ -333,10 +333,12 @@ class CachePeerController {
         Auth::requireAdmin();
         View::verifyCsrf();
         $catalog = PolicyAclKind::catalogByName();
-        $from = self::namedListsFromPost('from', $catalog, 'from');
-        if ($from === []) {
+        $split = self::cascadeAclsFromPost($catalog);
+        $from = $split['from'];
+        $to = $split['to'];
+        if ($from === [] && $to === []) {
             http_response_code(400);
-            die('Select at least one source ACL');
+            die('Select at least one ACL');
         }
         $target = (string)($_POST['peer_id'] ?? '');
         $channel = 'peer';
@@ -357,11 +359,12 @@ class CachePeerController {
         }
         $maxOrder = Database::fetch("SELECT MAX(sort_order) as max FROM cascade_routes");
         Database::insert(
-            "INSERT INTO cascade_routes (from_acls, to_acls, channel, peer_id, sort_order, created_at, updated_at) VALUES (?, '[]', ?, ?, ?, datetime('now'), datetime('now'))",
-            [json_encode(array_values($from)), $channel, $peerId, ($maxOrder['max'] ?? 0) + 1]
+            "INSERT INTO cascade_routes (from_acls, to_acls, channel, peer_id, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+            [json_encode(array_values($from)), json_encode(array_values($to)), $channel, $peerId, ($maxOrder['max'] ?? 0) + 1]
         );
         CascadeRouteCompiler::applyFromDb();
-        Audit::log('cascade_route_create', ($channel === 'direct' ? 'Direct' : "Peer {$peerId}") . ' · ' . implode(' ', $from));
+        $aclNote = implode(' ', array_merge($from, $to));
+        Audit::log('cascade_route_create', ($channel === 'direct' ? 'Direct' : "Peer {$peerId}") . ' · ' . $aclNote);
         SquidLiveApply::redirect('/peers');
     }
 
@@ -449,6 +452,32 @@ class CachePeerController {
             }
         }
         return array_values(array_unique($out));
+    }
+
+    private static function cascadeAclsFromPost(array $catalog) {
+        $raw = $_POST['acls'] ?? $_POST['from'] ?? [];
+        if (!is_array($raw)) {
+            $raw = [];
+        }
+        $from = [];
+        $to = [];
+        foreach ($raw as $name) {
+            $name = trim((string)$name);
+            if ($name === '' || !isset($catalog[$name])) {
+                continue;
+            }
+            $meta = $catalog[$name];
+            $kind = PolicyAclKind::kind($meta['name'], $meta['type'], $meta['storage'] ?? 'inline');
+            if ($kind === 'from') {
+                $from[] = $name;
+            } elseif ($kind === 'to') {
+                $to[] = $name;
+            }
+        }
+        return [
+            'from' => array_values(array_unique($from)),
+            'to' => array_values(array_unique($to)),
+        ];
     }
 
     private static function namedListsFromPost($field, array $catalog, $wantKind) {

@@ -154,6 +154,26 @@ class PolicyAclKind {
         return $out;
     }
 
+    /** Source (src, AD) and destination (dstdomain, dst, file lists) ACLs for cascade rules. */
+    public static function listsForCascade(array $catalog) {
+        $seen = [];
+        $out = [];
+        foreach (['from', 'to'] as $kind) {
+            foreach (self::lists($kind, $catalog) as $meta) {
+                $name = (string)($meta['name'] ?? '');
+                if ($name === '' || isset($seen[$name])) {
+                    continue;
+                }
+                $seen[$name] = true;
+                $out[] = $meta;
+            }
+        }
+        usort($out, function ($a, $b) {
+            return strcasecmp($a['name'], $b['name']);
+        });
+        return $out;
+    }
+
     public static function label(array $meta, $withType = false) {
         $name = trim((string)($meta['name'] ?? ''));
         $d = trim((string)($meta['description'] ?? ''));

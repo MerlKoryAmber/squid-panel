@@ -4,6 +4,7 @@ $csrf = View::csrfToken();
 $ruleRows = is_array($ruleRows ?? null) ? $ruleRows : [];
 $peers = is_array($peers ?? null) ? $peers : [];
 $fromLists = is_array($fromLists ?? null) ? $fromLists : [];
+$cascadeAclLists = is_array($cascadeAclLists ?? null) ? $cascadeAclLists : $fromLists;
 $editPeer = $editPeer ?? null;
 $newPeer = !empty($newPeer);
 ?>
@@ -29,13 +30,13 @@ $newPeer = !empty($newPeer);
             <?= View::csrf() ?>
             <div class="cascade-rule-row">
                 <div class="form-group">
-                    <label>From (source ACLs)</label>
-                    <select name="from[]" multiple size="8" class="acl-pick" required>
-                        <?php foreach ($fromLists as $item): ?>
+                    <label>ACL</label>
+                    <select name="acls[]" multiple size="10" class="acl-pick" required>
+                        <?php foreach ($cascadeAclLists as $item): ?>
                         <option value="<?= htmlspecialchars($item['name']) ?>"><?= htmlspecialchars(PolicyAclKind::label($item, true)) ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">Hold Ctrl/Cmd to select multiple.</p>
+                    <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">Source (src, AD) or destination (dstdomain, dst). Ctrl/Cmd for multiple.</p>
                 </div>
                 <div class="form-group">
                     <label>Peer</label>
@@ -49,7 +50,7 @@ $newPeer = !empty($newPeer);
                 </div>
             </div>
             <div class="form-actions" style="border:0; margin-top: var(--space-md); padding-top:0;">
-                <button type="submit" class="btn btn-primary" <?= empty($fromLists) ? 'disabled' : '' ?>>Add rule</button>
+                <button type="submit" class="btn btn-primary" <?= empty($cascadeAclLists) ? 'disabled' : '' ?>>Add rule</button>
             </div>
         </form>
     </div>
