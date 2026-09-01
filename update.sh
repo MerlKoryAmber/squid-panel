@@ -119,4 +119,7 @@ echo "[4/4] Running install.sh..."
 echo ""
 cd "$CLONE_DIR"
 export SPM_DROP_DB="$drop_db"
+if [ "$drop_db" = "0" ]; then
+    export SPM_SKIP_ADMIN_PASSWORD=1
+fi
 exec ./install.sh

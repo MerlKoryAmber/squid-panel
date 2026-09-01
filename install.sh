@@ -55,12 +55,64 @@ if [ "$SQUID_STATUS" != "active" ]; then
 fi
 echo ""
 
-# DEV: no password prompt. Login admin / admin. Turn off before production.
-GENERATED_ADMIN_PASSWORD=0
-PRINT_ADMIN_PASSWORD="admin"
-ADMIN_PASSWORD="admin"
-echo "DEV: panel login admin / admin (no password prompt)."
-echo ""
+ipv6_enabled() {
+    [ -f /proc/net/if_inet6 ] || return 1
+    local dis
+    dis=$(sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null || echo 1)
+    [ "$dis" = "0" ]
+}
+
+nginx_strip_ipv6_listens() {
+    local f
+    for f in /etc/nginx/nginx.conf /etc/nginx/conf.d/*.conf; do
+        [ -f "$f" ] || continue
+        if grep -qE '^[[:space:]]*listen[[:space:]]+\[::\]' "$f"; then
+            sed -i -E 's/^([[:space:]]*)listen([[:space:]]+\[::\])/\1# SPM: ipv6 off — listen\2/' "$f"
+            echo "  Stripped IPv6 listen directives in $f"
+        fi
+    done
+}
+
+nginx_disable_listen_port() {
+    local port=$1
+    local f
+    for f in /etc/nginx/nginx.conf /etc/nginx/conf.d/*.conf; do
+        [ -f "$f" ] || continue
+        if grep -qE "^[[:space:]]*listen[[:space:]]+(\[::\]:)?${port}([^0-9]|;)" "$f"; then
+            sed -i -E "s/^([[:space:]]*)listen([[:space:]]+)(\[::\]:)?${port}([^;]*);/\1# SPM: port ${port} busy — listen\2\3${port}\4;/" "$f"
+            echo "  Disabled listen :${port} in $f"
+        fi
+    done
+}
+
+nginx_prepare_host_config() {
+    if ! command -v ss &>/dev/null; then
+        dnf install -y -q iproute 2>/dev/null || true
+    fi
+
+    if ipv6_enabled; then
+        echo "IPv6 enabled — keeping nginx listen [::]:... directives."
+    else
+        echo "IPv6 disabled on host — removing nginx listen [::]:... directives."
+        nginx_strip_ipv6_listens
+    fi
+
+    local holders
+    holders=$(ss -tlnH 'sport = :80' 2>/dev/null || true)
+    if [ -z "$holders" ]; then
+        echo "Port 80 is free."
+        return 0
+    fi
+    if echo "$holders" | grep -qE 'users:\(\("nginx"'; then
+        echo "Port 80 is already bound by nginx."
+        return 0
+    fi
+
+    echo "WARNING: Port 80 is in use by another service (not nginx):"
+    echo "$holders"
+    echo "Disabling listen :80 in nginx configs so nginx can start on :${PANEL_PORT}."
+    nginx_disable_listen_port 80
+}
 
 echo "[1/9] Installing dependencies..."
 dnf install -y -q epel-release 2>/dev/null || true
@@ -120,6 +172,15 @@ if [ "$HAD_EXISTING_DB" = "1" ] && [ -f "$PRESERVED_DB" ]; then
     mkdir -p "$SPM_DIR/database"
     cp -a "$PRESERVED_DB" "$SPM_DIR/database/spm.db"
     rm -f "$PRESERVED_DB"
+fi
+
+SKIP_ADMIN_PASSWORD=0
+if [ "$HAD_EXISTING_DB" = "1" ] || [ "${SPM_SKIP_ADMIN_PASSWORD:-}" = "1" ]; then
+    SKIP_ADMIN_PASSWORD=1
+    echo "Existing admin password will be kept."
+else
+    ADMIN_PASSWORD="admin"
+    echo "DEV: first install — panel login admin / admin."
 fi
 
 chown -R "$WEB_USER:$WEB_USER" "$SPM_DIR"
@@ -333,10 +394,14 @@ else
     exit 1
 fi
 
-export SPM_ADMIN_PASSWORD="$ADMIN_PASSWORD"
-php "$SPM_DIR/install/set_admin_password.php"
-unset SPM_ADMIN_PASSWORD
-ADMIN_PASSWORD=""
+if [ "$SKIP_ADMIN_PASSWORD" = "1" ]; then
+    echo "Admin password unchanged."
+else
+    export SPM_ADMIN_PASSWORD="$ADMIN_PASSWORD"
+    php "$SPM_DIR/install/set_admin_password.php"
+    unset SPM_ADMIN_PASSWORD
+    ADMIN_PASSWORD=""
+fi
 
 if [ -f "$SPM_DIR/database/spm.db" ]; then
     chown "$WEB_USER:$WEB_USER" "$SPM_DIR/database/spm.db"
@@ -351,6 +416,8 @@ fi
 
 if systemctl list-unit-files | grep -q '^nginx.service'; then
     systemctl enable nginx 2>/dev/null || true
+    echo "Preparing nginx for this host (IPv6, port 80)..."
+    nginx_prepare_host_config
     echo "nginx -t:"
     nginx -t
     systemctl enable nginx 2>/dev/null || true
@@ -412,8 +479,12 @@ echo "  https://${SERVER_IP}:${PANEL_PORT}/"
 echo ""
 echo "Credentials:"
 echo "  Username: admin"
-echo "  Password: admin"
-echo "  DEV default — change before production."
+if [ "$SKIP_ADMIN_PASSWORD" = "1" ]; then
+    echo "  Password: (unchanged)"
+else
+    echo "  Password: admin"
+    echo "  DEV default — change before production."
+fi
 echo ""
 echo "Sudoers: kinit may use only /etc/squid/*.keytab"
 if [ -f /etc/squid/krb5.keytab ]; then
