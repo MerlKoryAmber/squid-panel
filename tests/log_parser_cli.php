@@ -30,5 +30,13 @@ $direct = LogParser::filter($tmp, ['peer' => 'DIRECT'], 10);
 expect(count($direct) === 1, 'direct filter matches one row');
 expect($direct[0]['client_ip'] === '1.1.1.1', 'direct filter row is correct');
 
+$big = tempnam(sys_get_temp_dir(), 'spm-log-big-');
+$chunk = str_repeat("4000 10 9.9.9.9 TCP_MISS/200 100 GET http://bulk.example/ - DIRECT/- -\n", 5000);
+file_put_contents($big, $chunk . "5000 10 8.8.8.8 TCP_MISS/200 100 GET http://tail.example/ - DIRECT/- -\n");
+$tailHit = LogParser::filter($big, ['ip' => '8.8.8.8'], 5, 65536);
+expect(count($tailHit) === 1, 'tail window finds recent match in large file');
+expect($tailHit[0]['url'] === 'http://tail.example/', 'tail window match is newest row');
+unlink($big);
+
 unlink($tmp);
 echo "All log parser checks passed.\n";

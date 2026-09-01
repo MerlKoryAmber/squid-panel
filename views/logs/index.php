@@ -61,7 +61,7 @@
 <div class="card">
     <div class="card-header">
         <h3>Access Log Entries</h3>
-        <span class="subtitle"><?= count($logs) ?> entries shown (newest first)</span>
+        <span class="subtitle"><?= count($logs) ?> entries shown (newest first, last 16&nbsp;MB of log)</span>
     </div>
     <div class="card-body" style="padding: 0;">
         <?php if (empty($logs)): ?>

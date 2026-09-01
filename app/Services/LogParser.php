@@ -1,5 +1,10 @@
 <?php
 class LogParser {
+    /** Max bytes read from end of access.log for UI search (newest window). */
+    private const FILTER_SCAN_BYTES = 16777216; // 16 MiB
+
+    /** Larger window for CSV export. */
+    private const EXPORT_SCAN_BYTES = 67108864; // 64 MiB
     /**
      * Parse Squid access.log (native format)
      * timestamp elapsed remotehost code/status bytes method URL rfc931 peerstatus/peerhost type
@@ -40,78 +45,90 @@ class LogParser {
             return [];
         }
 
+        $text = self::tailBytes($file, self::FILTER_SCAN_BYTES);
+        if ($text === '') {
+            return [];
+        }
+
+        $text = self::dropPartialHeadLine($file, $text, self::FILTER_SCAN_BYTES);
+        $rawLines = explode("\n", $text);
         $output = [];
-        $handle = fopen($file, 'r');
-        if (!$handle) return [];
-
-        fseek($handle, 0, SEEK_END);
-        $pos = ftell($handle);
-        $count = 0;
-        $buffer = '';
-
-        while ($pos > 0 && $count < $lines) {
-            $pos--;
-            fseek($handle, $pos);
-            $char = fgetc($handle);
-            if ($char === "
-") {
-                if (!empty($buffer)) {
-                    $parsed = self::parseLine(strrev($buffer));
-                    if ($parsed) $output[] = $parsed;
-                    $count++;
-                    $buffer = '';
-                }
-            } else {
-                $buffer .= $char;
+        for ($i = count($rawLines) - 1; $i >= 0 && count($output) < $lines; $i--) {
+            $line = trim($rawLines[$i]);
+            if ($line === '') {
+                continue;
+            }
+            $parsed = self::parseLine($line);
+            if ($parsed) {
+                $output[] = $parsed;
             }
         }
 
-        fclose($handle);
-        return array_reverse($output);
+        return $output;
     }
 
-    public static function filter($file, $filters = [], $limit = 500) {
+    public static function filter($file, $filters = [], $limit = 500, $maxScanBytes = null) {
         if (!file_exists($file) || !is_readable($file)) {
             return [];
         }
 
         $limit = max(1, (int)$limit);
-        $handle = fopen($file, 'r');
-        if (!$handle) {
+        $maxScanBytes = max(65536, (int)($maxScanBytes ?? self::FILTER_SCAN_BYTES));
+
+        $text = self::tailBytes($file, $maxScanBytes);
+        if ($text === '') {
             return [];
         }
 
+        $text = self::dropPartialHeadLine($file, $text, $maxScanBytes);
+        $rawLines = explode("\n", $text);
         $results = [];
-        fseek($handle, 0, SEEK_END);
-        $pos = ftell($handle);
-        $buffer = '';
-
-        while ($pos > 0 && count($results) < $limit) {
-            $pos--;
-            fseek($handle, $pos);
-            $char = fgetc($handle);
-            if ($char === "\n") {
-                if ($buffer !== '') {
-                    $parsed = self::parseLine(strrev($buffer));
-                    if ($parsed && self::matchesFilters($parsed, $filters)) {
-                        $results[] = $parsed;
-                    }
-                    $buffer = '';
-                }
-            } else {
-                $buffer .= $char;
+        for ($i = count($rawLines) - 1; $i >= 0 && count($results) < $limit; $i--) {
+            $line = trim($rawLines[$i]);
+            if ($line === '') {
+                continue;
             }
-        }
-
-        if ($buffer !== '' && count($results) < $limit) {
-            $parsed = self::parseLine(strrev($buffer));
+            $parsed = self::parseLine($line);
             if ($parsed && self::matchesFilters($parsed, $filters)) {
                 $results[] = $parsed;
             }
         }
 
-        fclose($handle);
         return $results;
+    }
+
+    public static function exportScanBytes() {
+        return self::EXPORT_SCAN_BYTES;
+    }
+
+    private static function tailBytes($path, $maxBytes) {
+        if (!is_readable($path) || !is_file($path)) {
+            return '';
+        }
+        $size = filesize($path);
+        if ($size === false || $size <= 0) {
+            return '';
+        }
+        $fh = fopen($path, 'rb');
+        if (!$fh) {
+            return '';
+        }
+        if ($size > $maxBytes) {
+            fseek($fh, -$maxBytes, SEEK_END);
+        }
+        $data = stream_get_contents($fh);
+        fclose($fh);
+        return is_string($data) ? $data : '';
+    }
+
+    /** First line after tail chunk may be truncated when file is larger than the window. */
+    private static function dropPartialHeadLine($path, $text, $maxScanBytes) {
+        $size = filesize($path);
+        if ($size === false || $size <= $maxScanBytes) {
+            return $text;
+        }
+        $nl = strpos($text, "\n");
+        return $nl === false ? '' : substr($text, $nl + 1);
     }
 
     private static function matchesFilters(array $parsed, array $filters) {

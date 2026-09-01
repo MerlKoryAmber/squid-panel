@@ -137,7 +137,7 @@ class LogController {
             }
         }
 
-        $logs = LogParser::filter(SQUID_ACCESS_LOG, $activeFilters, 10000);
+        $logs = LogParser::filter(SQUID_ACCESS_LOG, $activeFilters, 10000, LogParser::exportScanBytes());
 
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="squid_logs_' . date('Ymd_His') . '.csv"');
