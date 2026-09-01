@@ -20,6 +20,7 @@ class LogParser {
 
         return [
             'timestamp' => isset($parts[0]) ? date('Y-m-d H:i:s', (int)$parts[0]) : null,
+            'timestamp_unix' => isset($parts[0]) ? (int)$parts[0] : 0,
             'elapsed' => $parts[1] ?? 0,
             'client_ip' => $parts[2] ?? '',
             'status' => $parts[3] ?? '',
@@ -74,25 +75,80 @@ class LogParser {
             return [];
         }
 
-        $results = [];
+        $limit = max(1, (int)$limit);
         $handle = fopen($file, 'r');
-        if (!$handle) return [];
+        if (!$handle) {
+            return [];
+        }
 
-        while (($line = fgets($handle)) !== false && count($results) < $limit) {
-            $parsed = self::parseLine($line);
-            if (!$parsed) continue;
+        $results = [];
+        fseek($handle, 0, SEEK_END);
+        $pos = ftell($handle);
+        $buffer = '';
 
-            if (!empty($filters['ip']) && strpos($parsed['client_ip'], $filters['ip']) === false) continue;
-            if (!empty($filters['user']) && strpos($parsed['user'], $filters['user']) === false) continue;
-            if (!empty($filters['status']) && strpos($parsed['status'], $filters['status']) === false) continue;
-            if (!empty($filters['url']) && strpos($parsed['url'], $filters['url']) === false) continue;
-            if (!empty($filters['method']) && $parsed['method'] !== $filters['method']) continue;
+        while ($pos > 0 && count($results) < $limit) {
+            $pos--;
+            fseek($handle, $pos);
+            $char = fgetc($handle);
+            if ($char === "\n") {
+                if ($buffer !== '') {
+                    $parsed = self::parseLine(strrev($buffer));
+                    if ($parsed && self::matchesFilters($parsed, $filters)) {
+                        $results[] = $parsed;
+                    }
+                    $buffer = '';
+                }
+            } else {
+                $buffer .= $char;
+            }
+        }
 
-            $results[] = $parsed;
+        if ($buffer !== '' && count($results) < $limit) {
+            $parsed = self::parseLine(strrev($buffer));
+            if ($parsed && self::matchesFilters($parsed, $filters)) {
+                $results[] = $parsed;
+            }
         }
 
         fclose($handle);
         return $results;
+    }
+
+    private static function matchesFilters(array $parsed, array $filters) {
+        if (!empty($filters['ip']) && strpos($parsed['client_ip'], $filters['ip']) === false) {
+            return false;
+        }
+        if (!empty($filters['user']) && strpos($parsed['user'], $filters['user']) === false) {
+            return false;
+        }
+        if (!empty($filters['status']) && strpos($parsed['status'], $filters['status']) === false) {
+            return false;
+        }
+        if (!empty($filters['url']) && strpos($parsed['url'], $filters['url']) === false) {
+            return false;
+        }
+        if (!empty($filters['method']) && $parsed['method'] !== $filters['method']) {
+            return false;
+        }
+        if (!empty($filters['peer'])) {
+            if ($filters['peer'] === 'DIRECT') {
+                $hierarchy = $parsed['hierarchy'] ?? '';
+                $peerHost = $parsed['peer_host'] ?? '';
+                if (!in_array($hierarchy, ['DIRECT', 'NONE', ''], true) && $peerHost !== '' && $peerHost !== '-') {
+                    return false;
+                }
+            } else {
+                $peerHost = $parsed['peer_host'] ?? '';
+                $matchName = (string)$filters['peer'];
+                $matchHostname = (string)($filters['peer_hostname'] ?? '');
+                $nameMatch = strcasecmp($peerHost, $matchName) === 0;
+                $hostMatch = $matchHostname !== '' && strcasecmp($peerHost, $matchHostname) === 0;
+                if (!$nameMatch && !$hostMatch) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     public static function getStats($file, $hours = 24) {

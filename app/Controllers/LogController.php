@@ -4,19 +4,39 @@ class LogController {
         Auth::requireAuth();
 
         $filters = [
-            'ip' => $_GET['ip'] ?? '',
-            'user' => $_GET['user'] ?? '',
-            'status' => $_GET['status'] ?? '',
-            'url' => $_GET['url'] ?? '',
-            'method' => $_GET['method'] ?? '',
+            'ip' => trim($_GET['ip'] ?? ''),
+            'user' => trim($_GET['user'] ?? ''),
+            'status' => trim($_GET['status'] ?? ''),
+            'url' => trim($_GET['url'] ?? ''),
+            'method' => trim($_GET['method'] ?? ''),
+            'peer' => trim($_GET['peer'] ?? ''),
         ];
 
-        $logs = LogParser::filter(SQUID_ACCESS_LOG, array_filter($filters), 200);
+        $activeFilters = array_filter($filters, static function ($value) {
+            return $value !== '';
+        });
+
+        if (!empty($filters['peer']) && $filters['peer'] !== 'DIRECT') {
+            $peerRow = Database::fetch(
+                "SELECT name, hostname FROM cache_peers WHERE name = ?",
+                [$filters['peer']]
+            );
+            if ($peerRow) {
+                $activeFilters['peer_hostname'] = $peerRow['hostname'];
+            }
+        }
+
+        $peers = Database::fetchAll(
+            "SELECT name, hostname FROM cache_peers ORDER BY name"
+        );
+
+        $logs = LogParser::filter(SQUID_ACCESS_LOG, $activeFilters, 200);
 
         echo View::render('logs.index', [
             'title' => 'Access Logs',
             'logs' => $logs,
             'filters' => $filters,
+            'peers' => $peers,
         ]);
     }
 
@@ -70,7 +90,23 @@ class LogController {
     public function filter($params = []) {
         Auth::requireAuth();
         $filters = json_decode(file_get_contents('php://input'), true) ?: [];
-        $logs = LogParser::filter(SQUID_ACCESS_LOG, $filters, 500);
+        $filters = array_map(static function ($value) {
+            return is_string($value) ? trim($value) : $value;
+        }, $filters);
+
+        if (!empty($filters['peer']) && $filters['peer'] !== 'DIRECT') {
+            $peerRow = Database::fetch(
+                "SELECT name, hostname FROM cache_peers WHERE name = ?",
+                [$filters['peer']]
+            );
+            if ($peerRow) {
+                $filters['peer_hostname'] = $peerRow['hostname'];
+            }
+        }
+
+        $logs = LogParser::filter(SQUID_ACCESS_LOG, array_filter($filters, static function ($value) {
+            return $value !== '' && $value !== null;
+        }), 500);
         header('Content-Type: application/json');
         echo json_encode($logs);
     }
@@ -79,13 +115,29 @@ class LogController {
         Auth::requireAuth();
 
         $filters = [
-            'ip' => $_GET['ip'] ?? '',
-            'user' => $_GET['user'] ?? '',
-            'status' => $_GET['status'] ?? '',
-            'url' => $_GET['url'] ?? '',
+            'ip' => trim($_GET['ip'] ?? ''),
+            'user' => trim($_GET['user'] ?? ''),
+            'status' => trim($_GET['status'] ?? ''),
+            'url' => trim($_GET['url'] ?? ''),
+            'method' => trim($_GET['method'] ?? ''),
+            'peer' => trim($_GET['peer'] ?? ''),
         ];
 
-        $logs = LogParser::filter(SQUID_ACCESS_LOG, array_filter($filters), 10000);
+        $activeFilters = array_filter($filters, static function ($value) {
+            return $value !== '';
+        });
+
+        if (!empty($filters['peer']) && $filters['peer'] !== 'DIRECT') {
+            $peerRow = Database::fetch(
+                "SELECT name, hostname FROM cache_peers WHERE name = ?",
+                [$filters['peer']]
+            );
+            if ($peerRow) {
+                $activeFilters['peer_hostname'] = $peerRow['hostname'];
+            }
+        }
+
+        $logs = LogParser::filter(SQUID_ACCESS_LOG, $activeFilters, 10000);
 
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="squid_logs_' . date('Ymd_His') . '.csv"');
