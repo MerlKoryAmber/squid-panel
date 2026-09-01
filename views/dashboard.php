@@ -44,7 +44,7 @@ $nhReadable = !empty($nh['readable']);
 <div class="card" style="margin-bottom: var(--space-lg);">
     <div class="card-header">
         <h3>Negotiate helpers</h3>
-        <span class="subtitle">cache.log · last <?= (int)($nh['window_h'] ?? 24) ?>h · not live poll</span>
+        <span class="subtitle">hourly cron + cache.log · <?= (int)($nh['sample_count'] ?? 0) ?> samples / <?= (int)($nh['window_h'] ?? 168) ?>h</span>
     </div>
     <div class="card-body">
         <?php if (!$nhReadable): ?>
@@ -66,7 +66,15 @@ $nhReadable = !empty($nh['readable']);
         </div>
         <?php if ($nhOk): ?>
         <p style="color:var(--ir-text-secondary); margin:0; font-size:0.9rem;">
-            No <code>negotiateauthenticator</code> busy/FATAL in the log window. Children is enough for that period (or there was no Negotiate load).
+            <?php if (!empty($nh['from_hourly'])): ?>
+            No negotiate helper queue in stored hourly samples (<?= (int)($nh['window_h'] ?? 168) ?>h).
+            <?php if (!empty($nh['last_sample_hour'])): ?>
+            Last sample hour: <?= htmlspecialchars($nh['last_sample_hour']) ?>.
+            <?php endif; ?>
+            Peak queued (7d): <?= (int)($nh['peak_queued_7d'] ?? 0) ?>.
+            <?php else: ?>
+            No hourly samples yet — after <code>update.sh</code> or next Dashboard visit (auto, hourly). Live log (24h): no busy/FATAL.
+            <?php endif; ?>
         </p>
         <?php else: ?>
         <p style="color:var(--ir-text-secondary); margin:0; font-size:0.9rem;">
@@ -77,7 +85,7 @@ $nhReadable = !empty($nh['readable']);
             <?php if (!empty($nh['last_busy'])): ?>
             · last: <?= htmlspecialchars($nh['last_busy']) ?>
             <?php endif; ?>
-            <br>Raise <strong>Children</strong> (Kerberos). FATAL means overload lasted and Squid worker may have died.
+            <br>Raise <strong>Children</strong> (Kerberos). FATAL = chronic overload.
         </p>
         <?php endif; ?>
         <?php endif; ?>

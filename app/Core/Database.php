@@ -85,6 +85,19 @@ class Database {
                 updated_at TEXT
             )"
         );
+        self::$pdo->exec(
+            "CREATE TABLE IF NOT EXISTS negotiate_helper_hourly (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                hour_start TEXT NOT NULL UNIQUE,
+                busy_events INTEGER NOT NULL DEFAULT 0,
+                max_queued INTEGER NOT NULL DEFAULT 0,
+                fatal_events INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT
+            )"
+        );
+        self::$pdo->exec(
+            "CREATE INDEX IF NOT EXISTS idx_negotiate_helper_hourly_start ON negotiate_helper_hourly(hour_start)"
+        );
     }
 
     private static function addColumnIfMissing($table, $column, $ddl) {

@@ -380,6 +380,18 @@ INSTALLED_AT=${TS}
 EOF
 chmod 600 "$INSTALL_META"
 
+CRON_FILE="/etc/cron.d/spm-negotiate"
+cat > "$CRON_FILE" << 'CRONEOF'
+# SPM: hourly negotiate helper queue sample from cache.log
+SHELL=/bin/bash
+0 * * * * squidmgr /usr/bin/php /opt/spm/install/negotiate_poll.php >> /opt/spm/storage/logs/negotiate_poll.log 2>&1
+CRONEOF
+chmod 644 "$CRON_FILE"
+echo "Cron: $CRON_FILE (hourly negotiate poll as squidmgr)"
+if [ -f "$SPM_DIR/install/negotiate_poll.php" ]; then
+    sudo -u "$WEB_USER" /usr/bin/php "$SPM_DIR/install/negotiate_poll.php" >> "$SPM_DIR/storage/logs/negotiate_poll.log" 2>&1 || true
+fi
+
 sleep 1
 NGINX_STATUS=$(systemctl is-active nginx 2>/dev/null || echo "unknown")
 PHPFPM_STATUS=$(systemctl is-active "$PHP_FPM_SERVICE" 2>/dev/null || echo "unknown")

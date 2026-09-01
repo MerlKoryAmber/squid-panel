@@ -21,7 +21,7 @@ $sample = <<<LOG
 LOG;
 
 $since = strtotime('2026-08-23 00:00:00');
-$r = NegotiateHelperStats::parseChunk($sample, $since);
+$r = NegotiateHelperStats::parseChunkWindow($sample, $since);
 expect($r['ok'] === false, 'not ok when busy');
 expect($r['busy_count'] === 1, 'one busy');
 expect($r['max_queued'] === 30, 'queued 30');
@@ -29,9 +29,14 @@ expect($r['fatal_count'] === 1, 'one fatal');
 expect($r['busy_ratio'] === '20/20', 'ratio');
 
 $quiet = "2026/08/23 10:00:00 kid1| Starting Squid\n";
-$q = NegotiateHelperStats::parseChunk($quiet, $since);
+$q = NegotiateHelperStats::parseChunkWindow($quiet, $since);
 expect($q['ok'] === true, 'ok when quiet');
-expect($q['busy_count'] === 0, 'zero busy');
+
+$hourStart = strtotime('2026-08-23 11:00:00');
+$hourEnd = $hourStart + 3600;
+$hourly = NegotiateHelperStats::parseChunkWindow($sample, $hourStart, $hourEnd);
+expect($hourly['busy_count'] === 1, 'hour window one busy');
+expect($hourly['max_queued'] === 30, 'hour window queued');
 
 if ($fail > 0) {
     exit(1);
