@@ -173,6 +173,7 @@ class AdGroupAcl {
         try {
             $flags = AdLdapConfig::helperDirectoryFlags($realm);
         } catch (Exception $e) {
+            // LDAP not configured yet — leave group flags (-g/-D) only
             $flags = '';
         }
         if ($flags === '') {

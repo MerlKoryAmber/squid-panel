@@ -140,8 +140,7 @@ $canTest = !empty($keytabManaged) && !empty($keytabExists) && !empty($isAdmin);
                 <label>LDAP servers for AD group helpers</label>
                 <textarea name="ldap_servers" rows="3" placeholder="hdc-01.hci.interros.ru&#10;hdc-02.hci.interros.ru" <?= empty($isAdmin) ? 'readonly' : '' ?>><?= htmlspecialchars($config['ldap_servers'] ?? '') ?></textarea>
                 <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">
-                    Preferred place: <a href="/acl/ad-groups">AD groups → LDAP directory</a> (GSSAPI or simple bind).
-                    This field still syncs <code>-S</code> for helpers. FQDN, one per line.
+                    Synced from <a href="/acl/ad-groups">AD groups → LDAP</a> (pinned DC for helpers). Prefer editing there.
                 </p>
             </div>
             <div class="form-actions">

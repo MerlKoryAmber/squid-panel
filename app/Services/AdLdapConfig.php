@@ -1,19 +1,22 @@
 <?php
 /**
- * Dedicated LDAP(S) settings for AD group list + Squid group helper (ADR 0006).
+ * LDAP(S) simple bind for AD group list + Squid group helper (ADR 0006).
+ * Groups: LDAP only — no GSSAPI/keytab path.
  */
 class AdLdapConfig {
-    public const MODE_GSSAPI = 'gssapi';
     public const MODE_SIMPLE = 'simple';
     public const STAGING = 'ad-ldap-list.json';
 
     public static function ensureRow() {
         $row = Database::fetch("SELECT id FROM ad_ldap_config LIMIT 1");
         if ($row) {
+            Database::query(
+                "UPDATE ad_ldap_config SET bind_mode = 'simple' WHERE bind_mode != 'simple' OR bind_mode IS NULL"
+            );
             return;
         }
         $servers = '';
-        $auth = Database::fetch("SELECT ldap_servers, realm FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];
+        $auth = Database::fetch("SELECT ldap_servers FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];
         if (!empty($auth['ldap_servers'])) {
             $servers = (string)$auth['ldap_servers'];
         }
@@ -41,7 +44,7 @@ class AdLdapConfig {
             ];
         }
         return [
-            'bind_mode' => (($row['bind_mode'] ?? '') === self::MODE_GSSAPI) ? self::MODE_GSSAPI : self::MODE_SIMPLE,
+            'bind_mode' => self::MODE_SIMPLE,
             'servers' => (string)($row['servers'] ?? ''),
             'port' => max(1, min(65535, (int)($row['port'] ?? 389))),
             'use_ssl' => !empty($row['use_ssl']) ? 1 : 0,
@@ -54,7 +57,6 @@ class AdLdapConfig {
 
     public static function save(array $in) {
         self::ensureRow();
-        $mode = (($in['bind_mode'] ?? '') === self::MODE_SIMPLE) ? self::MODE_SIMPLE : self::MODE_GSSAPI;
         $hosts = AdGroupAcl::parseLdapServers((string)($in['servers'] ?? ''));
         $servers = AdGroupAcl::storeLdapServers($hosts);
         $port = (int)($in['port'] ?? 389);
@@ -78,24 +80,20 @@ class AdLdapConfig {
             if (strlen($pass) > 256 || preg_match('/[\x00-\x1f\x7f]/', $pass)) {
                 throw new Exception('Invalid bind password');
             }
-            // Squid -p is a single token in conf — no whitespace/quotes
             if (preg_match('/[\s"\'\\\\]/', $pass)) {
                 throw new Exception('Bind password must not contain spaces or quotes (Squid -p limit)');
             }
         }
-        if ($mode === self::MODE_SIMPLE) {
-            if (empty($hosts)) {
-                throw new Exception('LDAP servers required for simple bind');
-            }
-            if ($bindDn === '' || $pass === '') {
-                throw new Exception('Bind DN and password required for simple bind');
-            }
+        if (empty($hosts)) {
+            throw new Exception('LDAP servers required');
+        }
+        if ($bindDn === '' || $pass === '') {
+            throw new Exception('Bind DN and password required');
         }
         Database::query(
-            "UPDATE ad_ldap_config SET bind_mode=?, servers=?, port=?, use_ssl=?, bind_dn=?, bind_password=?, base_dn=?, updated_at=datetime('now')",
-            [$mode, $servers, $port, $useSsl, $bindDn, $pass, $baseDn]
+            "UPDATE ad_ldap_config SET bind_mode='simple', servers=?, port=?, use_ssl=?, bind_dn=?, bind_password=?, base_dn=?, updated_at=datetime('now')",
+            [$servers, $port, $useSsl, $bindDn, $pass, $baseDn]
         );
-        // Keep Kerberos ldap_servers in sync for builder fallback / old UI
         Database::query(
             "UPDATE auth_config SET ldap_servers = ?, updated_at = datetime('now') WHERE scheme = 'negotiate'",
             [$servers]
@@ -106,14 +104,10 @@ class AdLdapConfig {
     public static function effectiveServers() {
         $cfg = self::get();
         try {
-            $hosts = AdGroupAcl::parseLdapServers($cfg['servers']);
+            return AdGroupAcl::parseLdapServers($cfg['servers']);
         } catch (Exception $e) {
-            $hosts = [];
+            return [];
         }
-        if (!empty($hosts)) {
-            return $hosts;
-        }
-        return AdGroupAcl::ldapServers();
     }
 
     public static function baseDn($realm = '') {
@@ -135,53 +129,38 @@ class AdLdapConfig {
         return implode(',', $parts);
     }
 
-    /** True when simple bind has servers + DN + password. */
-    public static function simpleReady(array $cfg = null) {
+    public static function isConfigured(array $cfg = null) {
         $cfg = $cfg ?: self::get();
-        try {
-            $hosts = AdGroupAcl::parseLdapServers($cfg['servers'] ?? '');
-        } catch (Exception $e) {
-            return false;
-        }
-        return !empty($hosts)
+        return !empty(self::effectiveServers())
             && trim((string)($cfg['bind_dn'] ?? '')) !== ''
             && trim((string)($cfg['bind_password'] ?? '')) !== '';
     }
 
-    /**
-     * LDAP simple = primary when chosen and ready; GSSAPI/keytab = reserve.
-     */
-    public static function effectiveMode(array $cfg = null) {
-        $cfg = $cfg ?: self::get();
-        if (($cfg['bind_mode'] ?? self::MODE_SIMPLE) === self::MODE_SIMPLE && self::simpleReady($cfg)) {
-            return self::MODE_SIMPLE;
+    public static function requireConfigured() {
+        if (!self::isConfigured()) {
+            throw new Exception('Configure LDAP on AD groups page (servers, bind DN, password)');
         }
-        return self::MODE_GSSAPI;
     }
 
-    /** Flags for ext_kerberos_ldap_group_acl beyond -g/-m/-D/-P. */
+    /** Flags for ext_kerberos_ldap_group_acl: always simple bind + -S. */
     public static function helperDirectoryFlags($realm) {
+        self::requireConfigured();
         $cfg = self::get();
         $hosts = self::effectiveServers();
         $parts = [];
-        $mode = self::effectiveMode($cfg);
-        if ($mode === self::MODE_SIMPLE) {
-            $parts[] = '-u ' . self::optArg($cfg['bind_dn']);
-            $parts[] = '-p ' . self::optArg($cfg['bind_password']);
-            $base = self::baseDn($realm);
-            if ($base !== '') {
-                $parts[] = '-b ' . self::optArg($base);
-            }
-            if ($cfg['use_ssl']) {
-                $parts[] = '-s';
-                $parts[] = '-a';
-            }
-            if (!empty($hosts)) {
-                $scheme = $cfg['use_ssl'] ? 'ldaps' : 'ldap';
-                $port = (int)$cfg['port'];
-                $parts[] = '-l ' . $scheme . '://' . $hosts[0] . ':' . $port;
-            }
+        $parts[] = '-u ' . self::optArg($cfg['bind_dn']);
+        $parts[] = '-p ' . self::optArg($cfg['bind_password']);
+        $base = self::baseDn($realm);
+        if ($base !== '') {
+            $parts[] = '-b ' . self::optArg($base);
         }
+        if ($cfg['use_ssl']) {
+            $parts[] = '-s';
+            $parts[] = '-a';
+        }
+        $scheme = $cfg['use_ssl'] ? 'ldaps' : 'ldap';
+        $port = (int)$cfg['port'];
+        $parts[] = '-l ' . $scheme . '://' . $hosts[0] . ':' . $port;
         $sFlag = AdGroupAcl::ldapServersFlag($hosts, $realm);
         if ($sFlag !== '') {
             $parts[] = $sFlag;
@@ -189,7 +168,6 @@ class AdLdapConfig {
         return implode(' ', $parts);
     }
 
-    /** Single argv token for squid.conf helper options. */
     private static function optArg($s) {
         $s = trim((string)$s);
         if ($s === '' || strpos($s, "\0") !== false || strpos($s, '"') !== false) {
@@ -202,12 +180,12 @@ class AdLdapConfig {
     }
 
     public static function writeListStaging() {
+        self::requireConfigured();
         $cfg = self::get();
         $realm = AdGroupAcl::realm();
         $hosts = self::effectiveServers();
-        $mode = self::effectiveMode($cfg);
         $payload = [
-            'bind_mode' => $mode,
+            'bind_mode' => self::MODE_SIMPLE,
             'servers' => $hosts,
             'port' => (int)$cfg['port'],
             'use_ssl' => (int)$cfg['use_ssl'],
@@ -216,15 +194,6 @@ class AdLdapConfig {
             'base_dn' => self::baseDn($realm),
             'realm' => $realm,
         ];
-        if ($mode === self::MODE_GSSAPI) {
-            $args = AdGroupAcl::ldapQueryArgsGssapi();
-            $payload['keytab'] = $args[0];
-            $payload['ldap_host'] = $args[2];
-            $payload['principal'] = $args[3];
-            if (empty($payload['servers'])) {
-                $payload['servers'] = [$args[2]];
-            }
-        }
         $dir = (defined('SPM_STORAGE') ? SPM_STORAGE : '/opt/spm/storage') . '/tmp';
         if (!is_dir($dir) && !mkdir($dir, 0750, true) && !is_dir($dir)) {
             throw new Exception('Cannot create staging directory');

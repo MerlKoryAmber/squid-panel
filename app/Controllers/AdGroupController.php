@@ -43,7 +43,6 @@ class AdGroupController {
         View::verifyCsrf();
         try {
             $cfg = AdLdapConfig::save([
-                'bind_mode' => $_POST['bind_mode'] ?? 'gssapi',
                 'servers' => $_POST['servers'] ?? '',
                 'port' => $_POST['port'] ?? 389,
                 'use_ssl' => !empty($_POST['use_ssl']),
@@ -54,9 +53,9 @@ class AdGroupController {
             $synced = AdGroupAcl::syncDirectoryOptionsIntoHelpers();
             Audit::log(
                 'ad_ldap_save',
-                'mode=' . $cfg['bind_mode'] . ' servers=' . substr_count($cfg['servers'], "\n") . ' synced=' . $synced
+                'simple servers=' . count(preg_split('/\s+/', trim($cfg['servers']))) . ' synced=' . $synced
             );
-            $_SESSION['flash_success'] = 'LDAP settings saved (' . $cfg['bind_mode'] . '). Synced '
+            $_SESSION['flash_success'] = 'LDAP settings saved. Synced '
                 . $synced . ' group helper(s). Applying live squid.conf…';
             SquidLiveApply::remember();
         } catch (Throwable $e) {

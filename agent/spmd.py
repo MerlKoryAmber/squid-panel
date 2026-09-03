@@ -219,16 +219,10 @@ def list_ad_ldap_groups_from_staging(filename):
             pass
     if not isinstance(cfg, dict):
         raise ValueError("Invalid LDAP staging JSON")
-    mode = cfg.get("bind_mode") or "gssapi"
-    if mode == "simple":
-        return list_ad_ldap_groups_simple(cfg)
-    keytab = cfg.get("keytab") or ""
-    realm = cfg.get("realm") or ""
-    host = cfg.get("ldap_host") or ""
-    if not host and isinstance(cfg.get("servers"), list) and cfg["servers"]:
-        host = cfg["servers"][0]
-    principal = cfg.get("principal") or "-"
-    return list_ad_ldap_groups(keytab, realm, host, principal)
+    mode = cfg.get("bind_mode") or "simple"
+    if mode != "simple":
+        raise ValueError("AD groups LDAP requires simple bind (GSSAPI for groups disabled)")
+    return list_ad_ldap_groups_simple(cfg)
 
 
 def _ldap_base_dn(realm):
