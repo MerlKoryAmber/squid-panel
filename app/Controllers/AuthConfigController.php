@@ -54,6 +54,13 @@ class AuthConfigController {
         $realm = trim((string)($_POST['realm'] ?? ''));
         $kdc = trim((string)($_POST['kdc'] ?? ''));
         $admin_server = trim((string)($_POST['admin_server'] ?? ''));
+        try {
+            $ldapHosts = AdGroupAcl::parseLdapServers((string)($_POST['ldap_servers'] ?? ''));
+        } catch (Exception $e) {
+            $this->flashRedirect('/auth/kerberos', $e->getMessage());
+            return;
+        }
+        $ldap_servers = AdGroupAcl::storeLdapServers($ldapHosts);
         $principal = trim((string)($_POST['principal'] ?? ''));
         $keep_alive = (($_POST['keep_alive'] ?? 'on') === 'off') ? 'off' : 'on';
         $children = (int)($_POST['children'] ?? 20);
@@ -92,12 +99,29 @@ class AuthConfigController {
 
         Database::query("DELETE FROM auth_config WHERE scheme = 'negotiate'");
         Database::query(
-            "INSERT INTO auth_config (scheme, program, helper, children, children_extra, realm, keep_alive, keytab_path, principal, kdc, admin_server, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
-            ['negotiate', $program, $helper, $children, $children_extra, $realm, $keep_alive, $keytab_path, $principal, $kdc, $admin_server]
+            "INSERT INTO auth_config (scheme, program, helper, children, children_extra, realm, keep_alive, keytab_path, principal, kdc, admin_server, ldap_servers, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+            ['negotiate', $program, $helper, $children, $children_extra, $realm, $keep_alive, $keytab_path, $principal, $kdc, $admin_server, $ldap_servers]
         );
 
-        Audit::log('kerberos_save', "Updated Kerberos config for realm {$realm}");
-        $this->flashRedirect('/auth/kerberos', '', 'Kerberos settings saved. Live squid.conf is not rewritten.');
+        $synced = AdGroupAcl::syncLdapServersIntoHelpers($ldapHosts, $realm);
+        Audit::log(
+            'kerberos_save',
+            "Updated Kerberos config for realm {$realm}; ldap_servers=" . count($ldapHosts) . "; synced_ext_acl={$synced}"
+        );
+
+        $msg = 'Kerberos settings saved';
+        if (!empty($ldapHosts)) {
+            $msg .= '. LDAP servers pinned for ' . $synced . ' group helper(s) (-S).';
+        } else {
+            $msg .= '. LDAP servers cleared — helpers use DNS SRV again.';
+        }
+        $msg .= ' Applying live squid.conf…';
+        $_SESSION['flash_success'] = $msg;
+        if (!SquidLiveApply::remember()) {
+            View::redirect('/auth/kerberos');
+            return;
+        }
+        View::redirect('/auth/kerberos');
     }
 
     public function uploadKerberosKeytab($params = []) {

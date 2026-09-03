@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS auth_config (
     principal TEXT DEFAULT '',
     kdc TEXT DEFAULT '',
     admin_server TEXT DEFAULT '',
+    ldap_servers TEXT DEFAULT '',
     helper TEXT DEFAULT '',
     children_extra TEXT DEFAULT '',
     created_at TEXT,

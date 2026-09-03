@@ -88,7 +88,105 @@ class AdGroupAcl {
             $parts[] = '-P ' . $principal;
         }
         $parts[] = self::groupFlag($group, $realm);
-        return implode(' ', $parts);
+        return self::withLdapServerList(implode(' ', $parts), self::ldapServers(), $realm);
+    }
+
+    /**
+     * LDAP hosts for ext_kerberos_ldap_group_acl -S (skip DNS SRV).
+     * One FQDN per line / comma / space. Empty = helper uses SRV for -D realm.
+     */
+    public static function parseLdapServers($raw) {
+        $raw = str_replace(["\r\n", "\r"], "\n", (string)$raw);
+        $raw = str_replace([',', ';', "\t"], ' ', $raw);
+        $out = [];
+        $seen = [];
+        foreach (preg_split('/[\s]+/', $raw) as $tok) {
+            $tok = strtolower(trim($tok));
+            if ($tok === '') {
+                continue;
+            }
+            $tok = preg_replace('#^ldap[s]?://#i', '', $tok);
+            $tok = preg_replace('#:\d+$#', '', $tok);
+            $tok = rtrim($tok, '/');
+            if (!preg_match('/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/', $tok) || strpos($tok, '..') !== false) {
+                throw new Exception('Invalid LDAP server hostname: ' . $tok);
+            }
+            if (isset($seen[$tok])) {
+                continue;
+            }
+            $seen[$tok] = true;
+            $out[] = $tok;
+            if (count($out) > 16) {
+                throw new Exception('Too many LDAP servers (max 16)');
+            }
+        }
+        return $out;
+    }
+
+    public static function ldapServers() {
+        $row = Database::fetch("SELECT ldap_servers FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];
+        try {
+            return self::parseLdapServers((string)($row['ldap_servers'] ?? ''));
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public static function storeLdapServers(array $hosts) {
+        return implode("\n", $hosts);
+    }
+
+    /** Build -S host@REALM:host2@REALM (man ext_kerberos_ldap_group_acl). */
+    public static function ldapServersFlag(array $hosts, $realm) {
+        if (empty($hosts)) {
+            return '';
+        }
+        $realm = strtoupper(trim((string)$realm));
+        $parts = [];
+        foreach ($hosts as $h) {
+            $h = strtolower(trim((string)$h));
+            if ($h === '') {
+                continue;
+            }
+            $parts[] = ($realm !== '' && preg_match('/^[A-Z0-9.-]+$/', $realm))
+                ? ($h . '@' . $realm)
+                : $h;
+        }
+        if (empty($parts)) {
+            return '';
+        }
+        return '-S ' . implode(':', $parts);
+    }
+
+    /** Strip old -S / -l from options, append -S when hosts non-empty. */
+    public static function withLdapServerList($options, array $hosts, $realm) {
+        $options = trim((string)$options);
+        $options = preg_replace('/(?:^|\s)-S\s+\S+/', '', $options);
+        $options = preg_replace('/(?:^|\s)-l\s+\S+/', '', $options);
+        $options = trim(preg_replace('/\s+/', ' ', (string)$options));
+        $flag = self::ldapServersFlag($hosts, $realm);
+        if ($flag === '') {
+            return $options;
+        }
+        return $options === '' ? $flag : ($options . ' ' . $flag);
+    }
+
+    /** Rewrite options on all kerberos LDAP external_acl_type rows. */
+    public static function syncLdapServersIntoHelpers(array $hosts, $realm) {
+        $rows = Database::fetchAll(
+            "SELECT id, options, program FROM external_acl_types WHERE program LIKE ?",
+            ['%' . basename(self::HELPER_BIN) . '%']
+        );
+        $n = 0;
+        foreach ($rows as $row) {
+            $next = self::withLdapServerList((string)($row['options'] ?? ''), $hosts, $realm);
+            Database::query(
+                "UPDATE external_acl_types SET options = ?, updated_at = datetime('now') WHERE id = ?",
+                [$next, (int)$row['id']]
+            );
+            $n++;
+        }
+        return $n;
     }
 
     public static function kdcHost() {

@@ -41,6 +41,7 @@ $b = (new SquidConfigBuilder())->loadFromArray([
             'children_extra' => 'startup=0 idle=10',
             'keep_alive' => 'on',
             'realm' => 'HCI.INTERROS.RU',
+            'ldap_servers' => "hdc-01.hci.interros.ru\nhdc-02.hci.interros.ru",
         ],
     ],
     'ext_acl' => [
@@ -86,6 +87,7 @@ expect($auth !== false, 'auth_param emitted');
 expect(strpos($out, 'auth_param negotiate realm') === false, 'negotiate realm not emitted as squid realm');
 expect($ext !== false && $auth !== false && $ext > $auth, 'external_acl after auth_param');
 expect($dit !== false && $ext !== false && $dit > $ext, 'acl DIT_AD after helper');
+expect(strpos($out, '-S hdc-01.hci.interros.ru@HCI.INTERROS.RU:hdc-02.hci.interros.ru@HCI.INTERROS.RU') !== false, 'ldap -S pinned');
 expect(strpos($out, 'cache_mem 0') !== false, 'cache_mem extra kept');
 expect(strpos($out, 'coredump_dir /var/spool/squid') !== false, 'coredump_dir');
 expect(strpos($out, 'request_header_access X-Forwarded-For deny all') !== false, 'request_header_access');

@@ -242,6 +242,25 @@ class SquidConfigBuilder {
             $parts[] = $format;
             $parts[] = $program;
             $opts = trim((string)($row['options'] ?? ''));
+            if (strpos($program, 'ext_kerberos_ldap_group_acl') !== false
+                || strpos($program, 'kerberos_ldap_group') !== false) {
+                $authNeg = null;
+                foreach ($this->config['auth'] ?? [] as $a) {
+                    if (($a['scheme'] ?? '') === 'negotiate') {
+                        $authNeg = $a;
+                        break;
+                    }
+                }
+                if ($authNeg) {
+                    try {
+                        $hosts = AdGroupAcl::parseLdapServers((string)($authNeg['ldap_servers'] ?? ''));
+                    } catch (Exception $e) {
+                        $hosts = [];
+                    }
+                    $realm = strtoupper(trim((string)($authNeg['realm'] ?? '')));
+                    $opts = AdGroupAcl::withLdapServerList($opts, $hosts, $realm);
+                }
+            }
             if ($opts !== '') {
                 $parts[] = $opts;
             }

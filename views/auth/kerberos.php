@@ -136,6 +136,15 @@ $canTest = !empty($keytabManaged) && !empty($keytabExists) && !empty($isAdmin);
                 <label>Admin Server (panel metadata)</label>
                 <input type="text" name="admin_server" value="<?= htmlspecialchars($config['admin_server'] ?? '') ?>" placeholder="dc01.domain.local" <?= empty($isAdmin) ? 'readonly' : '' ?>>
             </div>
+            <div class="form-group">
+                <label>LDAP servers for AD group helpers</label>
+                <textarea name="ldap_servers" rows="3" placeholder="hdc-01.hci.interros.ru&#10;hdc-02.hci.interros.ru" <?= empty($isAdmin) ? 'readonly' : '' ?>><?= htmlspecialchars($config['ldap_servers'] ?? '') ?></textarea>
+                <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">
+                    FQDN, one per line (or comma-separated). Written as <code>-S</code> on
+                    <code>ext_kerberos_ldap_group_acl</code> so Squid does <strong>not</strong> use DNS SRV
+                    (<code>_ldap._tcp</code>). Empty = SRV discovery (default). Save applies live <code>squid.conf</code>.
+                </p>
+            </div>
             <div class="form-actions">
                 <?php if (!empty($isAdmin)): ?>
                 <button type="submit" class="btn btn-primary">Save Settings</button>
