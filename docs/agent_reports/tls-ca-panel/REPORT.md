@@ -18,5 +18,7 @@
 
 ## Хвост
 
-- UI глазами: upload CA + panel cert на лабе.
-- Commit / push — по команде Merl.
+- Git: **`7162068`** на `origin/main` (2026-09-03 ~17:38 МСК).
+- UI Choose file как Kerberos — в том же коммите; на лабе scp views.
+- Приёмка человеком и независимая верификация §4 — нет.
+- Прод: сначала CA, потом LDAPS. Handoff: `docs/agent_reports/handoff/2026-09-03.md`.
