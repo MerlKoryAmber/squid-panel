@@ -18,6 +18,8 @@ class PrivilegedExecutor {
         'net_ads_info' => ['/usr/bin/net', 'ads', 'info'],
         'acl_file_install' => ['__acl_file_install__'],
         'keytab_install' => ['__keytab_install__'],
+        'ca_trust_install' => ['__ca_trust_install__'],
+        'panel_tls_install' => ['__panel_tls_install__'],
         'ad_ldap_groups' => ['__ad_ldap_groups__'],
         'squid_listen_apply' => ['__squid_listen_apply__'],
         'squid_policy_apply' => ['__squid_policy_apply__'],
@@ -67,6 +69,10 @@ class PrivilegedExecutor {
             $extraArgs = [AclListFile::fileName(preg_replace('/\.txt$/', '', (string)($extraArgs[0] ?? '')))];
         } elseif ($commandKey === 'keytab_install') {
             $extraArgs = [basename(self::squidKeytabPath($extraArgs[0] ?? '', false))];
+        } elseif ($commandKey === 'ca_trust_install') {
+            $extraArgs = [PanelTls::STAGE_CA];
+        } elseif ($commandKey === 'panel_tls_install') {
+            $extraArgs = [PanelTls::STAGE_CERT, PanelTls::STAGE_KEY];
         } elseif ($commandKey === 'ad_ldap_groups') {
             $extraArgs = AdGroupAcl::ldapQueryArgs();
             if (count($extraArgs) !== 1 || $extraArgs[0] !== AdLdapConfig::STAGING) {
@@ -80,10 +86,12 @@ class PrivilegedExecutor {
             throw new Exception('Extra arguments are not allowed');
         }
 
-        if ($commandKey === 'acl_file_install' || $commandKey === 'keytab_install' || $commandKey === 'ad_ldap_groups'
+        if ($commandKey === 'acl_file_install' || $commandKey === 'keytab_install' || $commandKey === 'ca_trust_install'
+            || $commandKey === 'panel_tls_install' || $commandKey === 'ad_ldap_groups'
             || $commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply' || $commandKey === 'nginx_allow_apply') {
             $recv = 10;
-            if ($commandKey === 'ad_ldap_groups' || $commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply') {
+            if ($commandKey === 'ad_ldap_groups' || $commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply'
+                || $commandKey === 'ca_trust_install' || $commandKey === 'panel_tls_install') {
                 $recv = 45;
             }
             if (AGENT_ENABLED && file_exists(AGENT_SOCKET)) {
@@ -94,6 +102,10 @@ class PrivilegedExecutor {
             }
             if ($commandKey === 'keytab_install') {
                 $need = 'spmd is required to install keytabs into /etc/squid';
+            } elseif ($commandKey === 'ca_trust_install') {
+                $need = 'spmd is required to install CA into system trust';
+            } elseif ($commandKey === 'panel_tls_install') {
+                $need = 'spmd is required to install panel TLS certificate';
             } elseif ($commandKey === 'ad_ldap_groups') {
                 $need = 'spmd is required to list AD groups via LDAP';
             } elseif ($commandKey === 'squid_listen_apply') {

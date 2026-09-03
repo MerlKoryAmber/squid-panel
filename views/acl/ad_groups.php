@@ -75,6 +75,55 @@ $imported = is_array($imported ?? null) ? $imported : [];
     </div>
 </div>
 
+<?php if (!empty($isAdmin)): ?>
+<div class="card">
+    <div class="card-header"><h3>Root CA for LDAPS</h3></div>
+    <div class="card-body">
+        <p style="color:var(--ir-text-muted); font-size:0.82rem;">
+            PEM of the enterprise / AD CA. Installs into system trust
+            (<code>/etc/pki/ca-trust/source/anchors/</code> + <code>update-ca-trust</code>)
+            and <code>/etc/squid/spm-ldap-ca.pem</code>. Without this, LDAPS often fails or falls back to verify-off (<code>-a</code>).
+        </p>
+        <p style="font-size:0.82rem;">
+            Status:
+            <?php if (!empty($ldapCaInstalled)): ?>
+            <span style="color:var(--ir-success, #2a7);">installed</span> (<code><?= $h(PanelTls::LDAP_CA) ?></code>)
+            <?php else: ?>
+            <span style="color:var(--ir-danger, #c44);">not installed</span>
+            <?php endif; ?>
+        </p>
+        <form method="POST" action="/acl/ad-groups/ca" enctype="multipart/form-data">
+            <?= View::csrf() ?>
+            <div class="form-group">
+                <label>CA certificate (PEM)</label>
+                <div class="file-pick" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <input type="file" id="ca-pem-file" name="ca_pem" accept=".pem,.crt,.cer,application/x-pem-file,application/x-x509-ca-cert" required hidden>
+                    <button type="button" class="btn btn-secondary" id="ca-pem-browse">Choose file</button>
+                    <span id="ca-pem-name" style="color:var(--ir-text-muted); font-size:0.85rem;">No file chosen</span>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Install CA into trust</button>
+            </div>
+        </form>
+        <script>
+        (function () {
+            var input = document.getElementById('ca-pem-file');
+            var browse = document.getElementById('ca-pem-browse');
+            var name = document.getElementById('ca-pem-name');
+            if (!input || !browse || !name) {
+                return;
+            }
+            browse.addEventListener('click', function () { input.click(); });
+            input.addEventListener('change', function () {
+                name.textContent = (input.files && input.files[0]) ? input.files[0].name : 'No file chosen';
+            });
+        })();
+        </script>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="card">
     <div class="card-header"><h3>Import</h3></div>
     <div class="card-body">

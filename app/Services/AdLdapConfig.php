@@ -156,7 +156,10 @@ class AdLdapConfig {
         }
         if ($cfg['use_ssl']) {
             $parts[] = '-s';
-            $parts[] = '-a';
+            // -a disables TLS verify; only when no CA in trust
+            if (!PanelTls::ldapCaInstalled()) {
+                $parts[] = '-a';
+            }
         }
         $scheme = $cfg['use_ssl'] ? 'ldaps' : 'ldap';
         $port = (int)$cfg['port'];

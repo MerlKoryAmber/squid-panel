@@ -31,6 +31,7 @@ class AdGroupController {
             'isAdmin' => Auth::isAdmin(),
             'realm' => $realm,
             'ldap' => $ldap,
+            'ldapCaInstalled' => PanelTls::ldapCaInstalled(),
             'listed' => $listed,
             'imported' => is_array($imported) ? $imported : [],
             'flashError' => $flashError,
@@ -110,6 +111,45 @@ class AdGroupController {
         }
         if ($created) {
             SquidLiveApply::remember();
+        }
+        View::redirect('/acl/ad-groups');
+    }
+
+    public function uploadCa($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+        try {
+            $file = $_FILES['ca_pem'] ?? null;
+            if (!is_array($file) || (int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                throw new Exception('CA certificate upload required (PEM)');
+            }
+            $tmp = (string)($file['tmp_name'] ?? '');
+            if ($tmp === '' || !is_uploaded_file($tmp)) {
+                throw new Exception('Invalid upload');
+            }
+            $raw = file_get_contents($tmp);
+            if ($raw === false) {
+                throw new Exception('Cannot read upload');
+            }
+            PanelTls::assertPemCert($raw);
+            PanelTls::writeStage(PanelTls::STAGE_CA, $raw);
+            $result = PrivilegedExecutor::execute('ca_trust_install');
+            @unlink(PanelTls::stageDir() . '/' . PanelTls::STAGE_CA);
+            if (empty($result['success'])) {
+                $err = trim((string)(($result['stderr'] ?? '') ?: ($result['error'] ?? '') ?: ($result['stdout'] ?? 'CA install failed')));
+                throw new Exception($err);
+            }
+            $synced = 0;
+            $cfg = AdLdapConfig::get();
+            if (!empty($cfg['use_ssl']) && AdLdapConfig::isConfigured($cfg)) {
+                $synced = AdGroupAcl::syncDirectoryOptionsIntoHelpers();
+                SquidLiveApply::remember();
+            }
+            Audit::log('ldap_ca_upload', 'CA → system trust; helpers synced=' . $synced);
+            $_SESSION['flash_success'] = 'Root CA installed into system trust'
+                . ($synced ? ' and LDAPS helpers re-applied (' . $synced . ').' : '.');
+        } catch (Throwable $e) {
+            $_SESSION['flash_error'] = $e->getMessage();
         }
         View::redirect('/acl/ad-groups');
     }

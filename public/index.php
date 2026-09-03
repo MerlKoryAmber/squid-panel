@@ -73,6 +73,7 @@ $router->post('/acl/update', 'AclController@update');
 $router->post('/acl/delete', 'AclController@delete');
 $router->get('/acl/ad-groups', 'AdGroupController@index');
 $router->post('/acl/ad-groups/ldap', 'AdGroupController@saveLdap');
+$router->post('/acl/ad-groups/ca', 'AdGroupController@uploadCa');
 $router->post('/acl/ad-groups/import', 'AdGroupController@import');
 
 // HTTP Access Rules
@@ -142,6 +143,7 @@ $router->get('/settings', 'SettingsController@index');
 $router->post('/settings/save', 'SettingsController@save');
 $router->post('/settings/squid', 'SettingsController@saveSquid');
 $router->post('/settings/allow', 'SettingsController@saveAllow');
+$router->post('/settings/tls', 'SettingsController@uploadTls');
 $router->post('/settings/apply-policy', 'SettingsController@applyPolicy');
 
 // Cache Peer Access Rules

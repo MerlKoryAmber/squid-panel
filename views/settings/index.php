@@ -83,6 +83,71 @@
 </div>
 
 <div class="card">
+    <div class="card-header"><h3>Panel TLS certificate</h3></div>
+    <div class="card-body">
+        <p style="color:var(--ir-text-muted); font-size:0.82rem;">
+            Replaces nginx cert/key at <code>/etc/pki/tls/certs/spm-selfsigned.crt</code>
+            and <code>/etc/pki/tls/private/spm-selfsigned.key</code> (paths from install).
+            After upload: <code>nginx -t</code> then reload; failure rolls back previous files.
+            Upload full chain in the cert file if browsers need intermediates.
+        </p>
+        <p style="font-size:0.82rem;">
+            Current:
+            <?php if (!empty($panelCertPresent)): ?>
+            present
+            <?php if (!empty($panelCertSubject)): ?>
+            — <code style="white-space:pre-wrap;"><?= htmlspecialchars((string)$panelCertSubject, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></code>
+            <?php endif; ?>
+            <?php else: ?>
+            not readable
+            <?php endif; ?>
+        </p>
+        <form method="POST" action="/settings/tls" enctype="multipart/form-data" data-confirm="Replace panel HTTPS certificate and reload nginx?">
+            <?= View::csrf() ?>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Certificate (PEM / fullchain)</label>
+                    <div class="file-pick" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <input type="file" id="tls-cert-file" name="tls_cert" accept=".pem,.crt,.cer" required hidden>
+                        <button type="button" class="btn btn-secondary" id="tls-cert-browse">Choose file</button>
+                        <span id="tls-cert-name" style="color:var(--ir-text-muted); font-size:0.85rem;">No file chosen</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Private key (PEM)</label>
+                    <div class="file-pick" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <input type="file" id="tls-key-file" name="tls_key" accept=".pem,.key" required hidden>
+                        <button type="button" class="btn btn-secondary" id="tls-key-browse">Choose file</button>
+                        <span id="tls-key-name" style="color:var(--ir-text-muted); font-size:0.85rem;">No file chosen</span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Install and reload nginx</button>
+            </div>
+        </form>
+        <script>
+        (function () {
+            function wire(inputId, browseId, nameId) {
+                var input = document.getElementById(inputId);
+                var browse = document.getElementById(browseId);
+                var name = document.getElementById(nameId);
+                if (!input || !browse || !name) {
+                    return;
+                }
+                browse.addEventListener('click', function () { input.click(); });
+                input.addEventListener('change', function () {
+                    name.textContent = (input.files && input.files[0]) ? input.files[0].name : 'No file chosen';
+                });
+            }
+            wire('tls-cert-file', 'tls-cert-browse', 'tls-cert-name');
+            wire('tls-key-file', 'tls-key-browse', 'tls-key-name');
+        })();
+        </script>
+    </div>
+</div>
+
+<div class="card">
     <div class="card-header"><h3>General</h3></div>
     <div class="card-body">
         <form method="POST" action="/settings/save">

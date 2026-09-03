@@ -39,6 +39,8 @@ ALLOWED_COMMANDS = {
     "net_ads_info": ["/usr/bin/net", "ads", "info"],
     "acl_file_install": ["__acl_file_install__"],
     "keytab_install": ["__keytab_install__"],
+    "ca_trust_install": ["__ca_trust_install__"],
+    "panel_tls_install": ["__panel_tls_install__"],
     "ad_ldap_groups": ["__ad_ldap_groups__"],
     "squid_listen_apply": ["__squid_listen_apply__"],
     "squid_policy_apply": ["__squid_policy_apply__"],
@@ -127,6 +129,139 @@ LDAP_STAGING_DIR = "/opt/spm/storage/tmp"
 LDAP_STAGING_RE = re.compile(r"^ad-ldap-list\.json$")
 BIND_DN_RE = re.compile(r"^[A-Za-z0-9 =,_.*@\-]{1,512}$")
 
+# LDAP CA → system trust + Squid-readable copy (ADR 0007)
+CA_STAGE_RE = re.compile(r"^spm-ldap-ca\.pem$")
+CA_MAX = 262144
+LDAP_CA_SQUID = "/etc/squid/spm-ldap-ca.pem"
+LDAP_CA_ANCHOR = "/etc/pki/ca-trust/source/anchors/spm-ldap-ca.crt"
+UPDATE_CA_TRUST = "/usr/bin/update-ca-trust"
+
+# Panel nginx TLS (same paths as install.sh nginx conf)
+PANEL_CERT_STAGE_RE = re.compile(r"^spm-panel\.crt$")
+PANEL_KEY_STAGE_RE = re.compile(r"^spm-panel\.key$")
+PANEL_CERT_DST = "/etc/pki/tls/certs/spm-selfsigned.crt"
+PANEL_KEY_DST = "/etc/pki/tls/private/spm-selfsigned.key"
+NGINX_BIN = "/usr/sbin/nginx"
+PEM_MAX = 262144
+
+
+def _read_stage_bytes(filename, name_re, max_size):
+    if not isinstance(filename, str) or not name_re.fullmatch(filename):
+        raise ValueError("Invalid staging filename")
+    src_dir = os.path.realpath(LDAP_STAGING_DIR)
+    src = os.path.realpath(os.path.join(LDAP_STAGING_DIR, filename))
+    if os.path.dirname(src) != src_dir or not os.path.isfile(src):
+        raise ValueError("Staging file not found")
+    size = os.path.getsize(src)
+    if size < 64 or size > max_size:
+        raise ValueError("Staging file size out of range")
+    with open(src, "rb") as fh:
+        data = fh.read()
+    return src, data
+
+
+def _pem_has_block(data, begin, end):
+    try:
+        text = data.decode("ascii", errors="strict")
+    except UnicodeDecodeError as e:
+        raise ValueError("PEM must be ASCII") from e
+    if begin not in text or end not in text:
+        return False
+    return True
+
+
+def _atomic_write_bytes(path, data, mode):
+    d = os.path.dirname(path)
+    os.makedirs(d, mode=0o755, exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as fh:
+        fh.write(data)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.chmod(tmp, mode)
+    os.replace(tmp, path)
+
+
+def install_ca_trust(filename):
+    src, data = _read_stage_bytes(filename, CA_STAGE_RE, CA_MAX)
+    if not _pem_has_block(data, "-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----"):
+        raise ValueError("File is not a PEM certificate")
+    _atomic_write_bytes(LDAP_CA_SQUID, data, 0o644)
+    try:
+        squid_uid = pwd.getpwnam("squid").pw_uid
+        squid_gid = pwd.getpwnam("squid").pw_gid
+        os.chown(LDAP_CA_SQUID, squid_uid, squid_gid)
+    except KeyError:
+        pass
+    os.makedirs(os.path.dirname(LDAP_CA_ANCHOR), mode=0o755, exist_ok=True)
+    _atomic_write_bytes(LDAP_CA_ANCHOR, data, 0o644)
+    if not os.path.isfile(UPDATE_CA_TRUST):
+        raise ValueError("update-ca-trust not found")
+    r = subprocess.run(
+        [UPDATE_CA_TRUST, "extract"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if r.returncode != 0:
+        raise ValueError((r.stderr or r.stdout or "update-ca-trust failed").strip())
+    try:
+        os.unlink(src)
+    except OSError:
+        pass
+    logging.info("LDAP CA installed anchors + %s", LDAP_CA_SQUID)
+    return "CA installed into system trust and " + LDAP_CA_SQUID
+
+
+def install_panel_tls(cert_name, key_name):
+    cert_src, cert_data = _read_stage_bytes(cert_name, PANEL_CERT_STAGE_RE, PEM_MAX)
+    key_src, key_data = _read_stage_bytes(key_name, PANEL_KEY_STAGE_RE, PEM_MAX)
+    if not _pem_has_block(cert_data, "-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----"):
+        raise ValueError("Panel cert is not PEM")
+    key_ok = (
+        _pem_has_block(key_data, "-----BEGIN PRIVATE KEY-----", "-----END PRIVATE KEY-----")
+        or _pem_has_block(key_data, "-----BEGIN RSA PRIVATE KEY-----", "-----END RSA PRIVATE KEY-----")
+        or _pem_has_block(key_data, "-----BEGIN EC PRIVATE KEY-----", "-----END EC PRIVATE KEY-----")
+    )
+    if not key_ok:
+        raise ValueError("Panel key is not PEM")
+    old_cert = b""
+    old_key = b""
+    if os.path.isfile(PANEL_CERT_DST):
+        with open(PANEL_CERT_DST, "rb") as fh:
+            old_cert = fh.read()
+    if os.path.isfile(PANEL_KEY_DST):
+        with open(PANEL_KEY_DST, "rb") as fh:
+            old_key = fh.read()
+    _atomic_write_bytes(PANEL_CERT_DST, cert_data, 0o644)
+    _atomic_write_bytes(PANEL_KEY_DST, key_data, 0o600)
+    t = subprocess.run([NGINX_BIN, "-t"], capture_output=True, text=True, timeout=15)
+    if t.returncode != 0:
+        if old_cert:
+            _atomic_write_bytes(PANEL_CERT_DST, old_cert, 0o644)
+        if old_key:
+            _atomic_write_bytes(PANEL_KEY_DST, old_key, 0o600)
+        raise ValueError((t.stderr or t.stdout or "nginx -t failed").strip())
+    r = subprocess.run(
+        ["/usr/bin/systemctl", "reload", "nginx"],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    if r.returncode != 0:
+        if old_cert:
+            _atomic_write_bytes(PANEL_CERT_DST, old_cert, 0o644)
+        if old_key:
+            _atomic_write_bytes(PANEL_KEY_DST, old_key, 0o600)
+        raise ValueError((r.stderr or r.stdout or "nginx reload failed").strip())
+    for p in (cert_src, key_src):
+        try:
+            os.unlink(p)
+        except OSError:
+            pass
+    logging.info("Panel TLS cert installed")
+    return "panel TLS installed, nginx reloaded"
+
 
 def _ldap_uri(host, port, use_ssl):
     if not HOST_RE.fullmatch(host):
@@ -176,11 +311,14 @@ def list_ad_ldap_groups_simple(cfg):
             LDAPSEARCH, "-x", "-H", uri, "-D", bind_dn, "-y", pass_path,
             "-b", base, "-LLL", "-o", "nettimeout=15",
         ]
+        env = os.environ.copy()
         if use_ssl:
-            env = os.environ.copy()
-            env["LDAPTLS_REQCERT"] = "never"
-        else:
-            env = os.environ.copy()
+            if os.path.isfile(LDAP_CA_SQUID) and os.path.getsize(LDAP_CA_SQUID) > 64:
+                env["LDAPTLS_CACERT"] = LDAP_CA_SQUID
+                env["LDAPTLS_REQCERT"] = "demand"
+            else:
+                # No CA uploaded yet — fail-open for lab only
+                env["LDAPTLS_REQCERT"] = "never"
         cmd = base_cmd + ["-E", "pr=1000/noprompt", filter_str, "sAMAccountName"]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=env)
         if r.returncode != 0:
@@ -312,7 +450,6 @@ SQUID_CONF_LIVE = "/etc/squid/squid.conf"
 LISTEN_DST = "/etc/squid/spm-listen.conf"
 LISTEN_INCLUDE = "include /etc/squid/spm-listen.conf"
 NGINX_ALLOW_DST = "/etc/nginx/conf.d/spm-allow.inc"
-NGINX_BIN = "/usr/sbin/nginx"
 LISTEN_LINE = re.compile(
     r"^(#.*|http_port\s+\S.*|visible_hostname\s+[A-Za-z0-9._-]+)$"
 )
@@ -655,6 +792,18 @@ def validate_command(command_key, extra_args):
         install_keytab(extra_args[0])
         return ["__keytab_install__", extra_args[0]]
 
+    if command_key == "ca_trust_install":
+        if len(extra_args) != 1:
+            raise ValueError("ca_trust_install requires exactly one filename")
+        msg = install_ca_trust(extra_args[0])
+        return ["__ca_trust_install__", msg]
+
+    if command_key == "panel_tls_install":
+        if len(extra_args) != 2:
+            raise ValueError("panel_tls_install requires cert and key filenames")
+        msg = install_panel_tls(extra_args[0], extra_args[1])
+        return ["__panel_tls_install__", msg]
+
     if command_key == "ad_ldap_groups":
         if len(extra_args) == 1:
             names = list_ad_ldap_groups_from_staging(extra_args[0])
@@ -765,6 +914,20 @@ def handle_client(conn):
                 "stderr": "",
             }
             logging.info("Result: keytab installed %s", cmd[1])
+            try:
+                conn.sendall(json.dumps(response).encode("utf-8"))
+            except (BrokenPipeError, OSError) as e:
+                logging.warning(f"Failed to send response: {str(e)}")
+            return
+
+        if cmd and cmd[0] in ("__ca_trust_install__", "__panel_tls_install__"):
+            response = {
+                "success": True,
+                "exit_code": 0,
+                "stdout": cmd[1],
+                "stderr": "",
+            }
+            logging.info("Result: %s", cmd[0])
             try:
                 conn.sendall(json.dumps(response).encode("utf-8"))
             except (BrokenPipeError, OSError) as e:

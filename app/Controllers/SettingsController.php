@@ -13,6 +13,8 @@ class SettingsController {
             'settings' => $settings,
             'globals' => $globals,
             'clientIp' => PanelNet::clientIp(),
+            'panelCertPresent' => PanelTls::panelCertPresent(),
+            'panelCertSubject' => PanelTls::panelCertSubject(),
             'flashError' => $flashError,
             'flashSuccess' => $flashSuccess,
         ]);
@@ -136,5 +138,46 @@ class SettingsController {
             $_SESSION['flash_error'] = $e->getMessage();
         }
         View::redirect($back);
+    }
+
+    public function uploadTls($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+        try {
+            $certFile = $_FILES['tls_cert'] ?? null;
+            $keyFile = $_FILES['tls_key'] ?? null;
+            if (!is_array($certFile) || (int)($certFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                throw new Exception('PEM certificate upload required');
+            }
+            if (!is_array($keyFile) || (int)($keyFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                throw new Exception('PEM private key upload required');
+            }
+            $certTmp = (string)($certFile['tmp_name'] ?? '');
+            $keyTmp = (string)($keyFile['tmp_name'] ?? '');
+            if ($certTmp === '' || !is_uploaded_file($certTmp) || $keyTmp === '' || !is_uploaded_file($keyTmp)) {
+                throw new Exception('Invalid upload');
+            }
+            $certRaw = file_get_contents($certTmp);
+            $keyRaw = file_get_contents($keyTmp);
+            if ($certRaw === false || $keyRaw === false) {
+                throw new Exception('Cannot read upload');
+            }
+            PanelTls::assertPemCert($certRaw);
+            PanelTls::assertPemKey($keyRaw);
+            PanelTls::writeStage(PanelTls::STAGE_CERT, $certRaw);
+            PanelTls::writeStage(PanelTls::STAGE_KEY, $keyRaw);
+            $result = PrivilegedExecutor::execute('panel_tls_install');
+            @unlink(PanelTls::stageDir() . '/' . PanelTls::STAGE_CERT);
+            @unlink(PanelTls::stageDir() . '/' . PanelTls::STAGE_KEY);
+            if (empty($result['success'])) {
+                $err = trim((string)(($result['stderr'] ?? '') ?: ($result['error'] ?? '') ?: ($result['stdout'] ?? 'TLS install failed')));
+                throw new Exception($err);
+            }
+            Audit::log('panel_tls_upload', 'nginx TLS cert replaced');
+            $_SESSION['flash_success'] = 'Panel TLS certificate installed; nginx reloaded. Refresh the browser if the new cert warns.';
+        } catch (Throwable $e) {
+            $_SESSION['flash_error'] = $e->getMessage();
+        }
+        View::redirect('/settings');
     }
 }
