@@ -87,6 +87,20 @@ class Database {
             )"
         );
         self::$pdo->exec(
+            "CREATE TABLE IF NOT EXISTS ad_ldap_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bind_mode TEXT NOT NULL DEFAULT 'simple',
+                servers TEXT NOT NULL DEFAULT '',
+                port INTEGER NOT NULL DEFAULT 389,
+                use_ssl INTEGER NOT NULL DEFAULT 0,
+                bind_dn TEXT NOT NULL DEFAULT '',
+                bind_password TEXT NOT NULL DEFAULT '',
+                base_dn TEXT NOT NULL DEFAULT '',
+                created_at TEXT,
+                updated_at TEXT
+            )"
+        );
+        self::$pdo->exec(
             "CREATE TABLE IF NOT EXISTS negotiate_helper_hourly (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 hour_start TEXT NOT NULL UNIQUE,

@@ -148,6 +148,19 @@ CREATE TABLE IF NOT EXISTS external_acl_types (
     updated_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS ad_ldap_config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bind_mode TEXT NOT NULL DEFAULT 'simple',
+    servers TEXT NOT NULL DEFAULT '',
+    port INTEGER NOT NULL DEFAULT 389,
+    use_ssl INTEGER NOT NULL DEFAULT 0,
+    bind_dn TEXT NOT NULL DEFAULT '',
+    bind_password TEXT NOT NULL DEFAULT '',
+    base_dn TEXT NOT NULL DEFAULT '',
+    created_at TEXT,
+    updated_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     language TEXT DEFAULT 'ru',

@@ -5,6 +5,7 @@ class AdGroupController {
         $listed = ['ok' => false, 'groups' => [], 'error' => ''];
         $imported = [];
         $realm = '';
+        $ldap = AdLdapConfig::get();
         try {
             $listed = AdGroupAcl::listFromDirectory();
             if (!is_array($listed) || !isset($listed['groups']) || !is_array($listed['groups'])) {
@@ -29,11 +30,39 @@ class AdGroupController {
             'active' => 'acl',
             'isAdmin' => Auth::isAdmin(),
             'realm' => $realm,
+            'ldap' => $ldap,
             'listed' => $listed,
             'imported' => is_array($imported) ? $imported : [],
             'flashError' => $flashError,
             'flashSuccess' => $flashSuccess,
         ]);
+    }
+
+    public function saveLdap($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+        try {
+            $cfg = AdLdapConfig::save([
+                'bind_mode' => $_POST['bind_mode'] ?? 'gssapi',
+                'servers' => $_POST['servers'] ?? '',
+                'port' => $_POST['port'] ?? 389,
+                'use_ssl' => !empty($_POST['use_ssl']),
+                'bind_dn' => $_POST['bind_dn'] ?? '',
+                'bind_password' => $_POST['bind_password'] ?? '',
+                'base_dn' => $_POST['base_dn'] ?? '',
+            ]);
+            $synced = AdGroupAcl::syncDirectoryOptionsIntoHelpers();
+            Audit::log(
+                'ad_ldap_save',
+                'mode=' . $cfg['bind_mode'] . ' servers=' . substr_count($cfg['servers'], "\n") . ' synced=' . $synced
+            );
+            $_SESSION['flash_success'] = 'LDAP settings saved (' . $cfg['bind_mode'] . '). Synced '
+                . $synced . ' group helper(s). Applying live squid.conf…';
+            SquidLiveApply::remember();
+        } catch (Throwable $e) {
+            $_SESSION['flash_error'] = $e->getMessage();
+        }
+        View::redirect('/acl/ad-groups');
     }
 
     public function import($params = []) {

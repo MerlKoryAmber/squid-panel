@@ -123,6 +123,112 @@ LDAPSEARCH = "/usr/bin/ldapsearch"
 KINIT = "/usr/bin/kinit"
 KDESTROY = "/usr/bin/kdestroy"
 LDAP_CCACHE = "/run/spmd/krb5_ldap.ccache"
+LDAP_STAGING_DIR = "/opt/spm/storage/tmp"
+LDAP_STAGING_RE = re.compile(r"^ad-ldap-list\.json$")
+BIND_DN_RE = re.compile(r"^[A-Za-z0-9 =,_.*@\-]{1,512}$")
+
+
+def _ldap_uri(host, port, use_ssl):
+    if not HOST_RE.fullmatch(host):
+        raise ValueError("Invalid LDAP host")
+    port = int(port)
+    if port < 1 or port > 65535:
+        raise ValueError("Invalid LDAP port")
+    scheme = "ldaps" if use_ssl else "ldap"
+    return "%s://%s:%d" % (scheme, host, port)
+
+
+def list_ad_ldap_groups_simple(cfg):
+    """Simple bind ldapsearch (KWTS-style). Password via -y file, not argv."""
+    if not os.path.isfile(LDAPSEARCH):
+        raise ValueError("ldapsearch not found (install openldap-clients)")
+    servers = cfg.get("servers") or []
+    if not isinstance(servers, list) or not servers:
+        raise ValueError("LDAP servers required for simple bind")
+    host = servers[0]
+    port = int(cfg.get("port") or 389)
+    use_ssl = bool(cfg.get("use_ssl"))
+    bind_dn = cfg.get("bind_dn") or ""
+    password = cfg.get("bind_password") or ""
+    base = cfg.get("base_dn") or ""
+    if not isinstance(bind_dn, str) or not BIND_DN_RE.fullmatch(bind_dn):
+        raise ValueError("Invalid bind DN")
+    if not isinstance(password, str) or not password or len(password) > 256:
+        raise ValueError("Invalid bind password")
+    if not isinstance(base, str) or not base:
+        realm = cfg.get("realm") or ""
+        if not isinstance(realm, str) or not REALM_RE.fullmatch(realm):
+            raise ValueError("base_dn or realm required")
+        base = _ldap_base_dn(realm)
+    elif not BIND_DN_RE.fullmatch(base):
+        raise ValueError("Invalid base DN")
+    uri = _ldap_uri(host, port, use_ssl)
+    os.makedirs("/run/spmd", mode=0o700, exist_ok=True)
+    pass_path = "/run/spmd/ldap-bind.pass"
+    try:
+        with open(pass_path, "w", encoding="utf-8") as fh:
+            fh.write(password)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.chmod(pass_path, 0o600)
+        filter_str = "(objectClass=group)"
+        base_cmd = [
+            LDAPSEARCH, "-x", "-H", uri, "-D", bind_dn, "-y", pass_path,
+            "-b", base, "-LLL", "-o", "nettimeout=15",
+        ]
+        if use_ssl:
+            env = os.environ.copy()
+            env["LDAPTLS_REQCERT"] = "never"
+        else:
+            env = os.environ.copy()
+        cmd = base_cmd + ["-E", "pr=1000/noprompt", filter_str, "sAMAccountName"]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=env)
+        if r.returncode != 0:
+            cmd = base_cmd + [filter_str, "sAMAccountName"]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=env)
+        if r.returncode != 0 and not r.stdout:
+            err = (r.stderr or r.stdout or "ldapsearch failed").strip()
+            raise ValueError(err)
+        names = _parse_sam_names(r.stdout or "")
+        names = list(dict.fromkeys(names))
+        if len(names) > 2000:
+            names = names[:2000]
+        logging.info("LDAP simple group list: %s names from %s", len(names), host)
+        return names
+    finally:
+        try:
+            os.unlink(pass_path)
+        except OSError:
+            pass
+
+
+def list_ad_ldap_groups_from_staging(filename):
+    if not isinstance(filename, str) or not LDAP_STAGING_RE.fullmatch(filename):
+        raise ValueError("Invalid LDAP staging filename")
+    path = os.path.join(LDAP_STAGING_DIR, filename)
+    if not os.path.isfile(path):
+        raise ValueError("LDAP staging file missing")
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = fh.read(65536)
+        cfg = json.loads(raw)
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    if not isinstance(cfg, dict):
+        raise ValueError("Invalid LDAP staging JSON")
+    mode = cfg.get("bind_mode") or "gssapi"
+    if mode == "simple":
+        return list_ad_ldap_groups_simple(cfg)
+    keytab = cfg.get("keytab") or ""
+    realm = cfg.get("realm") or ""
+    host = cfg.get("ldap_host") or ""
+    if not host and isinstance(cfg.get("servers"), list) and cfg["servers"]:
+        host = cfg["servers"][0]
+    principal = cfg.get("principal") or "-"
+    return list_ad_ldap_groups(keytab, realm, host, principal)
 
 
 def _ldap_base_dn(realm):
@@ -556,9 +662,12 @@ def validate_command(command_key, extra_args):
         return ["__keytab_install__", extra_args[0]]
 
     if command_key == "ad_ldap_groups":
-        if len(extra_args) != 4:
-            raise ValueError("ad_ldap_groups requires keytab, realm, host, principal")
-        names = list_ad_ldap_groups(extra_args[0], extra_args[1], extra_args[2], extra_args[3])
+        if len(extra_args) == 1:
+            names = list_ad_ldap_groups_from_staging(extra_args[0])
+        elif len(extra_args) == 4:
+            names = list_ad_ldap_groups(extra_args[0], extra_args[1], extra_args[2], extra_args[3])
+        else:
+            raise ValueError("ad_ldap_groups requires staging file or keytab,realm,host,principal")
         return ["__ad_ldap_groups__", "\n".join(names)]
 
     if command_key == "squid_listen_apply":

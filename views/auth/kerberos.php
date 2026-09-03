@@ -140,9 +140,8 @@ $canTest = !empty($keytabManaged) && !empty($keytabExists) && !empty($isAdmin);
                 <label>LDAP servers for AD group helpers</label>
                 <textarea name="ldap_servers" rows="3" placeholder="hdc-01.hci.interros.ru&#10;hdc-02.hci.interros.ru" <?= empty($isAdmin) ? 'readonly' : '' ?>><?= htmlspecialchars($config['ldap_servers'] ?? '') ?></textarea>
                 <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">
-                    FQDN, one per line (or comma-separated). Written as <code>-S</code> on
-                    <code>ext_kerberos_ldap_group_acl</code> so Squid does <strong>not</strong> use DNS SRV
-                    (<code>_ldap._tcp</code>). Empty = SRV discovery (default). Save applies live <code>squid.conf</code>.
+                    Preferred place: <a href="/acl/ad-groups">AD groups → LDAP directory</a> (GSSAPI or simple bind).
+                    This field still syncs <code>-S</code> for helpers. FQDN, one per line.
                 </p>
             </div>
             <div class="form-actions">

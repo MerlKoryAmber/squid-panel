@@ -72,6 +72,7 @@ $router->get('/acl/edit', 'AclController@edit');
 $router->post('/acl/update', 'AclController@update');
 $router->post('/acl/delete', 'AclController@delete');
 $router->get('/acl/ad-groups', 'AdGroupController@index');
+$router->post('/acl/ad-groups/ldap', 'AdGroupController@saveLdap');
 $router->post('/acl/ad-groups/import', 'AdGroupController@import');
 
 // HTTP Access Rules

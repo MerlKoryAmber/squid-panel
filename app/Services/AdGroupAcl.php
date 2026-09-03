@@ -88,12 +88,12 @@ class AdGroupAcl {
             $parts[] = '-P ' . $principal;
         }
         $parts[] = self::groupFlag($group, $realm);
-        return self::withLdapServerList(implode(' ', $parts), self::ldapServers(), $realm);
+        return self::withDirectoryAuth(implode(' ', $parts), $realm);
     }
 
     /**
-     * LDAP hosts for ext_kerberos_ldap_group_acl -S (skip DNS SRV).
-     * One FQDN per line / comma / space. Empty = helper uses SRV for -D realm.
+     * LDAP hosts for -S / listing.
+     * One FQDN per line / comma / space.
      */
     public static function parseLdapServers($raw) {
         $raw = str_replace(["\r\n", "\r"], "\n", (string)$raw);
@@ -136,7 +136,7 @@ class AdGroupAcl {
         return implode("\n", $hosts);
     }
 
-    /** Build -S host@REALM:host2@REALM (man ext_kerberos_ldap_group_acl). */
+    /** Build -S host@REALM:host2@REALM */
     public static function ldapServersFlag(array $hosts, $realm) {
         if (empty($hosts)) {
             return '';
@@ -158,12 +158,32 @@ class AdGroupAcl {
         return '-S ' . implode(':', $parts);
     }
 
-    /** Strip old -S / -l from options, append -S when hosts non-empty. */
-    public static function withLdapServerList($options, array $hosts, $realm) {
+    /** Remove -S/-l/-u/-p/-b (directory contact); keep -g/-t/-m/-D/-P/-a. */
+    public static function stripDirectoryAuthFlags($options) {
         $options = trim((string)$options);
-        $options = preg_replace('/(?:^|\s)-S\s+\S+/', '', $options);
-        $options = preg_replace('/(?:^|\s)-l\s+\S+/', '', $options);
-        $options = trim(preg_replace('/\s+/', ' ', (string)$options));
+        $token = '(?:"[^"]*"|\S+)';
+        foreach (['S', 'l', 'u', 'p', 'b'] as $flag) {
+            $options = preg_replace('/(?:^|\s)-' . $flag . '\s+' . $token . '/', '', $options);
+        }
+        return trim(preg_replace('/\s+/', ' ', (string)$options));
+    }
+
+    public static function withDirectoryAuth($options, $realm) {
+        $options = self::stripDirectoryAuthFlags($options);
+        try {
+            $flags = AdLdapConfig::helperDirectoryFlags($realm);
+        } catch (Exception $e) {
+            $flags = '';
+        }
+        if ($flags === '') {
+            return $options;
+        }
+        return $options === '' ? $flags : ($options . ' ' . $flags);
+    }
+
+    /** @deprecated use withDirectoryAuth */
+    public static function withLdapServerList($options, array $hosts, $realm) {
+        $options = self::stripDirectoryAuthFlags($options);
         $flag = self::ldapServersFlag($hosts, $realm);
         if ($flag === '') {
             return $options;
@@ -171,15 +191,15 @@ class AdGroupAcl {
         return $options === '' ? $flag : ($options . ' ' . $flag);
     }
 
-    /** Rewrite options on all kerberos LDAP external_acl_type rows. */
-    public static function syncLdapServersIntoHelpers(array $hosts, $realm) {
+    public static function syncDirectoryOptionsIntoHelpers() {
+        $realm = self::realm();
         $rows = Database::fetchAll(
             "SELECT id, options, program FROM external_acl_types WHERE program LIKE ?",
             ['%' . basename(self::HELPER_BIN) . '%']
         );
         $n = 0;
         foreach ($rows as $row) {
-            $next = self::withLdapServerList((string)($row['options'] ?? ''), $hosts, $realm);
+            $next = self::withDirectoryAuth((string)($row['options'] ?? ''), $realm);
             Database::query(
                 "UPDATE external_acl_types SET options = ?, updated_at = datetime('now') WHERE id = ?",
                 [$next, (int)$row['id']]
@@ -189,7 +209,16 @@ class AdGroupAcl {
         return $n;
     }
 
+    /** @deprecated */
+    public static function syncLdapServersIntoHelpers(array $hosts, $realm) {
+        return self::syncDirectoryOptionsIntoHelpers();
+    }
+
     public static function kdcHost() {
+        $hosts = AdLdapConfig::effectiveServers();
+        if (!empty($hosts)) {
+            return $hosts[0];
+        }
         $row = Database::fetch("SELECT kdc FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];
         $kdc = strtolower(trim((string)($row['kdc'] ?? '')));
         if (preg_match('/^[a-z0-9.-]+$/', $kdc)) {
@@ -198,7 +227,7 @@ class AdGroupAcl {
         return '';
     }
 
-    public static function ldapQueryArgs() {
+    public static function ldapQueryArgsGssapi() {
         $row = Database::fetch("SELECT keytab_path, realm, principal, kdc FROM auth_config WHERE scheme = 'negotiate' LIMIT 1") ?: [];
         $keytab = PrivilegedExecutor::squidKeytabPath((string)($row['keytab_path'] ?? ''), true);
         $realm = self::realm();
@@ -217,6 +246,11 @@ class AdGroupAcl {
             $principal = '-';
         }
         return [basename($keytab), $realm, $host, $principal];
+    }
+
+    /** Staging filename for spmd ad_ldap_groups. */
+    public static function ldapQueryArgs() {
+        return [AdLdapConfig::writeListStaging()];
     }
 
     public static function listFromDirectory() {

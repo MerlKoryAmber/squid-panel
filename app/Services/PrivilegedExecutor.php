@@ -69,6 +69,9 @@ class PrivilegedExecutor {
             $extraArgs = [basename(self::squidKeytabPath($extraArgs[0] ?? '', false))];
         } elseif ($commandKey === 'ad_ldap_groups') {
             $extraArgs = AdGroupAcl::ldapQueryArgs();
+            if (count($extraArgs) !== 1 || $extraArgs[0] !== AdLdapConfig::STAGING) {
+                throw new Exception('Invalid LDAP staging args');
+            }
         } elseif ($commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply' || $commandKey === 'nginx_allow_apply') {
             $extraArgs = [];
         } elseif ($commandKey === 'squid_syntax') {

@@ -103,7 +103,7 @@ class AuthConfigController {
             ['negotiate', $program, $helper, $children, $children_extra, $realm, $keep_alive, $keytab_path, $principal, $kdc, $admin_server, $ldap_servers]
         );
 
-        $synced = AdGroupAcl::syncLdapServersIntoHelpers($ldapHosts, $realm);
+        $synced = AdGroupAcl::syncDirectoryOptionsIntoHelpers();
         Audit::log(
             'kerberos_save',
             "Updated Kerberos config for realm {$realm}; ldap_servers=" . count($ldapHosts) . "; synced_ext_acl={$synced}"
