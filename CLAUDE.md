@@ -159,7 +159,7 @@
 
 ## (проект) SPM
 
-- **Handoff (читать первым):** `docs/agent_reports/handoff/2026-09-06.md` (потом `2026-09-05.md`, `2026-09-03.md`)
+- **Handoff (читать первым):** `docs/agent_reports/handoff/2026-09-07.md` (потом `2026-09-06.md`, `2026-09-05.md`, `2026-09-03.md`)
 - **Карта кода:** `docs/CODEMAP.md` (читать рано; обновлять перед push)
 - **Отложенное:** `docs/agent_reports/deferred/README.md`
 - **Владелец:** Merl. Стек: PHP-панель + `spmd` (Python), SQLite `spm.db`,
