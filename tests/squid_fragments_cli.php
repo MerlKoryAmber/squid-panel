@@ -1,7 +1,16 @@
 <?php
+require_once __DIR__ . '/../config/app.php';
+require_once __DIR__ . '/../app/Core/Database.php';
 require_once __DIR__ . '/../app/Services/AclListFile.php';
 require_once __DIR__ . '/../app/Services/PanelNet.php';
+require_once __DIR__ . '/../app/Services/PanelTls.php';
+require_once __DIR__ . '/../app/Services/SquidCachePolicy.php';
+require_once __DIR__ . '/../app/Services/AdLdapConfig.php';
+require_once __DIR__ . '/../app/Services/AdGroupAcl.php';
 require_once __DIR__ . '/../app/Services/SquidConfigBuilder.php';
+
+Database::init();
+
 
 $fail = 0;
 function expect($ok, $msg) {
@@ -93,6 +102,27 @@ expect(strpos($out, 'coredump_dir /var/spool/squid') !== false, 'coredump_dir');
 expect(strpos($out, 'request_header_access X-Forwarded-For deny all') !== false, 'request_header_access');
 expect($port !== false, 'http_port');
 expect(strpos($out, 'include /etc/squid/spm-acl.conf') === false, 'no policy includes');
+
+$bOff = (new SquidConfigBuilder())->loadFromArray([
+    'auth' => [],
+    'ext_acl' => [],
+    'acls' => [],
+    'http_access' => [],
+    'peers' => [],
+    'peer_access' => [],
+    'routing' => [],
+    'globals' => [
+        'http_port' => '3128',
+        'cache_dir' => 'ufs /var/spool/squid 100 16 256',
+        'disable_cache' => 1,
+        'extra_conf' => '',
+    ],
+]);
+$off = $bOff->generate();
+expect(strpos($off, 'cache deny all') !== false, 'disable injects cache deny');
+expect(strpos($off, 'cache_mem 0') !== false, 'disable injects cache_mem 0');
+expect(strpos($off, 'cache_dir ') === false, 'disable skips cache_dir');
+expect(strpos($off, SquidCachePolicy::MARKER) !== false, 'disable marker');
 
 try {
     $b->save();

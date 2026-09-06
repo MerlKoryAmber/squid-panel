@@ -79,6 +79,26 @@ class SettingsController {
         View::redirect('/settings');
     }
 
+    public function saveCache($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+        try {
+            $disabled = !empty($_POST['disable_cache']);
+            SquidCachePolicy::setDisabled($disabled);
+            if (!SquidLiveApply::remember()) {
+                View::redirect('/settings');
+                return;
+            }
+            Audit::log('squid_cache_toggle', $disabled ? 'object cache disabled' : 'object cache enabled');
+            $_SESSION['flash_success'] = $disabled
+                ? 'Squid object cache disabled (cache deny all). Applied to live conf.'
+                : 'Squid object cache re-enabled. Applied to live conf.';
+        } catch (Throwable $e) {
+            $_SESSION['flash_error'] = $e->getMessage();
+        }
+        View::redirect('/settings');
+    }
+
     public function saveAllow($params = []) {
         Auth::requireAdmin();
         View::verifyCsrf();

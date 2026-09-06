@@ -16,6 +16,8 @@ import pwd
 import grp
 import base64
 import time
+import ipaddress
+from urllib.parse import urlparse
 
 SOCKET_PATH = "/run/spmd.sock"
 PID_FILE = "/run/spmd.pid"
@@ -45,6 +47,7 @@ ALLOWED_COMMANDS = {
     "squid_listen_apply": ["__squid_listen_apply__"],
     "squid_policy_apply": ["__squid_policy_apply__"],
     "nginx_allow_apply": ["__nginx_allow_apply__"],
+    "domain_discover": ["__domain_discover__"],
 }
 
 ACL_SRC = "/opt/spm/storage/acl"
@@ -261,6 +264,189 @@ def install_panel_tls(cert_name, key_name):
             pass
     logging.info("Panel TLS cert installed")
     return "panel TLS installed, nginx reloaded"
+
+
+DISCOVER_STAGING_RE = re.compile(r"^discover-job\.json$")
+DISCOVER_LOCK = "/run/spmd/discover.lock"
+DISCOVER_NETLOG = "/run/spmd/discover-netlog.json"
+CHROME_CANDIDATES = (
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/google-chrome",
+    "/usr/lib64/chromium-browser/chromium-browser",
+)
+
+
+def _find_chrome():
+    for path in CHROME_CANDIDATES:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return None
+
+
+def _assert_public_url(url):
+    if not isinstance(url, str) or len(url) > 2048 or "\x00" in url:
+        raise ValueError("Invalid URL")
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("Only http/https allowed")
+    host = parsed.hostname
+    if not host or not HOST_RE.fullmatch(host):
+        raise ValueError("Invalid hostname")
+    blocked = {"localhost", "metadata.google.internal", "metadata"}
+    if host.lower() in blocked or host.lower().endswith(".localhost"):
+        raise ValueError("Forbidden host")
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as e:
+        raise ValueError("DNS failed: " + str(e)) from e
+    if not infos:
+        raise ValueError("DNS returned no addresses")
+    for info in infos:
+        ip_s = info[4][0]
+        try:
+            ip = ipaddress.ip_address(ip_s)
+        except ValueError as e:
+            raise ValueError("Bad resolved address") from e
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            raise ValueError("Refusing non-public IP " + ip_s)
+        if ip_s == "169.254.169.254":
+            raise ValueError("Refusing metadata IP")
+
+
+def _to_second_level(host):
+    host = (host or "").lower().rstrip(".")
+    if not host or not HOST_RE.fullmatch(host) or ".." in host:
+        return None
+    if host in ("localhost",):
+        return None
+    try:
+        ipaddress.ip_address(host)
+        return None
+    except ValueError:
+        pass
+    parts = host.split(".")
+    if len(parts) < 2:
+        return None
+    multi = {
+        "co.uk", "org.uk", "ac.uk", "gov.uk",
+        "co.jp", "or.jp", "ne.jp",
+        "com.au", "net.au", "org.au",
+        "com.br", "com.tr", "co.za",
+        "com.cn", "com.hk", "com.sg",
+        "co.il", "com.ua", "co.kr",
+    }
+    last2 = parts[-2] + "." + parts[-1]
+    if len(parts) >= 3 and last2 in multi:
+        return parts[-3] + "." + last2
+    return last2
+
+
+def _hosts_from_netlog(path):
+    hosts = set()
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            raw = fh.read(32 * 1024 * 1024)
+    except OSError:
+        return []
+    for m in re.finditer(r"https?://([A-Za-z0-9.-]+)", raw):
+        d = _to_second_level(m.group(1))
+        if d:
+            hosts.add(d)
+    return sorted(hosts)
+
+
+def run_domain_discover(filename):
+    if not isinstance(filename, str) or not DISCOVER_STAGING_RE.fullmatch(filename):
+        raise ValueError("Invalid discover staging filename")
+    src_dir = os.path.realpath(LDAP_STAGING_DIR)
+    src = os.path.realpath(os.path.join(LDAP_STAGING_DIR, filename))
+    if os.path.dirname(src) != src_dir or not os.path.isfile(src):
+        raise ValueError("Discover staging file not found")
+    try:
+        with open(src, "r", encoding="utf-8") as fh:
+            cfg = json.loads(fh.read(8192))
+    finally:
+        try:
+            os.unlink(src)
+        except OSError:
+            pass
+    if not isinstance(cfg, dict):
+        raise ValueError("Invalid discover JSON")
+    url = cfg.get("url") or ""
+    timeout_sec = int(cfg.get("timeout_sec") or 45)
+    if timeout_sec < 10:
+        timeout_sec = 10
+    if timeout_sec > 90:
+        timeout_sec = 90
+    _assert_public_url(url)
+    chrome = _find_chrome()
+    if not chrome:
+        raise ValueError(
+            "Chromium/Chrome not found. Install chromium on this host "
+            "(e.g. dnf install chromium) then retry."
+        )
+    os.makedirs("/run/spmd", mode=0o700, exist_ok=True)
+    if os.path.exists(DISCOVER_LOCK):
+        try:
+            age = time.time() - os.path.getmtime(DISCOVER_LOCK)
+        except OSError:
+            age = 0
+        if age < 120:
+            raise ValueError("Another discover job is running")
+        try:
+            os.unlink(DISCOVER_LOCK)
+        except OSError:
+            pass
+    with open(DISCOVER_LOCK, "w", encoding="utf-8") as fh:
+        fh.write(str(os.getpid()))
+    try:
+        try:
+            os.unlink(DISCOVER_NETLOG)
+        except OSError:
+            pass
+        cmd = [
+            chrome,
+            "--headless=new",
+            "--no-sandbox",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+            "--hide-scrollbars",
+            "--log-net-log=" + DISCOVER_NETLOG,
+            "--net-log-capture-mode=Default",
+            "--virtual-time-budget=15000",
+            url,
+        ]
+        try:
+            subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout_sec + 15,
+            )
+        except subprocess.TimeoutExpired:
+            logging.warning("domain_discover chrome timed out url=%s", url)
+        hosts = _hosts_from_netlog(DISCOVER_NETLOG)
+        try:
+            os.unlink(DISCOVER_NETLOG)
+        except OSError:
+            pass
+        logging.info("domain_discover url=%s hosts=%s", url, len(hosts))
+        return "\n".join(hosts)
+    finally:
+        try:
+            os.unlink(DISCOVER_LOCK)
+        except OSError:
+            pass
 
 
 def _ldap_uri(host, port, use_ssl):
@@ -831,6 +1017,12 @@ def validate_command(command_key, extra_args):
         msg = apply_nginx_allow()
         return ["__nginx_allow_apply__", msg]
 
+    if command_key == "domain_discover":
+        if len(extra_args) != 1:
+            raise ValueError("domain_discover requires staging filename")
+        hosts = run_domain_discover(extra_args[0])
+        return ["__domain_discover__", hosts]
+
     if extra_args:
         raise ValueError("Extra arguments are not allowed")
 
@@ -920,7 +1112,7 @@ def handle_client(conn):
                 logging.warning(f"Failed to send response: {str(e)}")
             return
 
-        if cmd and cmd[0] in ("__ca_trust_install__", "__panel_tls_install__"):
+        if cmd and cmd[0] in ("__ca_trust_install__", "__panel_tls_install__", "__domain_discover__"):
             response = {
                 "success": True,
                 "exit_code": 0,

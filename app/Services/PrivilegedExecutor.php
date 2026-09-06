@@ -24,6 +24,7 @@ class PrivilegedExecutor {
         'squid_listen_apply' => ['__squid_listen_apply__'],
         'squid_policy_apply' => ['__squid_policy_apply__'],
         'nginx_allow_apply' => ['__nginx_allow_apply__'],
+        'domain_discover' => ['__domain_discover__'],
     ];
 
     private const KEYTAB_DIR = '/etc/squid';
@@ -78,8 +79,10 @@ class PrivilegedExecutor {
             if (count($extraArgs) !== 1 || $extraArgs[0] !== AdLdapConfig::STAGING) {
                 throw new Exception('Invalid LDAP staging args');
             }
-        } elseif ($commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply' || $commandKey === 'nginx_allow_apply') {
+        } elseif ($commandKey === 'nginx_allow_apply') {
             $extraArgs = [];
+        } elseif ($commandKey === 'domain_discover') {
+            $extraArgs = [DomainDiscover::STAGING];
         } elseif ($commandKey === 'squid_syntax') {
             $extraArgs = [];
         } elseif (!empty($extraArgs)) {
@@ -88,11 +91,15 @@ class PrivilegedExecutor {
 
         if ($commandKey === 'acl_file_install' || $commandKey === 'keytab_install' || $commandKey === 'ca_trust_install'
             || $commandKey === 'panel_tls_install' || $commandKey === 'ad_ldap_groups'
-            || $commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply' || $commandKey === 'nginx_allow_apply') {
+            || $commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply' || $commandKey === 'nginx_allow_apply'
+            || $commandKey === 'domain_discover') {
             $recv = 10;
             if ($commandKey === 'ad_ldap_groups' || $commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply'
                 || $commandKey === 'ca_trust_install' || $commandKey === 'panel_tls_install') {
                 $recv = 45;
+            }
+            if ($commandKey === 'domain_discover') {
+                $recv = 90;
             }
             if (AGENT_ENABLED && file_exists(AGENT_SOCKET)) {
                 $result = self::executeViaAgent($commandKey, $extraArgs, $recv);
@@ -108,6 +115,8 @@ class PrivilegedExecutor {
                 $need = 'spmd is required to install panel TLS certificate';
             } elseif ($commandKey === 'ad_ldap_groups') {
                 $need = 'spmd is required to list AD groups via LDAP';
+            } elseif ($commandKey === 'domain_discover') {
+                $need = 'spmd is required to run headless domain discover';
             } elseif ($commandKey === 'squid_listen_apply') {
                 $need = 'spmd is required to apply Squid listen settings';
             } elseif ($commandKey === 'squid_policy_apply') {

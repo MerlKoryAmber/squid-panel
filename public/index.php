@@ -142,9 +142,14 @@ $router->get('/instructions/{slug}', 'InstructionsController@show');
 $router->get('/settings', 'SettingsController@index');
 $router->post('/settings/save', 'SettingsController@save');
 $router->post('/settings/squid', 'SettingsController@saveSquid');
+$router->post('/settings/cache', 'SettingsController@saveCache');
 $router->post('/settings/allow', 'SettingsController@saveAllow');
 $router->post('/settings/tls', 'SettingsController@uploadTls');
 $router->post('/settings/apply-policy', 'SettingsController@applyPolicy');
+
+// Domain discover (headless; not Squid)
+$router->get('/discover', 'DiscoverController@index');
+$router->post('/discover/run', 'DiscoverController@run');
 
 // Cache Peer Access Rules
 $router->get('/peers/access', 'CachePeerController@access');

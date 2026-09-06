@@ -1,0 +1,94 @@
+# Built-in Discover denylist: common ads / analytics (2nd-level domains only).
+# Short curated seed (option 1). Manual additions OK below. Not complete.
+# Avoid listing whole consumer sites (yandex.ru, vk.com, …) — only tracker/ad nets.
+# Updated: 2026-09-07.
+
+# Google ads / analytics
+google-analytics.com
+googletagmanager.com
+googlesyndication.com
+googleadservices.com
+doubleclick.net
+2mdn.net
+googletagservices.com
+googleoptimize.com
+
+# Meta pixels / CDN trackers
+facebook.net
+fbcdn.net
+
+# Microsoft analytics
+clarity.ms
+
+# Adobe
+omtrdc.net
+demdex.net
+adobedtm.com
+2o7.net
+
+# Ad / data networks
+criteo.com
+criteo.net
+taboola.com
+outbrain.com
+pubmatic.com
+openx.net
+rubiconproject.com
+casalemedia.com
+adnxs.com
+adsrvr.org
+advertising.com
+adform.net
+smartadserver.com
+moatads.com
+scorecardresearch.com
+quantserve.com
+quantcast.com
+chartbeat.com
+hotjar.com
+hotjar.io
+fullstory.com
+mouseflow.com
+newrelic.com
+nr-data.net
+segment.com
+segment.io
+mixpanel.com
+amplitude.com
+heap.io
+sentry.io
+bugsnag.com
+optimizely.com
+branch.io
+appsflyer.com
+adjust.com
+kochava.com
+exelator.com
+bluekai.com
+krxd.net
+rlcdn.com
+mathtag.com
+tapad.com
+bidswitch.net
+media.net
+contextweb.com
+spotxchange.com
+spotx.tv
+teads.tv
+yieldmo.com
+sharethrough.com
+indexww.com
+ads-twitter.com
+snapads.com
+sc-static.net
+
+# RU counters / ad nets (not whole portals)
+top100.ru
+liveinternet.ru
+adfox.ru
+begun.ru
+directadvert.ru
+marketgid.com
+relap.io
+smi2.ru
+tns-counter.ru

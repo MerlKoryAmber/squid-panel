@@ -59,6 +59,8 @@ class Database {
         self::addColumnIfMissing('squid_globals', 'coredump_dir', "TEXT DEFAULT ''");
         self::addColumnIfMissing('squid_globals', 'extra_conf', "TEXT DEFAULT ''");
         self::addColumnIfMissing('squid_globals', 'request_header_access', "TEXT DEFAULT ''");
+        self::addColumnIfMissing('squid_globals', 'disable_cache', 'INTEGER NOT NULL DEFAULT 0');
+        self::addColumnIfMissing('squid_globals', 'cache_dir_saved', "TEXT DEFAULT ''");
         self::$pdo->exec(
             "CREATE TABLE IF NOT EXISTS cascade_routes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

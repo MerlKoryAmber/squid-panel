@@ -63,6 +63,29 @@
 </div>
 
 <div class="card">
+    <div class="card-header"><h3>Squid object cache</h3></div>
+    <div class="card-body">
+        <p style="color:var(--ir-text-muted); font-size:0.82rem;">
+            When disabled, panel injects <code>cache deny all</code> + <code>cache_mem 0</code> and skips
+            <code>cache_dir</code> in generated conf (ADR 0008). Save applies live via parse pipeline.
+            Unrelated unmanaged <code>cache*</code> lines in extra stay until you edit them.
+        </p>
+        <form method="POST" action="/settings/cache" data-confirm="Rewrite live squid.conf with this cache setting?">
+            <?= View::csrf() ?>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="disable_cache" value="1" <?= !empty($globals['disable_cache']) ? 'checked' : '' ?>>
+                    Disable Squid object cache
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save and apply</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
     <div class="card-header"><h3>Panel IP allowlist (nginx)</h3></div>
     <div class="card-body">
         <p style="color:var(--ir-text-muted); font-size:0.82rem;">

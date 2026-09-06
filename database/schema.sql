@@ -123,6 +123,8 @@ CREATE TABLE IF NOT EXISTS squid_globals (
     coredump_dir TEXT DEFAULT '',
     extra_conf TEXT DEFAULT '',
     request_header_access TEXT DEFAULT '',
+    disable_cache INTEGER NOT NULL DEFAULT 0,
+    cache_dir_saved TEXT DEFAULT '',
     updated_at TEXT
 );
 

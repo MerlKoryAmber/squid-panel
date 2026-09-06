@@ -299,7 +299,7 @@ class SquidConfigBuilder {
             $lines[] = 'icp_port ' . $icp;
         }
         $cacheDir = trim((string)($g['cache_dir'] ?? ''));
-        if ($cacheDir !== '') {
+        if ($cacheDir !== '' && empty($g['disable_cache'])) {
             $lines[] = 'cache_dir ' . $cacheDir;
         }
         $dns = trim((string)($g['dns_nameservers'] ?? ''));
@@ -318,11 +318,19 @@ class SquidConfigBuilder {
     }
 
     public function fragmentExtra() {
-        $raw = trim((string)(($this->config['globals']['extra_conf'] ?? '') ?: ''));
-        if ($raw === '') {
+        $g = $this->config['globals'] ?? [];
+        $raw = SquidCachePolicy::stripManagedExtra((string)(($g['extra_conf'] ?? '') ?: ''));
+        $parts = [];
+        if ($raw !== '') {
+            $parts[] = "# SPM preserved unmanaged directives\n" . rtrim($raw);
+        }
+        if (!empty($g['disable_cache'])) {
+            $parts[] = rtrim(SquidCachePolicy::managedBlock());
+        }
+        if (empty($parts)) {
             return '';
         }
-        return "# SPM preserved unmanaged directives\n" . rtrim($raw) . "\n\n";
+        return implode("\n\n", $parts) . "\n\n";
     }
 
     public function generate() {
