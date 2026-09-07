@@ -75,7 +75,7 @@ $b = (new SquidConfigBuilder())->loadFromArray([
 $acl = $b->fragmentAcl();
 expect(strpos($acl, 'acl office src 10.0.0.0/8') !== false, 'inline acl');
 expect(strpos($acl, '/etc/squid/acl.d/banks.txt') !== false, 'file acl quoted path');
-expect(strpos($acl, 'acl ad_WWW proxy_auth') !== false, 'ad group proxy_auth file');
+expect(strpos($acl, 'acl ad_WWW proxy_auth -i ') !== false, 'ad group proxy_auth -i file');
 expect(strpos($acl, '/etc/squid/acl.d/ad_WWW.txt') !== false, 'ad group file path');
 
 $ext = $b->fragmentExternalAcl();
@@ -96,12 +96,12 @@ expect(strpos($peers, 'never_direct allow office') !== false, 'never_direct');
 $out = $b->generate();
 $auth = strpos($out, 'auth_param negotiate program');
 $port = strpos($out, 'http_port 3128');
-$ad = strpos($out, 'acl ad_WWW proxy_auth');
+$ad = strpos($out, 'acl ad_WWW proxy_auth -i ');
 expect($auth !== false, 'auth_param emitted');
 expect(strpos($out, 'auth_param negotiate realm') === false, 'negotiate realm not emitted as squid realm');
 expect(strpos($out, 'ext_kerberos_ldap_group_acl') === false, 'no kerberos ldap group in full conf');
 expect(strpos($out, 'SecretPass') === false, 'no SecretPass in generate()');
-expect($ad !== false && $auth !== false && $ad > $auth, 'ad proxy_auth after auth');
+expect($ad !== false && $auth !== false && $ad > $auth, 'ad proxy_auth -i after auth');
 expect(strpos($out, 'cache_mem 0') !== false, 'cache_mem extra kept');
 expect(strpos($out, 'coredump_dir /var/spool/squid') !== false, 'coredump_dir');
 expect(strpos($out, 'request_header_access X-Forwarded-For deny all') !== false, 'request_header_access');

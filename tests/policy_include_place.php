@@ -58,11 +58,11 @@ $out = $b->generate();
 $auth = strpos($out, 'auth_param negotiate');
 $ext = strpos($out, 'external_acl_type session_check');
 $acl = strpos($out, 'acl sess external');
-$ad = strpos($out, 'acl ad_Demo proxy_auth');
+$ad = strpos($out, 'acl ad_Demo proxy_auth -i ');
 expect($auth !== false && $ext !== false && $acl !== false, 'auth+ext+acl present');
 expect($ext > $auth, 'external_acl after auth_param');
 expect($acl > $ext, 'acl after external_acl_type');
-expect($ad !== false, 'ad proxy_auth present');
+expect($ad !== false, 'ad proxy_auth -i present');
 expect(strpos($out, 'ext_kerberos_ldap_group_acl') === false, 'no kerberos ldap group helper');
 
 if ($fail > 0) {

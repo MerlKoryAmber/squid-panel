@@ -37,7 +37,12 @@ class SquidConfigBuilder {
             $name = $acl['name'];
             $type = $acl['type'];
             if (($acl['storage'] ?? 'inline') === 'file') {
-                $lines[] = 'acl ' . $name . ' ' . $type . ' ' . AclListFile::squidRef($name);
+                // Kerberos LOGIN case often differs from sAMAccountName dump; -i for proxy_auth.
+                if ($type === 'proxy_auth') {
+                    $lines[] = 'acl ' . $name . ' proxy_auth -i ' . AclListFile::squidRef($name);
+                } else {
+                    $lines[] = 'acl ' . $name . ' ' . $type . ' ' . AclListFile::squidRef($name);
+                }
                 continue;
             }
             $values = json_decode($acl['entries'], true) ?: [];
