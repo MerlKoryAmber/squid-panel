@@ -35,3 +35,12 @@ Save LDAP → Import → Sync members → `grep -iE 'proxy_auth|-p |ext_kerberos
 `install/format_live.php` (шаг update/install) **не** вызывал migrate → при `--keep-db`
 builder выкидывал `external_acl_type kg_*` (пароль), ACL `external kg_*` оставались →
 `squid -k parse` fail. Теперь migrate + пустые work-файлы + post-check как в Apply.
+
+## Hotfix 2026-09-07 ~16:20 МСК
+
+Kerberos LOGIN в access.log часто с **заглавной**, sync пишет lowercase → без `-i` не match.
+Builder: `acl … proxy_auth -i "…"`. Коммит `d819350`.
+
+## Следующий агент
+
+Handoff: `docs/agent_reports/handoff/2026-09-07-evening.md`. Приёмка 0010 на тесте после update+Apply.

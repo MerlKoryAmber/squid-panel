@@ -103,7 +103,8 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 | Тема | Сервисы / UI |
 |------|----------------|
 | Groups = sync members → DB → file | `AdGroupMemberSync`, `AdGroupAcl`, `/acl/ad-groups` |
-| Squid ACL | `proxy_auth` + `/etc/squid/acl.d/ad_*.txt` — **нет** `-p` в conf |
+| Squid ACL | `proxy_auth -i` + `/etc/squid/acl.d/ad_*.txt` — **нет** `-p` / `ext_kerberos_ldap_group_acl` в conf |
+| Migrate legacy kg_* | `AdGroupAcl::migrateLegacyExternalToProxyAuth` — в `SquidPolicyApply` **и** `install/format_live.php` (иначе keep-db parse fail) |
 | List groups | spmd `ad_ldap_groups` |
 | List members | spmd `ad_ldap_group_members` |
 | Timer | `spm-ad-group-sync.timer` → `install/ad_group_sync.php` |
@@ -157,7 +158,7 @@ PHP live conf **не** пишет. Fail-closed: нет в whitelist → отка
 | `docs/adr/README.md` | реестр решений |
 | `docs/CODEMAP.md` | эта карта |
 
-ADR статусы (сверять README): 0005 ПРИНЯТО; 0006–0009 в работе / ждут приёмки на момент обновления карты.
+ADR статусы (сверять README): 0005 ПРИНЯТО; 0006–0010 в работе / ждут приёмки на момент обновления карты.
 
 ---
 

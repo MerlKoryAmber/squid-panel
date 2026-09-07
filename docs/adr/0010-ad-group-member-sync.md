@@ -1,7 +1,7 @@
 # ADR 0010 — AD group membership via DB sync + proxy_auth files
 
 Дата: 2026-09-07, 13:25 МСК.  
-Статус: в работе (согласовано в чате: вариант A).
+Статус: реализовано в коде (`d819350`), **не ПРИНЯТО** человеком.
 
 ## Решение
 
@@ -9,7 +9,7 @@
 
 1. Sync (~30 мин + Sync now): LDAP simple bind → таблица `ad_group_members` в `spm.db`.
 2. Экспорт в `/etc/squid/acl.d/ad_*.txt`.
-3. Squid: `acl ad_* proxy_auth "/etc/squid/acl.d/ad_*.txt"`.
+3. Squid: `acl ad_* proxy_auth -i "/etc/squid/acl.d/ad_*.txt"`.
 4. В conf **нет** bind-пароля и **нет** `ext_kerberos_ldap_group_acl` для групп.
 5. Логины в БД/файле: `user` и `user@REALM`.
 6. LDAP fail: не затирать прежних членов.
