@@ -333,8 +333,11 @@ EOF
 
 echo "[6/9] Installing privileged agent and restricted sudoers..."
 cp "$SPM_DIR/agent/spmd.service" /etc/systemd/system/spmd.service
+cp "$SPM_DIR/agent/spm-ad-group-sync.service" /etc/systemd/system/spm-ad-group-sync.service
+cp "$SPM_DIR/agent/spm-ad-group-sync.timer" /etc/systemd/system/spm-ad-group-sync.timer
 systemctl daemon-reload
 systemctl enable spmd
+systemctl enable --now spm-ad-group-sync.timer 2>/dev/null || echo "WARNING: ad-group-sync timer not enabled"
 systemctl restart spmd || echo "WARNING: spmd failed to start, sudo fallback will be used"
 
 cp "$SPM_DIR/agent/sudoers.spm" /etc/sudoers.d/spm

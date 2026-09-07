@@ -21,6 +21,7 @@ class PrivilegedExecutor {
         'ca_trust_install' => ['__ca_trust_install__'],
         'panel_tls_install' => ['__panel_tls_install__'],
         'ad_ldap_groups' => ['__ad_ldap_groups__'],
+        'ad_ldap_group_members' => ['__ad_ldap_group_members__'],
         'squid_listen_apply' => ['__squid_listen_apply__'],
         'squid_policy_apply' => ['__squid_policy_apply__'],
         'nginx_allow_apply' => ['__nginx_allow_apply__'],
@@ -79,6 +80,10 @@ class PrivilegedExecutor {
             if (count($extraArgs) !== 1 || $extraArgs[0] !== AdLdapConfig::STAGING) {
                 throw new Exception('Invalid LDAP staging args');
             }
+        } elseif ($commandKey === 'ad_ldap_group_members') {
+            if (count($extraArgs) !== 1 || $extraArgs[0] !== AdGroupMemberSync::STAGING) {
+                throw new Exception('Invalid LDAP members staging args');
+            }
         } elseif ($commandKey === 'nginx_allow_apply') {
             $extraArgs = [];
         } elseif ($commandKey === 'domain_discover') {
@@ -90,13 +95,17 @@ class PrivilegedExecutor {
         }
 
         if ($commandKey === 'acl_file_install' || $commandKey === 'keytab_install' || $commandKey === 'ca_trust_install'
-            || $commandKey === 'panel_tls_install' || $commandKey === 'ad_ldap_groups'
+            || $commandKey === 'panel_tls_install' || $commandKey === 'ad_ldap_groups' || $commandKey === 'ad_ldap_group_members'
             || $commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply' || $commandKey === 'nginx_allow_apply'
             || $commandKey === 'domain_discover') {
             $recv = 10;
-            if ($commandKey === 'ad_ldap_groups' || $commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply'
+            if ($commandKey === 'ad_ldap_groups' || $commandKey === 'ad_ldap_group_members'
+                || $commandKey === 'squid_listen_apply' || $commandKey === 'squid_policy_apply'
                 || $commandKey === 'ca_trust_install' || $commandKey === 'panel_tls_install') {
                 $recv = 45;
+            }
+            if ($commandKey === 'ad_ldap_group_members') {
+                $recv = 90;
             }
             if ($commandKey === 'domain_discover') {
                 $recv = 90;
@@ -115,6 +124,8 @@ class PrivilegedExecutor {
                 $need = 'spmd is required to install panel TLS certificate';
             } elseif ($commandKey === 'ad_ldap_groups') {
                 $need = 'spmd is required to list AD groups via LDAP';
+            } elseif ($commandKey === 'ad_ldap_group_members') {
+                $need = 'spmd is required to list AD group members via LDAP';
             } elseif ($commandKey === 'domain_discover') {
                 $need = 'spmd is required to run headless domain discover';
             } elseif ($commandKey === 'squid_listen_apply') {

@@ -27,7 +27,7 @@ $b = (new SquidConfigBuilder())->loadFromArray([
     'acls' => [
         ['name' => 'office', 'type' => 'src', 'storage' => 'inline', 'entries' => json_encode(['10.0.0.0/8'])],
         ['name' => 'banks', 'type' => 'dstdomain', 'storage' => 'file', 'entries' => '[]'],
-        ['name' => 'DIT_AD', 'type' => 'external', 'storage' => 'inline', 'entries' => json_encode(['www_DIT_Allow'])],
+        ['name' => 'ad_WWW', 'type' => 'proxy_auth', 'storage' => 'file', 'entries' => '[]', 'group_name' => 'WWW_DIT_Allow'],
     ],
     'http_access' => [
         ['action' => 'allow', 'acls' => json_encode(['office', 'banks']), 'enabled' => 1],
@@ -61,7 +61,7 @@ $b = (new SquidConfigBuilder())->loadFromArray([
             'negative_ttl' => 60,
             'children' => 10,
             'program' => '/usr/lib64/squid/ext_kerberos_ldap_group_acl',
-            'options' => '-a -g WWW_DIT_Allow -D HCI.INTERROS.RU',
+            'options' => '-a -g WWW_DIT_Allow -D HCI.INTERROS.RU -p SecretPass',
         ],
     ],
     'globals' => [
@@ -75,7 +75,13 @@ $b = (new SquidConfigBuilder())->loadFromArray([
 $acl = $b->fragmentAcl();
 expect(strpos($acl, 'acl office src 10.0.0.0/8') !== false, 'inline acl');
 expect(strpos($acl, '/etc/squid/acl.d/banks.txt') !== false, 'file acl quoted path');
+expect(strpos($acl, 'acl ad_WWW proxy_auth') !== false, 'ad group proxy_auth file');
+expect(strpos($acl, '/etc/squid/acl.d/ad_WWW.txt') !== false, 'ad group file path');
 
+$ext = $b->fragmentExternalAcl();
+expect(strpos($ext, 'ext_kerberos_ldap_group_acl') === false, 'ADR 0010: no kerberos ldap group helper');
+expect(strpos($ext, '-p SecretPass') === false, 'ADR 0010: no -p password in conf');
+expect(strpos($b->generate(), 'SecretPass') === false, 'password absent from full conf');
 $http = $b->fragmentHttpAccess();
 expect(strpos($http, 'http_access allow office banks') !== false, 'enabled rule');
 expect(strpos($http, 'http_access deny office') === false, 'disabled rule skipped');
@@ -89,14 +95,13 @@ expect(strpos($peers, 'never_direct allow office') !== false, 'never_direct');
 
 $out = $b->generate();
 $auth = strpos($out, 'auth_param negotiate program');
-$ext = strpos($out, 'external_acl_type www_DIT_Allow');
-$dit = strpos($out, 'acl DIT_AD external www_DIT_Allow');
 $port = strpos($out, 'http_port 3128');
+$ad = strpos($out, 'acl ad_WWW proxy_auth');
 expect($auth !== false, 'auth_param emitted');
 expect(strpos($out, 'auth_param negotiate realm') === false, 'negotiate realm not emitted as squid realm');
-expect($ext !== false && $auth !== false && $ext > $auth, 'external_acl after auth_param');
-expect($dit !== false && $ext !== false && $dit > $ext, 'acl DIT_AD after helper');
-expect(strpos($out, '-S hdc-01.hci.interros.ru@HCI.INTERROS.RU:hdc-02.hci.interros.ru@HCI.INTERROS.RU') !== false, 'ldap -S pinned');
+expect(strpos($out, 'ext_kerberos_ldap_group_acl') === false, 'no kerberos ldap group in full conf');
+expect(strpos($out, 'SecretPass') === false, 'no SecretPass in generate()');
+expect($ad !== false && $auth !== false && $ad > $auth, 'ad proxy_auth after auth');
 expect(strpos($out, 'cache_mem 0') !== false, 'cache_mem extra kept');
 expect(strpos($out, 'coredump_dir /var/spool/squid') !== false, 'coredump_dir');
 expect(strpos($out, 'request_header_access X-Forwarded-For deny all') !== false, 'request_header_access');

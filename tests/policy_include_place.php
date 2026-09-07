@@ -1,6 +1,7 @@
 <?php
 /**
- * Generated squid.conf order: auth_param then external_acl_type then acl … external.
+ * Generated squid.conf order: auth_param then external_acl_type then acl.
+ * ADR 0010: AD groups are proxy_auth files; use a non-LDAP helper for order check.
  */
 require_once __DIR__ . '/../app/Services/AclListFile.php';
 require_once __DIR__ . '/../app/Services/PanelNet.php';
@@ -26,31 +27,43 @@ $b = (new SquidConfigBuilder())->loadFromArray([
         'keep_alive' => 'on',
     ]],
     'ext_acl' => [[
-        'name' => 'www_DIT_Allow',
+        'name' => 'session_check',
         'format' => '%LOGIN',
         'ttl' => 3600,
         'negative_ttl' => 60,
         'children' => 10,
-        'program' => '/usr/lib64/squid/ext_kerberos_ldap_group_acl',
+        'program' => '/usr/lib64/squid/ext_session_acl',
         'options' => '',
     ]],
-    'acls' => [[
-        'name' => 'DIT_AD',
-        'type' => 'external',
-        'storage' => 'inline',
-        'entries' => json_encode(['www_DIT_Allow']),
-    ]],
+    'acls' => [
+        [
+            'name' => 'sess',
+            'type' => 'external',
+            'storage' => 'inline',
+            'entries' => json_encode(['session_check']),
+        ],
+        [
+            'name' => 'ad_Demo',
+            'type' => 'proxy_auth',
+            'storage' => 'file',
+            'entries' => '[]',
+            'group_name' => 'Demo',
+        ],
+    ],
     'http_access' => [],
     'peers' => [],
     'globals' => ['http_port' => '3128', 'extra_conf' => 'cache_mem 0'],
 ]);
 $out = $b->generate();
 $auth = strpos($out, 'auth_param negotiate');
-$ext = strpos($out, 'external_acl_type www_DIT_Allow');
-$acl = strpos($out, 'acl DIT_AD external');
-expect($auth !== false && $ext !== false && $acl !== false, 'all three present');
+$ext = strpos($out, 'external_acl_type session_check');
+$acl = strpos($out, 'acl sess external');
+$ad = strpos($out, 'acl ad_Demo proxy_auth');
+expect($auth !== false && $ext !== false && $acl !== false, 'auth+ext+acl present');
 expect($ext > $auth, 'external_acl after auth_param');
 expect($acl > $ext, 'acl after external_acl_type');
+expect($ad !== false, 'ad proxy_auth present');
+expect(strpos($out, 'ext_kerberos_ldap_group_acl') === false, 'no kerberos ldap group helper');
 
 if ($fail > 0) {
     exit(1);

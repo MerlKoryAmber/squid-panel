@@ -6,7 +6,9 @@ class AdGroupController {
         $imported = [];
         $realm = '';
         $ldap = AdLdapConfig::get();
+        $syncMeta = [];
         try {
+            AdGroupAcl::migrateLegacyExternalToProxyAuth();
             $listed = AdGroupAcl::listFromDirectory();
             if (!is_array($listed) || !isset($listed['groups']) || !is_array($listed['groups'])) {
                 $listed = ['ok' => false, 'groups' => [], 'error' => 'LDAP group list failed'];
@@ -17,6 +19,7 @@ class AdGroupController {
         try {
             $imported = AdGroupAcl::importedMap();
             $realm = AdGroupAcl::realm();
+            $syncMeta = AdGroupMemberSync::meta();
         } catch (Throwable $e) {
             if (($listed['error'] ?? '') === '') {
                 $listed['error'] = $e->getMessage();
@@ -34,6 +37,7 @@ class AdGroupController {
             'ldapCaInstalled' => PanelTls::ldapCaInstalled(),
             'listed' => $listed,
             'imported' => is_array($imported) ? $imported : [],
+            'syncMeta' => $syncMeta,
             'flashError' => $flashError,
             'flashSuccess' => $flashSuccess,
         ]);
@@ -51,15 +55,38 @@ class AdGroupController {
                 'bind_password' => $_POST['bind_password'] ?? '',
                 'base_dn' => $_POST['base_dn'] ?? '',
             ]);
-            $synced = AdGroupAcl::syncDirectoryOptionsIntoHelpers();
+            $migrated = AdGroupAcl::migrateLegacyExternalToProxyAuth();
             Audit::log(
                 'ad_ldap_save',
-                'simple servers=' . count(preg_split('/\s+/', trim($cfg['servers']))) . ' synced=' . $synced
+                'simple servers=' . count(preg_split('/\s+/', trim($cfg['servers']))) . ' migrated=' . $migrated
             );
-            $_SESSION['flash_success'] = 'LDAP settings saved. Synced '
-                . $synced . ' group helper(s). Applying live squid.conf…';
-            SquidLiveApply::remember();
+            $_SESSION['flash_success'] = 'LDAP settings saved (for member sync only; no password in squid.conf).'
+                . ($migrated ? ' Migrated ' . $migrated . ' legacy helper ACL(s).' : '');
+            if ($migrated) {
+                SquidLiveApply::remember();
+            }
         } catch (Throwable $e) {
+            $_SESSION['flash_error'] = $e->getMessage();
+        }
+        View::redirect('/acl/ad-groups');
+    }
+
+    public function syncMembers($params = []) {
+        Auth::requireAdmin();
+        View::verifyCsrf();
+        try {
+            $result = AdGroupMemberSync::syncAll();
+            Audit::log('ad_group_sync', $result['message']);
+            if (!empty($result['errors'])) {
+                $_SESSION['flash_error'] = $result['message'];
+            } else {
+                $_SESSION['flash_success'] = $result['message'];
+            }
+            if (!empty($result['changed'])) {
+                SquidLiveApply::remember();
+            }
+        } catch (Throwable $e) {
+            AdGroupMemberSync::setMeta(false, $e->getMessage());
             $_SESSION['flash_error'] = $e->getMessage();
         }
         View::redirect('/acl/ad-groups');
@@ -96,7 +123,7 @@ class AdGroupController {
         }
         $msg = [];
         if ($created) {
-            $msg[] = 'Created: ' . implode(', ', $created);
+            $msg[] = 'Created: ' . implode(', ', $created) . ' (run Sync members to fill lists)';
         }
         if ($skipped) {
             $msg[] = 'Already present: ' . implode(', ', $skipped);
@@ -139,15 +166,8 @@ class AdGroupController {
                 $err = trim((string)(($result['stderr'] ?? '') ?: ($result['error'] ?? '') ?: ($result['stdout'] ?? 'CA install failed')));
                 throw new Exception($err);
             }
-            $synced = 0;
-            $cfg = AdLdapConfig::get();
-            if (!empty($cfg['use_ssl']) && AdLdapConfig::isConfigured($cfg)) {
-                $synced = AdGroupAcl::syncDirectoryOptionsIntoHelpers();
-                SquidLiveApply::remember();
-            }
-            Audit::log('ldap_ca_upload', 'CA → system trust; helpers synced=' . $synced);
-            $_SESSION['flash_success'] = 'Root CA installed into system trust'
-                . ($synced ? ' and LDAPS helpers re-applied (' . $synced . ').' : '.');
+            Audit::log('ldap_ca_upload', 'CA → system trust');
+            $_SESSION['flash_success'] = 'Root CA installed into system trust (used by member sync LDAPS).';
         } catch (Throwable $e) {
             $_SESSION['flash_error'] = $e->getMessage();
         }

@@ -13,6 +13,7 @@
 | 0007 | 2026-09-03 | LDAP CA trust + замена TLS панели | в работе |
 | 0008 | 2026-09-06 | Disable Squid object cache (Settings) | в работе |
 | 0009 | 2026-09-06 | Domain discover (headless, не Squid) | в работе |
+| 0010 | 2026-09-07 | AD groups: sync members → DB → proxy_auth file | в работе |
 
 Новый ADR: `docs/adr/NNNN-slug.md` (NNNN — следующий свободный номер).
 В файле: что решили, почему, что отвергли.

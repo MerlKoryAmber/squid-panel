@@ -138,7 +138,7 @@ $canTest = !empty($keytabManaged) && !empty($keytabExists) && !empty($isAdmin);
             </div>
             <div class="form-group">
                 <label>LDAP servers for AD group helpers</label>
-                <textarea name="ldap_servers" rows="3" placeholder="hdc-01.hci.interros.ru&#10;hdc-02.hci.interros.ru" <?= empty($isAdmin) ? 'readonly' : '' ?>><?= htmlspecialchars($config['ldap_servers'] ?? '') ?></textarea>
+                <textarea name="ldap_servers" rows="3" placeholder="dc01.example.com&#10;dc02.example.com" <?= empty($isAdmin) ? 'readonly' : '' ?>><?= htmlspecialchars($config['ldap_servers'] ?? '') ?></textarea>
                 <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">
                     Synced from <a href="/acl/ad-groups">AD groups → LDAP</a> (pinned DC for helpers). Prefer editing there.
                 </p>

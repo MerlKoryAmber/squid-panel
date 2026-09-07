@@ -193,21 +193,8 @@ class AdGroupAcl {
     }
 
     public static function syncDirectoryOptionsIntoHelpers() {
-        $realm = self::realm();
-        $rows = Database::fetchAll(
-            "SELECT id, options, program FROM external_acl_types WHERE program LIKE ?",
-            ['%' . basename(self::HELPER_BIN) . '%']
-        );
-        $n = 0;
-        foreach ($rows as $row) {
-            $next = self::withDirectoryAuth((string)($row['options'] ?? ''), $realm);
-            Database::query(
-                "UPDATE external_acl_types SET options = ?, updated_at = datetime('now') WHERE id = ?",
-                [$next, (int)$row['id']]
-            );
-            $n++;
-        }
-        return $n;
+        // ADR 0010: no live LDAP helper flags; migrate legacy external → proxy_auth files.
+        return self::migrateLegacyExternalToProxyAuth();
     }
 
     /** @deprecated */
@@ -290,7 +277,11 @@ class AdGroupAcl {
     public static function importedMap() {
         $map = [];
         try {
-            $rows = Database::fetchAll("SELECT id, name, group_name FROM acls WHERE type = 'external'");
+            $rows = Database::fetchAll(
+                "SELECT id, name, group_name FROM acls
+                 WHERE group_name IS NOT NULL AND TRIM(group_name) != ''
+                   AND (type = 'proxy_auth' OR type = 'external')"
+            );
         } catch (Throwable $e) {
             return $map;
         }
@@ -307,35 +298,88 @@ class AdGroupAcl {
         return $map;
     }
 
+    /**
+     * Convert legacy kg_* external helpers to proxy_auth file ACLs (ADR 0010).
+     * @return int number migrated
+     */
+    public static function migrateLegacyExternalToProxyAuth() {
+        $rows = Database::fetchAll(
+            "SELECT id, name, entries, group_name FROM acls
+             WHERE type = 'external' AND group_name IS NOT NULL AND TRIM(group_name) != ''"
+        );
+        if (!is_array($rows) || empty($rows)) {
+            return 0;
+        }
+        $n = 0;
+        foreach ($rows as $row) {
+            $helpers = json_decode((string)($row['entries'] ?? '[]'), true);
+            if (!is_array($helpers)) {
+                $helpers = [];
+            }
+            foreach ($helpers as $hName) {
+                $hName = trim((string)$hName);
+                if ($hName === '') {
+                    continue;
+                }
+                Database::query('DELETE FROM external_acl_types WHERE name = ?', [$hName]);
+            }
+            Database::query(
+                "UPDATE acls SET type = 'proxy_auth', storage = 'file', entries = '[]', updated_at = datetime('now') WHERE id = ?",
+                [(int)$row['id']]
+            );
+            try {
+                AclListFile::writeWorkFile((string)$row['name'], []);
+            } catch (Throwable $e) {
+                // continue
+            }
+            $n++;
+        }
+        // Drop orphaned kg_* helpers that reference kerberos ldap group binary
+        $orphans = Database::fetchAll(
+            "SELECT id, name FROM external_acl_types WHERE program LIKE ?",
+            ['%' . basename(self::HELPER_BIN) . '%']
+        );
+        foreach ($orphans ?: [] as $o) {
+            Database::query('DELETE FROM external_acl_types WHERE id = ?', [(int)$o['id']]);
+        }
+        return $n;
+    }
+
     public static function ensureImported($group) {
+        self::migrateLegacyExternalToProxyAuth();
         $group = self::normalizeGroup($group);
-        $realm = self::realm();
         $aclName = self::aclName($group);
-        $helperName = self::helperName($group);
-        $existing = Database::fetch("SELECT id FROM acls WHERE name = ?", [$aclName]);
+        $existing = Database::fetch("SELECT id, type, storage FROM acls WHERE name = ?", [$aclName]);
         if ($existing) {
+            if (($existing['type'] ?? '') !== 'proxy_auth' || ($existing['storage'] ?? '') !== 'file') {
+                Database::query(
+                    "UPDATE acls SET type='proxy_auth', storage='file', entries='[]', group_name=?, updated_at=datetime('now') WHERE id=?",
+                    [$group, (int)$existing['id']]
+                );
+            }
             return ['id' => (int)$existing['id'], 'name' => $aclName, 'created' => false];
         }
         $n = 2;
         $baseAcl = $aclName;
-        $baseHelper = $helperName;
-        while (Database::fetch("SELECT id FROM acls WHERE name = ?", [$aclName])
-            || Database::fetch("SELECT id FROM external_acl_types WHERE name = ?", [$helperName])) {
+        while (Database::fetch("SELECT id FROM acls WHERE name = ?", [$aclName])) {
             $aclName = $baseAcl . '_' . $n;
-            $helperName = $baseHelper . '_' . $n;
             $n++;
             if ($n > 20) {
                 throw new Exception('Could not allocate ACL name for ' . $group);
             }
         }
 
-        Database::query(
-            "INSERT INTO external_acl_types (name, format, ttl, negative_ttl, children, program, options, created_at, updated_at) VALUES (?, '%LOGIN', 3600, 60, 10, ?, ?, datetime('now'), datetime('now'))",
-            [$helperName, self::HELPER_BIN, self::helperOptions($group, $realm)]
-        );
+        AclListFile::writeWorkFile($aclName, []);
+        $inst = AclListFile::installLive($aclName);
+        if (empty($inst['success'])) {
+            $err = trim((string)(($inst['stderr'] ?? '') ?: ($inst['error'] ?? '') ?: 'acl_file_install failed'));
+            throw new Exception($err);
+        }
+
         $id = (int)Database::insert(
-            "INSERT INTO acls (name, type, entries, storage, description, group_name, created_at, updated_at) VALUES (?, 'external', ?, 'inline', ?, ?, datetime('now'), datetime('now'))",
-            [$aclName, json_encode([$helperName]), 'AD group ' . $group, $group]
+            "INSERT INTO acls (name, type, entries, storage, description, group_name, created_at, updated_at)
+             VALUES (?, 'proxy_auth', '[]', 'file', ?, ?, datetime('now'), datetime('now'))",
+            [$aclName, 'AD group ' . $group . ' (synced members)', $group]
         );
         return ['id' => $id, 'name' => $aclName, 'created' => true];
     }

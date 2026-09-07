@@ -103,6 +103,28 @@ class Database {
             )"
         );
         self::$pdo->exec(
+            "CREATE TABLE IF NOT EXISTS ad_group_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                acl_id INTEGER NOT NULL,
+                username TEXT NOT NULL,
+                created_at TEXT,
+                UNIQUE(acl_id, username),
+                FOREIGN KEY (acl_id) REFERENCES acls(id) ON DELETE CASCADE
+            )"
+        );
+        self::$pdo->exec(
+            "CREATE TABLE IF NOT EXISTS ad_group_sync_meta (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                last_ok_at TEXT,
+                last_error TEXT NOT NULL DEFAULT '',
+                last_run_at TEXT,
+                updated_at TEXT
+            )"
+        );
+        self::$pdo->exec(
+            "CREATE INDEX IF NOT EXISTS idx_ad_group_members_acl ON ad_group_members(acl_id)"
+        );
+        self::$pdo->exec(
             "CREATE TABLE IF NOT EXISTS negotiate_helper_hourly (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 hour_start TEXT NOT NULL UNIQUE,

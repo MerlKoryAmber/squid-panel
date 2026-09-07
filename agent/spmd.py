@@ -44,6 +44,7 @@ ALLOWED_COMMANDS = {
     "ca_trust_install": ["__ca_trust_install__"],
     "panel_tls_install": ["__panel_tls_install__"],
     "ad_ldap_groups": ["__ad_ldap_groups__"],
+    "ad_ldap_group_members": ["__ad_ldap_group_members__"],
     "squid_listen_apply": ["__squid_listen_apply__"],
     "squid_policy_apply": ["__squid_policy_apply__"],
     "nginx_allow_apply": ["__nginx_allow_apply__"],
@@ -657,6 +658,145 @@ def list_ad_ldap_groups_simple(cfg):
             pass
 
 
+def list_ad_ldap_group_members_simple(cfg):
+    """Members of one AD group (nested) via simple bind. Password via -y file."""
+    if not os.path.isfile(LDAPSEARCH):
+        raise ValueError("ldapsearch not found (install openldap-clients)")
+    servers = cfg.get("servers") or []
+    if not isinstance(servers, list) or not servers:
+        raise ValueError("LDAP servers required for simple bind")
+    host = servers[0]
+    port = int(cfg.get("port") or 389)
+    use_ssl = bool(cfg.get("use_ssl"))
+    bind_dn = cfg.get("bind_dn") or ""
+    password = cfg.get("bind_password") or ""
+    base = cfg.get("base_dn") or ""
+    group = cfg.get("group") or ""
+    if not isinstance(group, str) or not re.fullmatch(r"[A-Za-z0-9 ._+-]{1,256}", group):
+        raise ValueError("Invalid group name")
+    if not isinstance(bind_dn, str) or not BIND_DN_RE.fullmatch(bind_dn):
+        raise ValueError("Invalid bind DN")
+    if not isinstance(password, str) or not password or len(password) > 256:
+        raise ValueError("Invalid bind password")
+    if not isinstance(base, str) or not base:
+        realm = cfg.get("realm") or ""
+        if not isinstance(realm, str) or not REALM_RE.fullmatch(realm):
+            raise ValueError("base_dn or realm required")
+        base = _ldap_base_dn(realm)
+    elif not BIND_DN_RE.fullmatch(base):
+        raise ValueError("Invalid base DN")
+    uri = _ldap_uri(host, port, use_ssl)
+    os.makedirs("/run/spmd", mode=0o700, exist_ok=True)
+    pass_path = "/run/spmd/ldap-bind.pass"
+    try:
+        with open(pass_path, "w", encoding="utf-8") as fh:
+            fh.write(password)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.chmod(pass_path, 0o600)
+        env = os.environ.copy()
+        if use_ssl:
+            if os.path.isfile(LDAP_CA_SQUID) and os.path.getsize(LDAP_CA_SQUID) > 64:
+                env["LDAPTLS_CACERT"] = LDAP_CA_SQUID
+                env["LDAPTLS_REQCERT"] = "demand"
+            else:
+                env["LDAPTLS_REQCERT"] = "never"
+        base_cmd = [
+            LDAPSEARCH, "-x", "-H", uri, "-D", bind_dn, "-y", pass_path,
+            "-b", base, "-LLL", "-o", "nettimeout=20",
+        ]
+        # Resolve group DN by sAMAccountName / cn
+        gfilter = "(|(sAMAccountName=%s)(cn=%s))" % (_ldap_filter_escape(group), _ldap_filter_escape(group))
+        r = subprocess.run(
+            base_cmd + ["-E", "pr=50/noprompt", gfilter, "dn"],
+            capture_output=True, text=True, timeout=45, env=env,
+        )
+        if r.returncode != 0:
+            r = subprocess.run(
+                base_cmd + [gfilter, "dn"],
+                capture_output=True, text=True, timeout=45, env=env,
+            )
+        group_dn = _parse_first_dn(r.stdout or "")
+        if not group_dn:
+            err = (r.stderr or r.stdout or "group not found").strip()
+            raise ValueError(err if r.returncode else "group DN not found: " + group)
+        # Nested membership (LDAP_MATCHING_RULE_IN_CHAIN)
+        mfilter = (
+            "(&(objectCategory=person)(objectClass=user)"
+            "(memberOf:1.2.840.113556.1.4.1941:=%s))" % _ldap_filter_escape(group_dn)
+        )
+        r2 = subprocess.run(
+            base_cmd + ["-E", "pr=1000/noprompt", mfilter, "sAMAccountName"],
+            capture_output=True, text=True, timeout=60, env=env,
+        )
+        if r2.returncode != 0:
+            r2 = subprocess.run(
+                base_cmd + [mfilter, "sAMAccountName"],
+                capture_output=True, text=True, timeout=60, env=env,
+            )
+        if r2.returncode != 0 and not r2.stdout:
+            err = (r2.stderr or r2.stdout or "member search failed").strip()
+            raise ValueError(err)
+        names = _parse_sam_names(r2.stdout or "")
+        names = list(dict.fromkeys(names))
+        if len(names) > 20000:
+            names = names[:20000]
+        logging.info("LDAP group members: group=%s count=%s host=%s", group, len(names), host)
+        return names
+    finally:
+        try:
+            os.unlink(pass_path)
+        except OSError:
+            pass
+
+
+def _ldap_filter_escape(value):
+    out = []
+    for ch in value:
+        o = ord(ch)
+        if ch in ("\\", "*", "(", ")", "\x00") or o < 32:
+            out.append("\\%02X" % o)
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _parse_first_dn(ldif_text):
+    for raw in ldif_text.splitlines():
+        line = raw.strip()
+        if line.lower().startswith("dn::"):
+            blob = line.split(":", 2)[-1].strip()
+            try:
+                return base64.b64decode(blob).decode("utf-8", "replace").strip()
+            except Exception:
+                continue
+        if line.lower().startswith("dn:"):
+            return line.split(":", 1)[1].strip()
+    return ""
+
+
+def list_ad_ldap_group_members_from_staging(filename):
+    if not isinstance(filename, str) or filename != "ad-ldap-members.json":
+        raise ValueError("Invalid members staging filename")
+    path = os.path.join(LDAP_STAGING_DIR, filename)
+    if not os.path.isfile(path):
+        raise ValueError("Members staging file missing")
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = fh.read(65536)
+        cfg = json.loads(raw)
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    if not isinstance(cfg, dict):
+        raise ValueError("Invalid members staging JSON")
+    if (cfg.get("bind_mode") or "simple") != "simple":
+        raise ValueError("AD group members require simple bind")
+    return list_ad_ldap_group_members_simple(cfg)
+
+
 def list_ad_ldap_groups_from_staging(filename):
     if not isinstance(filename, str) or not LDAP_STAGING_RE.fullmatch(filename):
         raise ValueError("Invalid LDAP staging filename")
@@ -1130,6 +1270,12 @@ def validate_command(command_key, extra_args):
             raise ValueError("ad_ldap_groups requires staging file or keytab,realm,host,principal")
         return ["__ad_ldap_groups__", "\n".join(names)]
 
+    if command_key == "ad_ldap_group_members":
+        if len(extra_args) != 1:
+            raise ValueError("ad_ldap_group_members requires staging filename")
+        names = list_ad_ldap_group_members_from_staging(extra_args[0])
+        return ["__ad_ldap_group_members__", "\n".join(names)]
+
     if command_key == "squid_listen_apply":
         if extra_args:
             raise ValueError("Extra arguments are not allowed")
@@ -1265,6 +1411,20 @@ def handle_client(conn):
                 "stderr": "",
             }
             logging.info("Result: LDAP groups listed")
+            try:
+                conn.sendall(json.dumps(response).encode("utf-8"))
+            except (BrokenPipeError, OSError) as e:
+                logging.warning(f"Failed to send response: {str(e)}")
+            return
+
+        if cmd and cmd[0] == "__ad_ldap_group_members__":
+            response = {
+                "success": True,
+                "exit_code": 0,
+                "stdout": cmd[1],
+                "stderr": "",
+            }
+            logging.info("Result: LDAP group members listed")
             try:
                 conn.sendall(json.dumps(response).encode("utf-8"))
             except (BrokenPipeError, OSError) as e:

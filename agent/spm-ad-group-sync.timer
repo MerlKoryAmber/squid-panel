@@ -1,0 +1,12 @@
+[Unit]
+Description=Run SPM AD group member sync every 30 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+AccuracySec=1min
+Persistent=true
+Unit=spm-ad-group-sync.service
+
+[Install]
+WantedBy=timers.target

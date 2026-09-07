@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS external_acl_types (
 
 CREATE TABLE IF NOT EXISTS ad_ldap_config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                bind_mode TEXT NOT NULL DEFAULT 'simple',
+    bind_mode TEXT NOT NULL DEFAULT 'simple',
     servers TEXT NOT NULL DEFAULT '',
     port INTEGER NOT NULL DEFAULT 389,
     use_ssl INTEGER NOT NULL DEFAULT 0,
@@ -160,6 +160,23 @@ CREATE TABLE IF NOT EXISTS ad_ldap_config (
     bind_password TEXT NOT NULL DEFAULT '',
     base_dn TEXT NOT NULL DEFAULT '',
     created_at TEXT,
+    updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS ad_group_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    acl_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    created_at TEXT,
+    UNIQUE(acl_id, username),
+    FOREIGN KEY (acl_id) REFERENCES acls(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS ad_group_sync_meta (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    last_ok_at TEXT,
+    last_error TEXT NOT NULL DEFAULT '',
+    last_run_at TEXT,
     updated_at TEXT
 );
 
@@ -178,5 +195,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_acl_name ON acls(name);
 CREATE INDEX IF NOT EXISTS idx_acl_group ON acls(group_name);
 CREATE INDEX IF NOT EXISTS idx_ext_acl_name ON external_acl_types(name);
+CREATE INDEX IF NOT EXISTS idx_ad_group_members_acl ON ad_group_members(acl_id);
 CREATE INDEX IF NOT EXISTS idx_peer_access_peer ON cache_peer_access_rules(peer_id);
 CREATE INDEX IF NOT EXISTS idx_peer_access_acl ON cache_peer_access_rules(acl_name);

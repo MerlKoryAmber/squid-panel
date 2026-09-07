@@ -9,6 +9,7 @@ class AclListFile {
         'srcdomain' => true,
         'dst' => true,
         'src' => true,
+        'proxy_auth' => true,
     ];
     public const AUTO_FILE_MIN = 80;
     public const MAX_BYTES = 5242880;

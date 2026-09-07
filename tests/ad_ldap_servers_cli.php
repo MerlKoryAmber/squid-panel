@@ -76,7 +76,8 @@ $b = (new SquidConfigBuilder())->loadFromArray([
 ]);
 
 $ext = $b->fragmentExternalAcl();
-expect(strpos($ext, '-S hdc-01.hci.interros.ru@HCI.INTERROS.RU:hdc-02.hci.interros.ru@HCI.INTERROS.RU') !== false, 'builder emits -S');
+expect($ext === '' || strpos($ext, 'ext_kerberos_ldap_group_acl') === false, 'ADR 0010: kerberos ldap group helper skipped');
+expect(strpos($ext, '-p ') === false, 'no -p in external fragment');
 
 if ($fail > 0) {
     fwrite(STDERR, "$fail failed\n");

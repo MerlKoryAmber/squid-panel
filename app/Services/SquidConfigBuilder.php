@@ -242,26 +242,14 @@ class SquidConfigBuilder {
             $parts[] = $format;
             $parts[] = $program;
             $opts = trim((string)($row['options'] ?? ''));
+            // ADR 0010: AD membership is proxy_auth files — do not emit live LDAP group helpers.
             if (strpos($program, 'ext_kerberos_ldap_group_acl') !== false
-                || strpos($program, 'kerberos_ldap_group') !== false) {
-                $authNeg = null;
-                $realm = '';
-                foreach ($this->config['auth'] ?? [] as $a) {
-                    if (($a['scheme'] ?? '') === 'negotiate') {
-                        $authNeg = $a;
-                        $realm = strtoupper(trim((string)($a['realm'] ?? '')));
-                        break;
-                    }
-                }
-                $opts = AdGroupAcl::withDirectoryAuth($opts, $realm);
-                if ($authNeg && strpos($opts, '-S ') === false) {
-                    try {
-                        $hosts = AdGroupAcl::parseLdapServers((string)($authNeg['ldap_servers'] ?? ''));
-                        $opts = AdGroupAcl::withLdapServerList($opts, $hosts, $realm);
-                    } catch (Exception $e) {
-                        // keep opts
-                    }
-                }
+                || strpos($program, 'kerberos_ldap_group') !== false
+                || strpos($program, 'ext_ldap_group_acl') !== false) {
+                continue;
+            }
+            if (preg_match('/(?:^|\s)-[pw]\s+\S+/', $opts)) {
+                throw new Exception('Refusing to write LDAP bind password into squid.conf (ADR 0010)');
             }
             if ($opts !== '') {
                 $parts[] = $opts;

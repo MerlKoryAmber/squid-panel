@@ -1,6 +1,6 @@
 # CODEMAP — карта репозитория SPM
 
-Обновлено: 2026-09-07, 12:05 МСК.  
+Обновлено: 2026-09-07, 13:30 МСК.  
 Назначение: ориентир для агента **до** широкого grep. Не замена коду и ADR.
 
 **Правило:** перед каждым `git push` — сверить и при необходимости обновить этот файл (новые маршруты, сервисы, spmd-команды, ADR).
@@ -98,14 +98,16 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 
 ---
 
-## AD / LDAP / TLS (ADR 0006–0007)
+## AD / LDAP / TLS (ADR 0006–0007, 0010)
 
 | Тема | Сервисы / UI |
 |------|----------------|
-| Groups = LDAP simple only | `AdLdapConfig`, `AdGroupAcl`, `/acl/ad-groups` |
-| Helper flags | `-u/-p/-b/-l/-S`; LDAPS: `-s`, `-a` только без CA |
-| List groups | spmd `ad_ldap_groups` + staging JSON |
-| Root CA | `/acl/ad-groups/ca` → `ca_trust_install` → anchors + `/etc/squid/spm-ldap-ca.pem` |
+| Groups = sync members → DB → file | `AdGroupMemberSync`, `AdGroupAcl`, `/acl/ad-groups` |
+| Squid ACL | `proxy_auth` + `/etc/squid/acl.d/ad_*.txt` — **нет** `-p` в conf |
+| List groups | spmd `ad_ldap_groups` |
+| List members | spmd `ad_ldap_group_members` |
+| Timer | `spm-ad-group-sync.timer` → `install/ad_group_sync.php` |
+| Root CA | `/acl/ad-groups/ca` → `ca_trust_install` |
 | Panel TLS | Settings → `PanelTls` + `panel_tls_install` |
 | Kerberos SSO | `/auth/kerberos` + keytab_install (не для groups) |
 
@@ -134,7 +136,8 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 | keytab_install | staging → `/etc/squid/*.keytab` |
 | ca_trust_install | LDAP CA → trust + squid copy |
 | panel_tls_install | nginx cert/key |
-| ad_ldap_groups | ldapsearch simple |
+| ad_ldap_groups | ldapsearch simple (names) |
+| ad_ldap_group_members | ldapsearch nested members |
 | squid_listen_apply / squid_policy_apply | live conf |
 | nginx_allow_apply | allowlist include |
 | domain_discover | headless hosts |

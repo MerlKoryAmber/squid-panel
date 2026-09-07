@@ -75,6 +75,7 @@ $router->get('/acl/ad-groups', 'AdGroupController@index');
 $router->post('/acl/ad-groups/ldap', 'AdGroupController@saveLdap');
 $router->post('/acl/ad-groups/ca', 'AdGroupController@uploadCa');
 $router->post('/acl/ad-groups/import', 'AdGroupController@import');
+$router->post('/acl/ad-groups/sync', 'AdGroupController@syncMembers');
 
 // HTTP Access Rules
 $router->get('/http_access', 'HttpAccessController@index');

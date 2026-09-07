@@ -1,0 +1,10 @@
+[Unit]
+Description=SPM AD group member sync (ADR 0010)
+After=network-online.target spmd.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/php /opt/spm/install/ad_group_sync.php
+Nice=10

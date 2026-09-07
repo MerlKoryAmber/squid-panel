@@ -21,9 +21,13 @@ $imported = is_array($imported ?? null) ? $imported : [];
 <div class="card">
     <div class="card-header"><h3>How it works</h3></div>
     <div class="card-body" style="font-size:0.9rem; color:var(--ir-text-secondary);">
-        <p>Squid checks membership live via <code>ext_kerberos_ldap_group_acl</code> with <strong>LDAP simple bind</strong> (DN + password to pinned DC). No GSSAPI/keytab for groups.</p>
-        <p>Realm (for <code>-g GROUP@REALM</code>) from Kerberos page: <code><?= $h(($realm ?? '') !== '' ? $realm : '(empty — set Kerberos realm)') ?></code>. Negotiate SSO stays on Kerberos; groups = LDAP only.</p>
-        <p>Import below → ACL <code>ad_*</code> + helper <code>kg_*</code>. Then use that ACL in HTTP Access / Cascade.</p>
+        <p>Membership is <strong>synced</strong> from AD into the panel DB, then exported to
+            <code>/etc/squid/acl.d/ad_*.txt</code>. Squid uses <code>proxy_auth</code> files —
+            <strong>no LDAP bind password in squid.conf</strong> (ADR 0010).</p>
+        <p>LDAP settings below are only for listing groups and member sync (every ~30 min or Sync now).
+            Realm for <code>user@REALM</code> lines comes from Kerberos:
+            <code><?= $h(($realm ?? '') !== '' ? $realm : '(empty — set Kerberos realm)') ?></code>.</p>
+        <p>Import → ACL <code>ad_*</code> → Sync members → use that ACL in HTTP Access / Cascade.</p>
     </div>
 </div>
 
@@ -36,7 +40,7 @@ $imported = is_array($imported ?? null) ? $imported : [];
             <input type="hidden" name="bind_mode" value="simple">
             <div class="form-group">
                 <label>LDAP servers (FQDN, one per line)</label>
-                <textarea name="servers" rows="3" placeholder="hdc-01.hci.interros.ru&#10;hdc-02.hci.interros.ru" <?= empty($isAdmin) ? 'readonly' : '' ?>><?= $h($ldap['servers'] ?? '') ?></textarea>
+                <textarea name="servers" rows="3" placeholder="dc01.example.com&#10;dc02.example.com" <?= empty($isAdmin) ? 'readonly' : '' ?>><?= $h($ldap['servers'] ?? '') ?></textarea>
                 <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">Pinned DC list (<code>-S</code> / <code>-l</code>). Required.</p>
             </div>
             <div class="form-row">
@@ -54,16 +58,16 @@ $imported = is_array($imported ?? null) ? $imported : [];
             </div>
             <div class="form-group">
                 <label>Bind DN</label>
-                <input type="text" name="bind_dn" value="<?= $h($ldap['bind_dn'] ?? '') ?>" placeholder="CN=squid-ldap,OU=Service,DC=hci,DC=interros,DC=ru" <?= empty($isAdmin) ? 'readonly' : '' ?>>
+                <input type="text" name="bind_dn" value="<?= $h($ldap['bind_dn'] ?? '') ?>" placeholder="CN=squid-ldap,OU=Service,DC=example,DC=com" <?= empty($isAdmin) ? 'readonly' : '' ?>>
             </div>
             <div class="form-group">
                 <label>Bind password</label>
                 <input type="password" name="bind_password" value="" placeholder="<?= !empty($ldap['has_password']) ? '********' : '' ?>" autocomplete="new-password" <?= empty($isAdmin) ? 'readonly' : '' ?>>
-                <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">Leave blank to keep current. No spaces/quotes (Squid <code>-p</code>). Stored in <code>spm.db</code> and in live helper line.</p>
+                <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">Leave blank to keep current. Stored in <code>spm.db</code> for sync only — never written into live <code>squid.conf</code>.</p>
             </div>
             <div class="form-group">
                 <label>Base DN (optional)</label>
-                <input type="text" name="base_dn" value="<?= $h($ldap['base_dn'] ?? '') ?>" placeholder="DC=hci,DC=interros,DC=ru" <?= empty($isAdmin) ? 'readonly' : '' ?>>
+                <input type="text" name="base_dn" value="<?= $h($ldap['base_dn'] ?? '') ?>" placeholder="DC=example,DC=com" <?= empty($isAdmin) ? 'readonly' : '' ?>>
                 <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">Empty = build from Kerberos realm.</p>
             </div>
             <?php if (!empty($isAdmin)): ?>
@@ -124,6 +128,37 @@ $imported = is_array($imported ?? null) ? $imported : [];
 </div>
 <?php endif; ?>
 
+<?php
+$syncMeta = is_array($syncMeta ?? null) ? $syncMeta : [];
+$lastOk = trim((string)($syncMeta['last_ok_at'] ?? ''));
+$lastErr = trim((string)($syncMeta['last_error'] ?? ''));
+$lastRun = trim((string)($syncMeta['last_run_at'] ?? ''));
+?>
+<div class="card">
+    <div class="card-header"><h3>Member sync</h3></div>
+    <div class="card-body">
+        <p style="color:var(--ir-text-muted); font-size:0.82rem;">
+            Timer ~30 min writes members into DB and <code>acl.d</code> files.
+            Failed sync keeps the previous member list (fail-closed).
+        </p>
+        <p style="font-size:0.85rem;">
+            Last run: <code><?= $h($lastRun !== '' ? $lastRun : 'never') ?></code>
+            · Last OK: <code><?= $h($lastOk !== '' ? $lastOk : 'never') ?></code>
+        </p>
+        <?php if ($lastErr !== ''): ?>
+        <div class="alert alert-danger" style="margin-top:8px;"><?= $h($lastErr) ?></div>
+        <?php endif; ?>
+        <?php if (!empty($isAdmin)): ?>
+        <form method="POST" action="/acl/ad-groups/sync">
+            <?= View::csrf() ?>
+            <div class="form-actions" style="border:0; margin-top: var(--space-md); padding-top:0;">
+                <button type="submit" class="btn btn-primary">Sync members now</button>
+            </div>
+        </form>
+        <?php endif; ?>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-header"><h3>Import</h3></div>
     <div class="card-body">
@@ -133,10 +168,11 @@ $imported = is_array($imported ?? null) ? $imported : [];
         <form method="POST" action="/acl/ad-groups/import">
             <?= View::csrf() ?>
             <?php if (!empty($listedGroups)): ?>
-            <p style="color:var(--ir-text-muted); font-size:0.82rem;"><?= count($listedGroups) ?> groups from LDAP. Already imported are checked and disabled. Filter hides unmatched names; Create ACLs uses checked groups only.</p>
+            <p style="color:var(--ir-text-muted); font-size:0.82rem;"><?= count($listedGroups) ?> groups from LDAP. Already imported are checked and disabled.</p>
             <div class="form-group">
-                <label for="ad-group-filter">Filter groups (any part of the name)</label>
-                <input type="search" id="ad-group-filter" placeholder="sAMAccountName / CN" autocomplete="off" <?= empty($listedGroups) ? 'disabled' : '' ?>>
+                <label for="ad-group-filter">Filter groups</label>
+                <input type="text" id="ad-group-filter" name="ad_group_filter" placeholder="sAMAccountName / CN" autocomplete="off" <?= empty($listedGroups) ? 'disabled' : '' ?>>
+                <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">Any part of the name. Hides unmatched rows; Create ACLs uses checked groups only.</p>
             </div>
             <div id="ad-group-list" style="max-height:420px; overflow:auto; border:1px solid var(--ir-border, #ddd); padding:8px; margin-bottom:12px;">
                 <?php foreach ($listedGroups as $g):
@@ -188,7 +224,6 @@ $imported = is_array($imported ?? null) ? $imported : [];
         }
     }
     input.addEventListener('input', apply);
-    input.addEventListener('search', apply);
 })();
 </script>
 <?php endif; ?>

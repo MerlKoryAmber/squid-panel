@@ -142,21 +142,19 @@ class AdLdapConfig {
         }
     }
 
-    /** Flags for ext_kerberos_ldap_group_acl: always simple bind + -S. */
+    /** Flags for legacy helpers — ADR 0010: must not emit -p into live conf. */
     public static function helperDirectoryFlags($realm) {
         self::requireConfigured();
         $cfg = self::get();
         $hosts = self::effectiveServers();
         $parts = [];
-        $parts[] = '-u ' . self::optArg($cfg['bind_dn']);
-        $parts[] = '-p ' . self::optArg($cfg['bind_password']);
+        // No -u/-p: password must not appear in squid.conf (ADR 0010).
         $base = self::baseDn($realm);
         if ($base !== '') {
             $parts[] = '-b ' . self::optArg($base);
         }
         if ($cfg['use_ssl']) {
             $parts[] = '-s';
-            // -a disables TLS verify; only when no CA in trust
             if (!PanelTls::ldapCaInstalled()) {
                 $parts[] = '-a';
             }
