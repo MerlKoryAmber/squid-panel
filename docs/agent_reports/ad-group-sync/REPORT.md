@@ -29,3 +29,9 @@ Save LDAP → Import → Sync members → `grep -iE 'proxy_auth|-p |ext_kerberos
 - Приёмка Merl.
 - Шифрование `bind_password` в SQLite — отдельно.
 - Уточнить формат логина на лабе (оба `user` / `user@REALM`).
+
+## Hotfix 2026-09-07 ~14:35 МСК
+
+`install/format_live.php` (шаг update/install) **не** вызывал migrate → при `--keep-db`
+builder выкидывал `external_acl_type kg_*` (пароль), ACL `external kg_*` оставались →
+`squid -k parse` fail. Теперь migrate + пустые work-файлы + post-check как в Apply.

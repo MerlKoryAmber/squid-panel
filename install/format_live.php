@@ -13,6 +13,16 @@ foreach (glob(__DIR__ . '/../app/Services/*.php') as $file) {
 
 Database::init();
 
+// ADR 0010: keep-db / old DB still has kg_* + acl external. Builder skips
+// ext_kerberos_ldap_group_acl (no -p in conf) → Squid parse fails on orphan
+// "acl … external kg_*". Migrate before generate (same as SquidPolicyApply).
+try {
+    AdGroupAcl::migrateLegacyExternalToProxyAuth();
+} catch (Throwable $e) {
+    fwrite(STDERR, 'AD group migrate failed: ' . $e->getMessage() . "\n");
+    exit(1);
+}
+
 $live = defined('SQUID_CONF') ? SQUID_CONF : '/etc/squid/squid.conf';
 $parse = defined('SQUID_PARSE_FILE') ? SQUID_PARSE_FILE : '/opt/spm/storage/tmp/squid.conf.parse';
 $aclLive = AclListFile::liveDir();
@@ -26,6 +36,14 @@ foreach (Database::fetchAll("SELECT name, storage FROM acls") as $acl) {
     }
     $src = AclListFile::workPath($acl['name']);
     $dst = AclListFile::livePath($acl['name']);
+    if (!is_readable($src)) {
+        try {
+            AclListFile::writeWorkFile((string)$acl['name'], []);
+        } catch (Throwable $e) {
+            fwrite(STDERR, "ACL file missing: {$src} (" . $e->getMessage() . ")\n");
+            exit(1);
+        }
+    }
     if (!is_readable($src)) {
         fwrite(STDERR, "ACL file missing: {$src}\n");
         exit(1);
@@ -41,6 +59,11 @@ $builder = (new SquidConfigBuilder())->loadFromDatabase();
 $body = $builder->generate();
 if (strpos($body, 'http_access deny all') === false || strpos($body, 'http_port ') === false) {
     fwrite(STDERR, "Generated squid.conf is missing http_port or deny all\n");
+    exit(1);
+}
+if (strpos($body, 'ext_kerberos_ldap_group_acl') !== false
+    || strpos($body, 'kerberos_ldap_group') !== false) {
+    fwrite(STDERR, "Generated squid.conf still contains LDAP group helper (ADR 0010)\n");
     exit(1);
 }
 

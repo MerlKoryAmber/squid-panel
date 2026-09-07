@@ -303,12 +303,33 @@ class AdGroupAcl {
      * @return int number migrated
      */
     public static function migrateLegacyExternalToProxyAuth() {
-        $rows = Database::fetchAll(
-            "SELECT id, name, entries, group_name FROM acls
-             WHERE type = 'external' AND group_name IS NOT NULL AND TRIM(group_name) != ''"
+        $helperNames = [];
+        $byProg = Database::fetchAll(
+            "SELECT name FROM external_acl_types WHERE program LIKE ?",
+            ['%' . basename(self::HELPER_BIN) . '%']
         );
-        if (!is_array($rows) || empty($rows)) {
-            return 0;
+        foreach ($byProg ?: [] as $r) {
+            $n = trim((string)($r['name'] ?? ''));
+            if ($n !== '') {
+                $helperNames[$n] = true;
+            }
+        }
+        $byPrefix = Database::fetchAll(
+            "SELECT name FROM external_acl_types WHERE name LIKE ?",
+            [self::HELPER_PREFIX . '%']
+        );
+        foreach ($byPrefix ?: [] as $r) {
+            $n = trim((string)($r['name'] ?? ''));
+            if ($n !== '') {
+                $helperNames[$n] = true;
+            }
+        }
+
+        $rows = Database::fetchAll(
+            "SELECT id, name, entries, group_name FROM acls WHERE type = 'external'"
+        );
+        if (!is_array($rows)) {
+            $rows = [];
         }
         $n = 0;
         foreach ($rows as $row) {
@@ -316,12 +337,26 @@ class AdGroupAcl {
             if (!is_array($helpers)) {
                 $helpers = [];
             }
+            $touch = trim((string)($row['group_name'] ?? '')) !== '';
+            foreach ($helpers as $hName) {
+                $hName = trim((string)$hName);
+                if ($hName === '') {
+                    continue;
+                }
+                if (isset($helperNames[$hName]) || strpos($hName, self::HELPER_PREFIX) === 0) {
+                    $touch = true;
+                }
+            }
+            if (!$touch) {
+                continue;
+            }
             foreach ($helpers as $hName) {
                 $hName = trim((string)$hName);
                 if ($hName === '') {
                     continue;
                 }
                 Database::query('DELETE FROM external_acl_types WHERE name = ?', [$hName]);
+                unset($helperNames[$hName]);
             }
             Database::query(
                 "UPDATE acls SET type = 'proxy_auth', storage = 'file', entries = '[]', updated_at = datetime('now') WHERE id = ?",
@@ -330,14 +365,14 @@ class AdGroupAcl {
             try {
                 AclListFile::writeWorkFile((string)$row['name'], []);
             } catch (Throwable $e) {
-                // continue
+                // format_live / Apply create empty file if still missing
             }
             $n++;
         }
-        // Drop orphaned kg_* helpers that reference kerberos ldap group binary
+        // Drop remaining kerberos ldap group helpers (no ACL left or orphaned)
         $orphans = Database::fetchAll(
-            "SELECT id, name FROM external_acl_types WHERE program LIKE ?",
-            ['%' . basename(self::HELPER_BIN) . '%']
+            "SELECT id, name FROM external_acl_types WHERE program LIKE ? OR name LIKE ?",
+            ['%' . basename(self::HELPER_BIN) . '%', self::HELPER_PREFIX . '%']
         );
         foreach ($orphans ?: [] as $o) {
             Database::query('DELETE FROM external_acl_types WHERE id = ?', [(int)$o['id']]);
