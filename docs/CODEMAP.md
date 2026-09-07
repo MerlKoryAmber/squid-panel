@@ -1,6 +1,6 @@
 # CODEMAP — карта репозитория SPM
 
-Обновлено: 2026-09-07, 11:50 МСК.  
+Обновлено: 2026-09-07, 12:05 МСК.  
 Назначение: ориентир для агента **до** широкого grep. Не замена коду и ADR.
 
 **Правило:** перед каждым `git push` — сверить и при необходимости обновить этот файл (новые маршруты, сервисы, spmd-команды, ADR).
@@ -115,7 +115,7 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 
 - **Не** Squid / access.log / conf.
 - Staging `discover-job.json` → spmd `domain_discover` → headless Chromium NetLog → **second-level domains only**.
-- NetLog: только request URL из events (не constants); флаги без background networking.
+- NetLog: только request URL из events (не constants); флаги без background networking; `CHROME_NOISE_SLD` режет google/googleapis/… кроме seed URL.
 - Галка Hide ads/analytics: короткий curated denylist → `app/Data/discover_ad_denylist.txt` (ручное пополнение).
 - SSRF: http(s), public IP only; lock `/run/spmd/discover.lock`.
 - Нужен пакет Chromium/Chrome на хосте (`install.sh` ставит).

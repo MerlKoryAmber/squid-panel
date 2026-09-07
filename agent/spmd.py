@@ -312,6 +312,27 @@ CHROME_DISCOVER_FLAGS = (
 )
 
 
+# Headless Chromium still issues real URL_REQUEST to these even with
+# --disable-background-networking (Safe Browsing remnants, variations, etc.).
+# Drop unless the discover start URL itself is on that SLD.
+CHROME_NOISE_SLD = frozenset(
+    {
+        "google.com",
+        "googleapis.com",
+        "gstatic.com",
+        "googleusercontent.com",
+        "ggpht.com",
+        "gvt1.com",
+        "gvt2.com",
+        "chrome.com",
+        "youtube.com",
+        "ytimg.com",
+        "googlevideo.com",
+        "withgoogle.com",
+    }
+)
+
+
 def _find_chrome():
     for path in CHROME_CANDIDATES:
         if os.path.isfile(path) and os.access(path, os.X_OK):
@@ -404,14 +425,18 @@ def _host_from_http_url(url):
     return host
 
 
-def _hosts_from_netlog(path):
+def _hosts_from_netlog(path, keep_sld=None):
     """
     Second-level domains from NetLog *request* URLs only.
 
     Do not regex-scan the whole file: Chromium NetLog JSON can embed sample /
     constant strings (google/youtube) that are not page traffic.
+
+    Drop CHROME_NOISE_SLD (browser telemetry) unless keep_sld matches
+    (start URL is itself on that domain).
     """
     hosts = set()
+    keep_sld = (keep_sld or "").lower().strip() or None
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
             raw = fh.read(32 * 1024 * 1024)
@@ -441,8 +466,11 @@ def _hosts_from_netlog(path):
             if not host:
                 continue
             d = _to_second_level(host)
-            if d:
-                hosts.add(d)
+            if not d:
+                continue
+            if d in CHROME_NOISE_SLD and d != keep_sld:
+                continue
+            hosts.add(d)
     return sorted(hosts)
 
 
@@ -535,7 +563,9 @@ def run_domain_discover(filename):
             )
         except subprocess.TimeoutExpired:
             logging.warning("domain_discover chrome timed out url=%s", url)
-        hosts = _hosts_from_netlog(DISCOVER_NETLOG)
+        seed_host = urlparse(url).hostname
+        keep_sld = _to_second_level(seed_host) if seed_host else None
+        hosts = _hosts_from_netlog(DISCOVER_NETLOG, keep_sld=keep_sld)
         try:
             os.unlink(DISCOVER_NETLOG)
         except OSError:

@@ -64,6 +64,17 @@ noise = {
             "phase": 1,
             "type": 1,
         },
+        # Real URL_REQUEST noise Chromium still emits with disable-background-networking.
+        {
+            "params": {"url": "https://clients2.google.com/chrome"},
+            "phase": 1,
+            "type": 1,
+        },
+        {
+            "params": {"url": "https://www.googleapis.com/oauth2/v1/certs"},
+            "phase": 1,
+            "type": 1,
+        },
     ],
 }
 
@@ -72,7 +83,7 @@ os.close(fd)
 try:
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(noise, fh)
-    got = mod._hosts_from_netlog(path)
+    got = mod._hosts_from_netlog(path, keep_sld="interros.ru")
 finally:
     try:
         os.unlink(path)
@@ -80,9 +91,31 @@ finally:
         pass
 
 expect(got == ["example.com", "interros.ru"], "hosts from events only: %s" % got)
-expect("google.com" not in got, "no google from constants")
+expect("google.com" not in got, "drop google.com request noise")
+expect("googleapis.com" not in got, "drop googleapis.com request noise")
 expect("youtube.com" not in got, "no youtube from constants")
 expect("gstatic.com" not in got, "no gstatic from constants")
+
+# If start URL is itself Google — keep that SLD.
+noise_g = {
+    "events": [
+        {"params": {"url": "https://www.google.com/search?q=x"}},
+        {"params": {"url": "https://www.googleapis.com/x"}},
+        {"params": {"url": "https://fx.interros.ru/"}},
+    ]
+}
+fd, path_g = tempfile.mkstemp(suffix=".json")
+os.close(fd)
+try:
+    with open(path_g, "w", encoding="utf-8") as fh:
+        json.dump(noise_g, fh)
+    got_g = mod._hosts_from_netlog(path_g, keep_sld="google.com")
+finally:
+    try:
+        os.unlink(path_g)
+    except OSError:
+        pass
+expect(got_g == ["google.com", "interros.ru"], "keep seed google.com, still drop googleapis: %s" % got_g)
 
 fd, bad = tempfile.mkstemp(suffix=".json")
 os.close(fd)

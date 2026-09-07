@@ -32,3 +32,4 @@
 
 NetLog: только `events[].params.url` / `url_before_redirect` (не regex по всему файлу — иначе шум из constants).
 Chromium: `--disable-background-networking` и родственные флаги + свежий `--user-data-dir` под `/run/spmd`.
+Дополнительно: denylist `CHROME_NOISE_SLD` (`google.com`, `googleapis.com`, `gstatic.com`, …) — реальные URL_REQUEST телеметрии браузера; SLD стартового URL не режется.
