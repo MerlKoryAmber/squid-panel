@@ -28,3 +28,7 @@
 ## Ops
 
 На хосте нужен `chromium` или `google-chrome`. Без бинарника — явная ошибка в UI.
+`install.sh` / `update.sh` ставят `chromium` (`dnf install -y chromium --exclude=openh264`); сбой пакета — WARNING, панель всё равно ставится.
+
+NetLog: только `events[].params.url` / `url_before_redirect` (не regex по всему файлу — иначе шум из constants).
+Chromium: `--disable-background-networking` и родственные флаги + свежий `--user-data-dir` под `/run/spmd`.

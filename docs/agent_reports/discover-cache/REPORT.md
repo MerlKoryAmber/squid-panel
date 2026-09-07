@@ -21,3 +21,4 @@
 
 - Приёмка Merl (0006–0009).
 - Не возвращать полный Peter Lowe без команды.
+- 2026-09-07: NetLog шум Chromium (google/youtube на fx.interros.ru) — фикс flags + parse events only; тест `domain_discover_netlog_cli.py`.

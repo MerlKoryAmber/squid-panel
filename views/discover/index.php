@@ -18,7 +18,7 @@ $domains = is_array($domains ?? null) ? $domains : [];
 <div class="card">
     <div class="card-header"><h3>How it works</h3></div>
     <div class="card-body" style="font-size:0.9rem; color:var(--ir-text-secondary);">
-        <p>Opens the URL in a headless browser on this host (via spmd), records network hostnames, then keeps only <strong>second-level domains</strong> (e.g. <code>cdn.example.com</code> → <code>example.com</code>). <strong>Not Squid</strong> — no access.log, no squid.conf.</p>
+        <p>Opens the URL in a headless browser on this host (via spmd), records <strong>request</strong> hostnames from NetLog (not browser telemetry), then keeps only <strong>second-level domains</strong> (e.g. <code>cdn.example.com</code> → <code>example.com</code>). <strong>Not Squid</strong> — no access.log, no squid.conf.</p>
         <p>Optional filter hides common ad/analytics domains from a short built-in denylist (<?= (int)($denylistCount ?? 0) ?> entries). Extend in <code>app/Data/discover_ad_denylist.txt</code>.</p>
         <p>SSRF fail-closed: only http/https to public IPs. One job at a time, ~45s timeout. Needs Chromium/Chrome installed on the server.</p>
     </div>

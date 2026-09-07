@@ -269,12 +269,46 @@ def install_panel_tls(cert_name, key_name):
 DISCOVER_STAGING_RE = re.compile(r"^discover-job\.json$")
 DISCOVER_LOCK = "/run/spmd/discover.lock"
 DISCOVER_NETLOG = "/run/spmd/discover-netlog.json"
+DISCOVER_CHROME_PROFILE = "/run/spmd/chrome-discover-profile"
 CHROME_CANDIDATES = (
     "/usr/bin/chromium-browser",
     "/usr/bin/chromium",
     "/usr/bin/google-chrome-stable",
     "/usr/bin/google-chrome",
     "/usr/lib64/chromium-browser/chromium-browser",
+)
+
+# Headless flags: cut Chromium background traffic (updates, Safe Browsing, sync…).
+# Domain discover must record page requests, not browser telemetry.
+CHROME_DISCOVER_FLAGS = (
+    "--headless=new",
+    "--no-sandbox",
+    "--disable-gpu",
+    "--disable-dev-shm-usage",
+    "--hide-scrollbars",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-background-networking",
+    "--disable-background-timer-throttling",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-breakpad",
+    "--disable-client-side-phishing-detection",
+    "--disable-component-update",
+    "--disable-default-apps",
+    "--disable-domain-reliability",
+    "--disable-extensions",
+    "--disable-features=Translate,BackForwardCache,AcceptCHFrame,MediaRouter,OptimizationHints,DialMediaRouteProvider",
+    "--disable-hang-monitor",
+    "--disable-ipc-flooding-protection",
+    "--disable-popup-blocking",
+    "--disable-prompt-on-repost",
+    "--disable-renderer-backgrounding",
+    "--disable-sync",
+    "--metrics-recording-only",
+    "--safebrowsing-disable-auto-update",
+    "--password-store=basic",
+    "--use-mock-keychain",
+    "--mute-audio",
 )
 
 
@@ -351,18 +385,85 @@ def _to_second_level(host):
     return last2
 
 
+def _host_from_http_url(url):
+    """Hostname from http(s) URL only; ignore chrome-extension/data/blob."""
+    if not isinstance(url, str):
+        return None
+    url = url.strip()
+    if not url.startswith(("http://", "https://")):
+        return None
+    try:
+        host = urlparse(url).hostname
+    except Exception:
+        return None
+    if not host:
+        return None
+    host = host.lower().rstrip(".")
+    if not HOST_RE.fullmatch(host):
+        return None
+    return host
+
+
 def _hosts_from_netlog(path):
+    """
+    Second-level domains from NetLog *request* URLs only.
+
+    Do not regex-scan the whole file: Chromium NetLog JSON can embed sample /
+    constant strings (google/youtube) that are not page traffic.
+    """
     hosts = set()
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
             raw = fh.read(32 * 1024 * 1024)
     except OSError:
         return []
-    for m in re.finditer(r"https?://([A-Za-z0-9.-]+)", raw):
-        d = _to_second_level(m.group(1))
-        if d:
-            hosts.add(d)
+    if not raw.strip():
+        return []
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        logging.warning("domain_discover netlog is not valid JSON; ignoring")
+        return []
+    if not isinstance(data, dict):
+        return []
+    events = data.get("events")
+    if not isinstance(events, list):
+        return []
+    url_keys = ("url", "url_before_redirect")
+    for ev in events:
+        if not isinstance(ev, dict):
+            continue
+        params = ev.get("params")
+        if not isinstance(params, dict):
+            continue
+        for key in url_keys:
+            host = _host_from_http_url(params.get(key))
+            if not host:
+                continue
+            d = _to_second_level(host)
+            if d:
+                hosts.add(d)
     return sorted(hosts)
+
+
+def _rm_tree(path):
+    if not path or not os.path.isdir(path):
+        return
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            try:
+                os.unlink(os.path.join(root, name))
+            except OSError:
+                pass
+        for name in dirs:
+            try:
+                os.rmdir(os.path.join(root, name))
+            except OSError:
+                pass
+    try:
+        os.rmdir(path)
+    except OSError:
+        pass
 
 
 def run_domain_discover(filename):
@@ -414,13 +515,12 @@ def run_domain_discover(filename):
             os.unlink(DISCOVER_NETLOG)
         except OSError:
             pass
+        _rm_tree(DISCOVER_CHROME_PROFILE)
+        os.makedirs(DISCOVER_CHROME_PROFILE, mode=0o700, exist_ok=True)
         cmd = [
             chrome,
-            "--headless=new",
-            "--no-sandbox",
-            "--disable-gpu",
-            "--disable-dev-shm-usage",
-            "--hide-scrollbars",
+            *CHROME_DISCOVER_FLAGS,
+            "--user-data-dir=" + DISCOVER_CHROME_PROFILE,
             "--log-net-log=" + DISCOVER_NETLOG,
             "--net-log-capture-mode=Default",
             "--virtual-time-budget=15000",
@@ -440,6 +540,7 @@ def run_domain_discover(filename):
             os.unlink(DISCOVER_NETLOG)
         except OSError:
             pass
+        _rm_tree(DISCOVER_CHROME_PROFILE)
         logging.info("domain_discover url=%s hosts=%s", url, len(hosts))
         return "\n".join(hosts)
     finally:
@@ -447,7 +548,7 @@ def run_domain_discover(filename):
             os.unlink(DISCOVER_LOCK)
         except OSError:
             pass
-
+        _rm_tree(DISCOVER_CHROME_PROFILE)
 
 def _ldap_uri(host, port, use_ssl):
     if not HOST_RE.fullmatch(host):
