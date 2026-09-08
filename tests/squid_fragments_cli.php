@@ -93,6 +93,35 @@ expect(strpos($peers, 'name=up1') !== false, 'peer name=');
 expect(strpos($peers, 'cache_peer_access up1 allow office') !== false, 'peer access');
 expect(strpos($peers, 'never_direct allow office') !== false, 'never_direct');
 
+// proxy_auth never_direct must emit AFTER src never_direct (Squid AUTH_REQUIRED footgun)
+$bOrder = (new SquidConfigBuilder())->loadFromArray([
+    'acls' => [
+        ['name' => 'LinuxToMBProxy', 'type' => 'src', 'storage' => 'inline', 'entries' => json_encode(['10.0.0.25/32'])],
+        ['name' => 'ad_proxy_mb_policy', 'type' => 'proxy_auth', 'storage' => 'file', 'entries' => '[]'],
+        ['name' => 'Internal_Network', 'type' => 'dst', 'storage' => 'inline', 'entries' => json_encode(['172.16.0.0/12'])],
+    ],
+    'http_access' => [],
+    'peers' => [
+        ['hostname' => '172.26.17.201', 'peer_type' => 'parent', 'http_port' => 3128, 'icp_port' => 0, 'name' => 'MBhproxy', 'status' => 'active', 'options' => ''],
+    ],
+    'peer_access' => [],
+    'routing' => [
+        // DB order: auth first (bad), src second — builder must reorder
+        ['directive' => 'never_direct', 'action' => 'allow', 'acl_name' => 'ad_proxy_mb_policy', 'negated' => 0, 'sort_order' => 1],
+        ['directive' => 'never_direct', 'action' => 'allow', 'acl_name' => 'LinuxToMBProxy', 'negated' => 0, 'sort_order' => 2],
+        ['directive' => 'always_direct', 'action' => 'allow', 'acl_name' => 'Internal_Network', 'negated' => 0, 'sort_order' => 3],
+    ],
+    'auth' => [],
+    'ext_acl' => [],
+    'globals' => ['http_port' => '3128'],
+]);
+$peersOrder = $bOrder->fragmentPeers();
+$posSrc = strpos($peersOrder, 'never_direct allow LinuxToMBProxy');
+$posAuth = strpos($peersOrder, 'never_direct allow ad_proxy_mb_policy');
+$posAlways = strpos($peersOrder, 'always_direct allow Internal_Network');
+expect($posSrc !== false && $posAuth !== false && $posSrc < $posAuth, 'never_direct src before proxy_auth');
+expect($posAlways !== false && $posSrc < $posAlways && $posAlways < $posAuth, 'always_direct between fast and auth never_direct');
+
 $out = $b->generate();
 $auth = strpos($out, 'auth_param negotiate program');
 $port = strpos($out, 'http_port 3128');

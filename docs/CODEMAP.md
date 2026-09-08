@@ -1,6 +1,6 @@
 # CODEMAP — карта репозитория SPM
 
-Обновлено: 2026-09-07, 13:30 МСК.  
+Обновлено: 2026-09-08, 16:46 МСК.  
 Назначение: ориентир для агента **до** широкого grep. Не замена коду и ADR.
 
 **Правило:** перед каждым `git push` — сверить и при необходимости обновить этот файл (новые маршруты, сервисы, spmd-команды, ADR).
@@ -62,6 +62,7 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 - `extra_conf` — unmanaged (`cache*`, ssl_bump, …) + при флаге managed cache-off (ADR 0008).
 - Большие списки сайтов — файл `acl.d`, не тысячи строк в SQLite/conf.
 - Каскад: пиры по `name=`. Edit правила маршрута — пока Delete+Add (deferred).
+- **never_direct emit:** builder ставит правила **без** `proxy_auth` выше `proxy_auth` (и `always_direct` между ними). Иначе Squid `ACCESS_AUTH_REQUIRED` и src-ACL ниже не работают → `HIER_DIRECT`.
 
 Ключевые файлы: `SquidConfigBuilder`, `SquidPolicyApply`, `SquidLiveApply`, `SquidConfigParser` (импорт).
 

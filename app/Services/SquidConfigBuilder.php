@@ -133,10 +133,11 @@ class SquidConfigBuilder {
                 $lines[] = 'cache_peer_access ' . $peerRef . ' ' . $rule['action'] . ' ' . $acls;
             }
         }
-        $routing = $this->config['routing'] ?? [];
+        $routing = $this->orderedRoutingRules();
         if (!empty($routing)) {
             $lines[] = '';
             $lines[] = '# never_direct / always_direct';
+            // proxy_auth in never_direct before src/dst → ACCESS_AUTH_REQUIRED; later rules skipped (HIER_DIRECT).
             foreach ($routing as $rule) {
                 $acl = $rule['acl_name'] ?? '';
                 if (($rule['negated'] ?? 0) && strpos($acl, ' ') === false && strpos($acl, '!') !== 0) {
@@ -151,6 +152,57 @@ class SquidConfigBuilder {
         }
         $lines[] = '';
         return implode("\n", $lines);
+    }
+
+    /**
+     * Emit order: never_direct without proxy_auth → always_direct → never_direct with proxy_auth.
+     * Squid never_direct checklist stops at AUTH_REQUIRED; src ACLs below a proxy_auth allow never run.
+     */
+    private function orderedRoutingRules() {
+        $neverFast = [];
+        $neverAuth = [];
+        $always = [];
+        foreach ($this->config['routing'] ?? [] as $rule) {
+            $dir = $rule['directive'] ?? '';
+            if ($dir === 'always_direct') {
+                $always[] = $rule;
+                continue;
+            }
+            if ($dir !== 'never_direct') {
+                continue;
+            }
+            if ($this->routingAclUsesProxyAuth((string)($rule['acl_name'] ?? ''))) {
+                $neverAuth[] = $rule;
+            } else {
+                $neverFast[] = $rule;
+            }
+        }
+        return array_merge($neverFast, $always, $neverAuth);
+    }
+
+    private function routingAclUsesProxyAuth($aclEntries) {
+        static $authTypes = ['proxy_auth' => true, 'proxy_auth_regex' => true];
+        $byName = [];
+        foreach ($this->config['acls'] ?? [] as $acl) {
+            $n = (string)($acl['name'] ?? '');
+            if ($n !== '') {
+                $byName[$n] = (string)($acl['type'] ?? '');
+            }
+        }
+        foreach (preg_split('/\s+/', trim((string)$aclEntries)) as $tok) {
+            $tok = ltrim((string)$tok, '!');
+            if ($tok === '') {
+                continue;
+            }
+            $type = $byName[$tok] ?? '';
+            if (isset($authTypes[$type])) {
+                return true;
+            }
+            if ($tok === 'authenticated_user') {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function fragmentHttpAccess() {
