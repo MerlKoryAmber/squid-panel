@@ -1,8 +1,8 @@
 # Отложенное (backlog)
 
-Обновлено: 2026-09-07, 18:50 МСК.  
+Обновлено: 2026-09-08, 18:55 МСК.  
 Не делать без явной команды Merl.  
-Актуальный handoff: `docs/agent_reports/handoff/2026-09-07-evening.md`.
+Актуальный handoff: `docs/agent_reports/handoff/2026-09-08.md`.
 
 ## Domain discover (headless)
 
