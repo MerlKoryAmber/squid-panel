@@ -363,6 +363,11 @@ class SquidConfigBuilder {
         foreach ($this->orderedRequestHeaderAccessLines() as $hdr) {
             $lines[] = 'request_header_access ' . $hdr;
         }
+        foreach ($this->peersForwardingClientIp() as $peer) {
+            // deny all strips XFF; re-inject client IP only toward flagged peers.
+            // %>a = client IP. peername ACL; acl name has no '-' (Squid token-safe).
+            $lines[] = 'request_header_add X-Forwarded-For %>a ' . $peer['xff_acl'];
+        }
         $lines[] = '';
         return implode("\n", $lines);
     }
@@ -392,16 +397,19 @@ class SquidConfigBuilder {
                 continue;
             }
             $seen[$peerName] = true;
+            // ACL names: [A-Za-z0-9_.] only — hyphen in "MBhproxy-IP" breaks acl token parse.
+            $aclSafe = preg_replace('/[^A-Za-z0-9._]/', '_', $peerName);
             $out[] = [
                 'peer_name' => $peerName,
-                'xff_acl' => 'spm_xff_' . $peerName,
+                'xff_acl' => 'spm_xff_' . $aclSafe,
             ];
         }
         return $out;
     }
 
     /**
-     * Settings request_header_access + per-peer XFF allows (fail-closed deny all after).
+     * Settings request_header_access. Per-peer XFF uses request_header_add (not allow),
+     * because allow+peername often fails to keep forwarded_for; deny all stays fail-closed.
      * @return list<string>
      */
     private function orderedRequestHeaderAccessLines() {
@@ -418,21 +426,18 @@ class SquidConfigBuilder {
             return $settings;
         }
         $out = [];
-        foreach ($xffPeers as $peer) {
-            $out[] = 'X-Forwarded-For allow ' . $peer['xff_acl'];
-        }
         $haveXffDenyAll = false;
         foreach ($settings as $hdr) {
             if (preg_match('/^X-Forwarded-For\s+deny\s+all$/i', $hdr)) {
                 $haveXffDenyAll = true;
                 continue;
             }
-            // Drop duplicate allows for our managed peer ACLs if someone pasted them in Settings.
-            if (preg_match('/^X-Forwarded-For\s+allow\s+spm_xff_[A-Za-z0-9._-]+$/i', $hdr)) {
+            if (preg_match('/^X-Forwarded-For\s+allow\s+spm_xff_[A-Za-z0-9._]+$/i', $hdr)) {
                 continue;
             }
             $out[] = $hdr;
         }
+        // Always deny XFF by default when any peer opts in; add re-injects per peer.
         if ($haveXffDenyAll || !empty($xffPeers)) {
             $out[] = 'X-Forwarded-For deny all';
         }

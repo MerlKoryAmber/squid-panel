@@ -36,6 +36,7 @@ $b = (new SquidConfigBuilder())->loadFromArray([
     'peers' => [
         ['hostname' => 'up.example', 'peer_type' => 'parent', 'http_port' => 8080, 'icp_port' => 0, 'name' => 'up1', 'status' => 'active', 'options' => ''],
         ['hostname' => '172.26.17.201', 'peer_type' => 'parent', 'http_port' => 3128, 'icp_port' => 0, 'name' => 'MBhproxy', 'status' => 'active', 'options' => '', 'forward_client_ip' => 1],
+        ['hostname' => '172.26.17.201', 'peer_type' => 'parent', 'http_port' => 3128, 'icp_port' => 0, 'name' => 'MBhproxy-IP', 'status' => 'active', 'options' => '', 'forward_client_ip' => 1],
     ],
     'peer_access' => [
         ['peer_name' => 'up1', 'hostname' => 'up.example', 'acl_entries' => 'office', 'acl_name' => 'office', 'action' => 'allow'],
@@ -133,9 +134,14 @@ expect(strpos($out, 'ext_kerberos_ldap_group_acl') === false, 'no kerberos ldap 
 expect(strpos($out, 'SecretPass') === false, 'no SecretPass in generate()');
 expect($ad !== false && $auth !== false && $ad > $auth, 'ad proxy_auth -i after auth');
 expect(strpos($out, 'acl spm_xff_MBhproxy peername MBhproxy') !== false, 'xff peername acl');
-$posXffAllow = strpos($out, 'request_header_access X-Forwarded-For allow spm_xff_MBhproxy');
+expect(strpos($out, 'acl spm_xff_MBhproxy_IP peername MBhproxy-IP') !== false, 'xff acl name sanitizes hyphen');
 $posXffDeny = strpos($out, 'request_header_access X-Forwarded-For deny all');
-expect($posXffAllow !== false && $posXffDeny !== false && $posXffAllow < $posXffDeny, 'xff allow before deny all');
+$posXffAdd = strpos($out, 'request_header_add X-Forwarded-For %>a spm_xff_MBhproxy');
+$posXffAddIp = strpos($out, 'request_header_add X-Forwarded-For %>a spm_xff_MBhproxy_IP');
+expect($posXffDeny !== false && $posXffAdd !== false && $posXffDeny < $posXffAdd, 'xff deny then header_add');
+expect($posXffAddIp !== false && $posXffDeny < $posXffAddIp, 'xff header_add for hyphen peer');
+expect(strpos($out, 'request_header_access X-Forwarded-For allow spm_xff_') === false, 'no xff allow peername');
+expect(strpos($out, 'acl spm_xff_MBhproxy-IP ') === false, 'no hyphen inside acl name');
 expect(strpos($out, 'cache_mem 0') !== false, 'cache_mem extra kept');
 expect(strpos($out, 'coredump_dir /var/spool/squid') !== false, 'coredump_dir');
 expect(strpos($out, 'request_header_access X-Forwarded-For deny all') !== false, 'request_header_access');
