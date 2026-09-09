@@ -24,6 +24,19 @@ need_root() {
     fi
 }
 
+# update.sh removes /opt/squid-panel — never run update from a dead cwd.
+ensure_valid_cwd() {
+    if ! pwd >/dev/null 2>&1; then
+        cd /tmp 2>/dev/null || cd / || true
+    fi
+}
+
+run_update_sh() {
+    ensure_valid_cwd
+    cd /tmp 2>/dev/null || cd / || true
+    env SPM_UPDATE_CWD=/tmp bash "$UPDATE_SH" "$@"
+}
+
 confirm() {
     local prompt="${1:-Continue?}"
     local def="${2:-n}"
@@ -105,7 +118,7 @@ cmd_update_keep() {
         echo "Cancelled."
         return 0
     fi
-    bash "$UPDATE_SH" --keep-db
+    run_update_sh --keep-db
 }
 
 cmd_update_drop() {
@@ -122,7 +135,7 @@ cmd_update_drop() {
         echo "Cancelled."
         return 0
     fi
-    bash "$UPDATE_SH" --drop-db
+    run_update_sh --drop-db
 }
 
 cmd_uninstall() {
@@ -262,6 +275,7 @@ run_menu() {
 }
 
 need_root
+ensure_valid_cwd
 
 case "${1:-}" in
     "") run_menu ;;

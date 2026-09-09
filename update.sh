@@ -15,6 +15,15 @@ CLONE_DIR="/opt/squid-panel"
 CLONE_NEW="/opt/squid-panel.new"
 SELF="/opt/update.sh"
 
+# If cwd was deleted (common: launch from /opt/squid-panel), getcwd/git break under set -e.
+if ! pwd >/dev/null 2>&1; then
+    cd /tmp 2>/dev/null || cd / || true
+fi
+
+safe_pwd() {
+    pwd -P 2>/dev/null || pwd 2>/dev/null || echo /tmp
+}
+
 drop_db=""
 
 for arg in "$@"; do
@@ -68,10 +77,10 @@ if [ "$1" != "--continue" ]; then
     # Non-root: escalate, then cd back in THIS shell only if sourced/function.
     # Plain "bash /opt/update.sh" is a child — parent cwd still stale after rm -rf.
     if [ "$EUID" -ne 0 ]; then
-        _spm_cwd=$(pwd -P 2>/dev/null || pwd)
+        _spm_cwd=$(safe_pwd)
         sudo env SPM_UPDATE_CWD="$_spm_cwd" bash "$SELF" "$@"
         _ec=$?
-        cd "$_spm_cwd" 2>/dev/null || cd "$_spm_cwd" 2>/dev/null || true
+        cd "$_spm_cwd" 2>/dev/null || cd /tmp 2>/dev/null || true
         exit $_ec
     fi
 
@@ -91,11 +100,19 @@ if [ "$1" != "--continue" ]; then
 
     # Remember launch cwd across exec --continue (and after clone dir swap).
     if [ -z "${SPM_UPDATE_CWD:-}" ]; then
-        SPM_UPDATE_CWD=$(pwd -P 2>/dev/null || pwd)
+        SPM_UPDATE_CWD=$(safe_pwd)
+    fi
+    # Stale path string (deleted inode) → fall back so later cd does not matter.
+    if ! cd "$SPM_UPDATE_CWD" 2>/dev/null; then
+        SPM_UPDATE_CWD=/tmp
+        cd /tmp 2>/dev/null || cd / || true
     fi
     export SPM_UPDATE_CWD
     printf '%s\n' "$SPM_UPDATE_CWD" > /run/spm-update-cwd
     chmod 644 /run/spm-update-cwd 2>/dev/null || true
+
+    # Always clone from a valid cwd (not a removed /opt/squid-panel).
+    cd /tmp 2>/dev/null || cd / || true
 
     echo "[1/4] Cloning $REPO_URL (live panel stays until install starts)..."
     rm -rf "$CLONE_NEW"
@@ -128,10 +145,15 @@ cat > /etc/profile.d/spm-update.sh <<'EOF'
 # SPM: restore cwd after update (same shell). Usage: spm-update --keep-db
 spm-update() {
     local d ec
-    d=$(pwd -P 2>/dev/null || pwd)
+    d=$(pwd -P 2>/dev/null || pwd 2>/dev/null || echo /tmp)
+    if ! cd "$d" 2>/dev/null; then
+        d=/tmp
+        cd /tmp 2>/dev/null || true
+    fi
+    cd /tmp 2>/dev/null || true
     sudo env SPM_UPDATE_CWD="$d" bash /opt/update.sh "$@"
     ec=$?
-    cd "$d" 2>/dev/null || cd "$d" 2>/dev/null || true
+    cd "$d" 2>/dev/null || cd /tmp 2>/dev/null || true
     return $ec
 }
 EOF

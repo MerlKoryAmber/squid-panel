@@ -12,7 +12,7 @@
 - **Нет** restart Squid в меню
 - Переносимая идея: `docs/patterns/cli-menu-linux.md`
 
-## Hotfix 2026-09-09 ~17:50 МСК
+## Hotfix 2026-09-09 ~18:05 МСК
 
-Root PATH без `/usr/local/bin` → `spm: command not found` после install.
-Стало: ставить в **`/usr/bin/spm`** (+ local).
+Update из меню при cwd=`/opt/squid-panel` (каталог сносится) → `getcwd` + `set -e` рвал `update.sh` после «KEEP».
+Стало: `spm`/`update.sh` уходят в `/tmp` до clone; `safe_pwd` не валит скрипт.
