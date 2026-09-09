@@ -108,6 +108,9 @@ if [ "$1" != "--continue" ]; then
         exit 1
     fi
     chmod 755 "$CLONE_NEW/install.sh" "$CLONE_NEW/uninstall.sh" "$CLONE_NEW/update.sh"
+    if [ -f "$CLONE_NEW/spm.sh" ]; then
+        chmod 755 "$CLONE_NEW/spm.sh"
+    fi
     exec env SPM_UPDATE_CWD="$SPM_UPDATE_CWD" /bin/bash "$CLONE_NEW/update.sh" --continue "$cont_flag"
 fi
 

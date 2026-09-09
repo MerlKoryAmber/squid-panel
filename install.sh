@@ -352,6 +352,12 @@ systemctl enable spmd
 systemctl enable --now spm-ad-group-sync.timer 2>/dev/null || echo "WARNING: ad-group-sync timer not enabled"
 systemctl restart spmd || echo "WARNING: spmd failed to start, sudo fallback will be used"
 
+if [ -f "$SPM_DIR/spm.sh" ]; then
+    chmod 755 "$SPM_DIR/spm.sh"
+    install -m 755 "$SPM_DIR/spm.sh" /usr/local/bin/spm
+    echo "CLI menu installed: /usr/local/bin/spm"
+fi
+
 cp "$SPM_DIR/agent/sudoers.spm" /etc/sudoers.d/spm
 chmod 440 /etc/sudoers.d/spm
 if ! visudo -c -f /etc/sudoers.d/spm &>/dev/null; then
@@ -517,5 +523,9 @@ echo "  ${SQUID_CONF}.spm-install-${TS}"
 echo "  ${SQUID_CONF}.spm-lab-baseline  (lab rollback, if copied)"
 echo ""
 echo "To uninstall the panel only (Squid stays):"
-echo "  $SPM_DIR/uninstall.sh"
+echo "  spm uninstall"
+echo "  # or: $SPM_DIR/uninstall.sh"
+echo ""
+echo "CLI menu:"
+echo "  spm"
 echo ""

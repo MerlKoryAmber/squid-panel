@@ -22,10 +22,10 @@
 | Лаба | `root@192.168.0.178`, UI `https://192.168.0.178:8443/` |
 
 Выкладка:
-- **Тест/прод:** `spm-update --keep-db` (функция из `/etc/profile.d/spm-update.sh` — вернёт cwd) или `sudo bash /opt/update.sh --keep-db` (cwd родителя не вернёт). Без `--keep-db` — сносит `spm.db`.
+- **Тест/прод:** `spm` (меню) или `spm update` / `spm-update --keep-db` / `sudo bash /opt/update.sh --keep-db`. Без `--keep-db` / `spm update-drop` — сносит `spm.db`.
 - **Лаба:** tar/scp в `/opt/spm` ок для быстрой проверки → человек смотрит → commit → push отдельно.
 - `systemctl restart squid` — только по явной команде. После `spmd.py`: `systemctl restart spmd`.
-
+- **CLI меню:** `/usr/local/bin/spm` ← `spm.sh` (install/update). Пункты: update, uninstall, password, status, restart spmd/web, backup, URL. Squid restart — не в меню.
 ---
 
 ## Дерево (важное)
@@ -41,7 +41,7 @@ docs/adr/                 # архитектурные решения
 docs/agent_reports/       # handoff, deferred, отчёты
 docs/CODEMAP.md           # этот файл
 CLAUDE.md                 # метод работы (выше дефолта Cursor)
-install.sh / update.sh    # установка / переустановка; deps + chromium (ADR 0009)
+install.sh / update.sh / spm.sh   # установка / переустановка / CLI-меню (s-ui style)
 tests/*_cli.php           # точечные CLI-тесты
 ```
 
