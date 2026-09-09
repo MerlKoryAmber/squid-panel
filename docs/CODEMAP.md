@@ -38,12 +38,15 @@ app/Core/                 # Database, Auth, View, Router, Audit
 agent/spmd.py             # whitelist привилегированных команд
 views/                    # PHP templates (layout.php = меню)
 docs/adr/                 # архитектурные решения
+docs/patterns/            # переносимые идеи (не ADR): cli-menu-linux.md
 docs/agent_reports/       # handoff, deferred, отчёты
 docs/CODEMAP.md           # этот файл
 CLAUDE.md                 # метод работы (выше дефолта Cursor)
-install.sh / update.sh / spm.sh   # установка / переустановка / CLI-меню (s-ui style)
+install.sh / update.sh / spm.sh   # установка / переустановка / CLI-меню
 tests/*_cli.php           # точечные CLI-тесты
 ```
+
+Паттерн CLI-меню для других репо: `docs/patterns/cli-menu-linux.md` (скопировать файл целиком).
 
 ---
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPM — interactive management CLI (s-ui style)
+# SPM — interactive management CLI
 # Install: /usr/bin/spm (+ /usr/local/bin/spm) from /opt/spm/spm.sh
 # Usage: spm | spm help | spm <command>
 
@@ -206,7 +206,7 @@ cmd_backup() {
 }
 
 show_usage() {
-    echo "SPM management (s-ui style)"
+    echo "SPM management CLI"
     echo ""
     echo "  spm                 Interactive menu"
     echo "  spm status          Service / db status"
