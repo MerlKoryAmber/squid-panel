@@ -115,6 +115,15 @@ $newPeer = !empty($newPeer);
                 <label>Options</label>
                 <input type="text" name="options" value="<?= htmlspecialchars($editPeer['options'] ?? '') ?>" placeholder="no-query proxy-only login=PASSTHRU" <?= $isAdmin ? '' : 'disabled' ?>>
             </div>
+            <div class="form-group">
+                <label style="display:flex; align-items:center; gap:8px; font-weight:normal;">
+                    <input type="checkbox" name="forward_client_ip" value="1" <?= !empty($editPeer['forward_client_ip']) ? 'checked' : '' ?> <?= $isAdmin ? '' : 'disabled' ?>>
+                    Forward client IP (X-Forwarded-For) to this peer only
+                </label>
+                <p style="color:var(--ir-text-muted); font-size:0.82rem; margin-top:6px;">
+                    Other peers and origin keep Settings <code>X-Forwarded-For deny all</code>. Parent must trust this proxy for XFF.
+                </p>
+            </div>
             <?php if ($isAdmin): ?>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary"><?= $newPeer ? 'Create peer' : 'Save peer' ?></button>

@@ -42,6 +42,7 @@ class Database {
     private static function ensureSchema() {
         self::addColumnIfMissing('cache_peers', 'name', "TEXT NOT NULL DEFAULT ''");
         self::addColumnIfMissing('cache_peers', 'status', "TEXT NOT NULL DEFAULT 'active'");
+        self::addColumnIfMissing('cache_peers', 'forward_client_ip', 'INTEGER NOT NULL DEFAULT 0');
         self::addColumnIfMissing('cache_peer_access_rules', 'updated_at', 'TEXT');
         self::addColumnIfMissing('cache_peer_access_rules', 'acl_entries', "TEXT NOT NULL DEFAULT ''");
         self::addColumnIfMissing('auth_config', 'principal', "TEXT DEFAULT ''");

@@ -61,6 +61,11 @@ class SquidConfigBuilder {
                 $lines[] = 'acl ' . $name . ' ' . $type . ' ' . $this->quoteAclToken((string)$val);
             }
         }
+        foreach ($this->peersForwardingClientIp() as $peer) {
+            $peerName = $peer['peer_name'];
+            $aclName = $peer['xff_acl'];
+            $lines[] = 'acl ' . $aclName . ' peername ' . $peerName;
+        }
         $lines[] = '';
         return implode("\n", $lines);
     }
@@ -355,11 +360,83 @@ class SquidConfigBuilder {
         if ($core !== '') {
             $lines[] = 'coredump_dir ' . $core;
         }
-        foreach (PanelNet::parseRequestHeaderAccessLines((string)($g['request_header_access'] ?? '')) as $hdr) {
+        foreach ($this->orderedRequestHeaderAccessLines() as $hdr) {
             $lines[] = 'request_header_access ' . $hdr;
         }
         $lines[] = '';
         return implode("\n", $lines);
+    }
+
+    /**
+     * Peers with forward_client_ip: emit X-Forwarded-For allow peername ACL before deny all.
+     * @return list<array{peer_name:string,xff_acl:string}>
+     */
+    private function peersForwardingClientIp() {
+        $out = [];
+        $seen = [];
+        foreach ($this->config['peers'] ?? [] as $peer) {
+            if (($peer['status'] ?? 'active') === 'disabled') {
+                continue;
+            }
+            if (empty($peer['forward_client_ip'])) {
+                continue;
+            }
+            $peerName = trim((string)($peer['name'] ?? ''));
+            if ($peerName === '') {
+                $peerName = trim((string)($peer['hostname'] ?? ''));
+            }
+            if ($peerName === '' || !preg_match('/^[A-Za-z0-9._-]+$/', $peerName)) {
+                continue;
+            }
+            if (isset($seen[$peerName])) {
+                continue;
+            }
+            $seen[$peerName] = true;
+            $out[] = [
+                'peer_name' => $peerName,
+                'xff_acl' => 'spm_xff_' . $peerName,
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Settings request_header_access + per-peer XFF allows (fail-closed deny all after).
+     * @return list<string>
+     */
+    private function orderedRequestHeaderAccessLines() {
+        $settings = [];
+        try {
+            $settings = PanelNet::parseRequestHeaderAccessLines(
+                (string)(($this->config['globals']['request_header_access'] ?? '') ?: '')
+            );
+        } catch (Exception $e) {
+            $settings = [];
+        }
+        $xffPeers = $this->peersForwardingClientIp();
+        if (empty($xffPeers)) {
+            return $settings;
+        }
+        $out = [];
+        foreach ($xffPeers as $peer) {
+            $out[] = 'X-Forwarded-For allow ' . $peer['xff_acl'];
+        }
+        $haveXffDenyAll = false;
+        foreach ($settings as $hdr) {
+            if (preg_match('/^X-Forwarded-For\s+deny\s+all$/i', $hdr)) {
+                $haveXffDenyAll = true;
+                continue;
+            }
+            // Drop duplicate allows for our managed peer ACLs if someone pasted them in Settings.
+            if (preg_match('/^X-Forwarded-For\s+allow\s+spm_xff_[A-Za-z0-9._-]+$/i', $hdr)) {
+                continue;
+            }
+            $out[] = $hdr;
+        }
+        if ($haveXffDenyAll || !empty($xffPeers)) {
+            $out[] = 'X-Forwarded-For deny all';
+        }
+        return $out;
     }
 
     public function fragmentExtra() {

@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS cache_peers (
     weight INTEGER DEFAULT 0,
     login TEXT DEFAULT '',
     connect_timeout INTEGER DEFAULT 0,
+    forward_client_ip INTEGER NOT NULL DEFAULT 0,
     access_acl TEXT DEFAULT '',
     options TEXT DEFAULT '',
     status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'disabled')),

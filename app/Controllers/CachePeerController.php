@@ -60,6 +60,7 @@ class CachePeerController {
                 'icp_port' => 0,
                 'options' => '',
                 'status' => 'active',
+                'forward_client_ip' => 0,
             ];
         } elseif ($editPeerId > 0) {
             $editPeer = Database::fetch("SELECT * FROM cache_peers WHERE id = ?", [$editPeerId]);
@@ -97,13 +98,14 @@ class CachePeerController {
             die('Hostname is required');
         }
         $id = Database::insert(
-            "INSERT INTO cache_peers (name, hostname, peer_type, http_port, icp_port, proxy_only, no_query, no_digest, weight, login, connect_timeout, options, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+            "INSERT INTO cache_peers (name, hostname, peer_type, http_port, icp_port, proxy_only, no_query, no_digest, weight, login, connect_timeout, forward_client_ip, options, status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
             [
                 $data['name'], $data['hostname'], $data['peer_type'],
                 $data['http_port'], $data['icp_port'],
                 $data['proxy_only'], $data['no_query'], $data['no_digest'],
                 $data['weight'], $data['login'], $data['connect_timeout'],
+                $data['forward_client_ip'],
                 $data['options'], $data['status'],
             ]
         );
@@ -128,12 +130,13 @@ class CachePeerController {
         }
         $data = self::peerFromPost($peer);
         Database::query(
-            "UPDATE cache_peers SET name=?, hostname=?, peer_type=?, http_port=?, icp_port=?, proxy_only=?, no_query=?, no_digest=?, weight=?, login=?, connect_timeout=?, options=?, status=?, updated_at=datetime('now') WHERE id=?",
+            "UPDATE cache_peers SET name=?, hostname=?, peer_type=?, http_port=?, icp_port=?, proxy_only=?, no_query=?, no_digest=?, weight=?, login=?, connect_timeout=?, forward_client_ip=?, options=?, status=?, updated_at=datetime('now') WHERE id=?",
             [
                 $data['name'], $data['hostname'], $data['peer_type'],
                 $data['http_port'], $data['icp_port'],
                 $data['proxy_only'], $data['no_query'], $data['no_digest'],
                 $data['weight'], $data['login'], $data['connect_timeout'],
+                $data['forward_client_ip'],
                 $data['options'], $data['status'],
                 $id
             ]
@@ -529,6 +532,7 @@ class CachePeerController {
         $icpPort = (int)($_POST['icp_port'] ?? $existing['icp_port'] ?? 0);
         $status = ($_POST['status'] ?? ($existing['status'] ?? 'active')) === 'disabled' ? 'disabled' : 'active';
         $parsed = self::parseOptionTokens($_POST['options'] ?? ($existing['options'] ?? ''));
+        $forwardClientIp = !empty($_POST['forward_client_ip']) ? 1 : 0;
         return [
             'name' => $name !== '' ? $name : $hostname,
             'hostname' => $hostname,
@@ -541,6 +545,7 @@ class CachePeerController {
             'weight' => $parsed['weight'],
             'login' => $parsed['login'],
             'connect_timeout' => $parsed['connect_timeout'],
+            'forward_client_ip' => $forwardClientIp,
             'options' => self::composeOptionsString($parsed + ['options' => implode(' ', $parsed['extra'])]),
             'status' => $status,
         ];

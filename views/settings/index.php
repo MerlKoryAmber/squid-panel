@@ -34,6 +34,7 @@
                 <p style="color:var(--ir-text-muted); font-size:0.82rem;">
                     Testhost: <code>X-Forwarded-For deny all</code> — Squid не шлёт этот заголовок на origin и parent.
                     Без него каскад часто ломается (upstream видит IP клиента).
+                    Исключение на один peer: Cascade → Edit peer → «Forward client IP».
                 </p>
                 <textarea name="request_header_access" rows="3" placeholder="X-Forwarded-For deny all"><?= htmlspecialchars((string)($globals['request_header_access'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></textarea>
             </div>

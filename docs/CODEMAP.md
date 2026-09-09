@@ -65,6 +65,7 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 - Большие списки сайтов — файл `acl.d`, не тысячи строк в SQLite/conf.
 - Каскад: пиры по `name=`. Edit правила маршрута — пока Delete+Add (deferred).
 - **never_direct emit:** builder ставит правила **без** `proxy_auth` выше `proxy_auth` (и `always_direct` между ними). Иначе Squid `ACCESS_AUTH_REQUIRED` и src-ACL ниже не работают → `HIER_DIRECT`.
+- **XFF per peer:** `cache_peers.forward_client_ip` → `acl spm_xff_* peername …` + `request_header_access X-Forwarded-For allow` **выше** Settings `deny all`.
 
 Ключевые файлы: `SquidConfigBuilder`, `SquidPolicyApply`, `SquidLiveApply`, `SquidConfigParser` (импорт).
 

@@ -35,6 +35,7 @@ $b = (new SquidConfigBuilder())->loadFromArray([
     ],
     'peers' => [
         ['hostname' => 'up.example', 'peer_type' => 'parent', 'http_port' => 8080, 'icp_port' => 0, 'name' => 'up1', 'status' => 'active', 'options' => ''],
+        ['hostname' => '172.26.17.201', 'peer_type' => 'parent', 'http_port' => 3128, 'icp_port' => 0, 'name' => 'MBhproxy', 'status' => 'active', 'options' => '', 'forward_client_ip' => 1],
     ],
     'peer_access' => [
         ['peer_name' => 'up1', 'hostname' => 'up.example', 'acl_entries' => 'office', 'acl_name' => 'office', 'action' => 'allow'],
@@ -131,6 +132,10 @@ expect(strpos($out, 'auth_param negotiate realm') === false, 'negotiate realm no
 expect(strpos($out, 'ext_kerberos_ldap_group_acl') === false, 'no kerberos ldap group in full conf');
 expect(strpos($out, 'SecretPass') === false, 'no SecretPass in generate()');
 expect($ad !== false && $auth !== false && $ad > $auth, 'ad proxy_auth -i after auth');
+expect(strpos($out, 'acl spm_xff_MBhproxy peername MBhproxy') !== false, 'xff peername acl');
+$posXffAllow = strpos($out, 'request_header_access X-Forwarded-For allow spm_xff_MBhproxy');
+$posXffDeny = strpos($out, 'request_header_access X-Forwarded-For deny all');
+expect($posXffAllow !== false && $posXffDeny !== false && $posXffAllow < $posXffDeny, 'xff allow before deny all');
 expect(strpos($out, 'cache_mem 0') !== false, 'cache_mem extra kept');
 expect(strpos($out, 'coredump_dir /var/spool/squid') !== false, 'coredump_dir');
 expect(strpos($out, 'request_header_access X-Forwarded-For deny all') !== false, 'request_header_access');
