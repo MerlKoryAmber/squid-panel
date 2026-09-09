@@ -61,11 +61,6 @@ class SquidConfigBuilder {
                 $lines[] = 'acl ' . $name . ' ' . $type . ' ' . $this->quoteAclToken((string)$val);
             }
         }
-        foreach ($this->peersForwardingClientIp() as $peer) {
-            $peerName = $peer['peer_name'];
-            $aclName = $peer['xff_acl'];
-            $lines[] = 'acl ' . $aclName . ' peername ' . $peerName;
-        }
         $lines[] = '';
         return implode("\n", $lines);
     }
@@ -363,18 +358,16 @@ class SquidConfigBuilder {
         foreach ($this->orderedRequestHeaderAccessLines() as $hdr) {
             $lines[] = 'request_header_access ' . $hdr;
         }
-        foreach ($this->peersForwardingClientIp() as $peer) {
-            // deny all strips XFF; re-inject client IP only toward flagged peers.
-            // %>a = client IP. peername ACL; acl name has no '-' (Squid token-safe).
-            $lines[] = 'request_header_add X-Forwarded-For %>a ' . $peer['xff_acl'];
+        foreach ($this->xffRequestHeaderAddLines() as $addLine) {
+            $lines[] = $addLine;
         }
         $lines[] = '';
         return implode("\n", $lines);
     }
 
     /**
-     * Peers with forward_client_ip: emit X-Forwarded-For allow peername ACL before deny all.
-     * @return list<array{peer_name:string,xff_acl:string}>
+     * Peers with forward_client_ip=1 (active, named).
+     * @return list<array{peer_name:string}>
      */
     private function peersForwardingClientIp() {
         $out = [];
@@ -397,19 +390,55 @@ class SquidConfigBuilder {
                 continue;
             }
             $seen[$peerName] = true;
-            // ACL names: [A-Za-z0-9_.] only — hyphen in "MBhproxy-IP" breaks acl token parse.
-            $aclSafe = preg_replace('/[^A-Za-z0-9._]/', '_', $peerName);
-            $out[] = [
-                'peer_name' => $peerName,
-                'xff_acl' => 'spm_xff_' . $aclSafe,
-            ];
+            $out[] = ['peer_name' => $peerName];
         }
         return $out;
     }
 
     /**
-     * Settings request_header_access. Per-peer XFF uses request_header_add (not allow),
-     * because allow+peername often fails to keep forwarded_for; deny all stays fail-closed.
+     * XFF: deny all (Settings), then re-add client IP for traffic allowed to flagged peers.
+     * peername ACL is unreliable in request_header_* on some Squid builds — use cache_peer_access
+     * allow ACL lists (src / proxy_auth) instead.
+     * @return list<string> full directive lines
+     */
+    private function xffRequestHeaderAddLines() {
+        $xffPeers = [];
+        foreach ($this->peersForwardingClientIp() as $p) {
+            $xffPeers[$p['peer_name']] = true;
+        }
+        if (empty($xffPeers)) {
+            return [];
+        }
+        $lines = [];
+        $seen = [];
+        foreach ($this->config['peer_access'] ?? [] as $rule) {
+            if (strtolower(trim((string)($rule['action'] ?? ''))) !== 'allow') {
+                continue;
+            }
+            $peerRef = trim((string)($rule['peer_name'] ?? ''));
+            if ($peerRef === '') {
+                $peerRef = trim((string)($rule['hostname'] ?? $rule['peer_host'] ?? ''));
+            }
+            if ($peerRef === '' || empty($xffPeers[$peerRef])) {
+                continue;
+            }
+            $acls = trim((string)(($rule['acl_entries'] ?? '') !== '' ? $rule['acl_entries'] : ($rule['acl_name'] ?? '')));
+            if ($acls === '' || !preg_match('/^[A-Za-z0-9._!*\s-]+$/', $acls)) {
+                continue;
+            }
+            // Squid macros need a quoted value; %>a = client IP.
+            $line = 'request_header_add X-Forwarded-For "%>a" ' . $acls;
+            if (isset($seen[$line])) {
+                continue;
+            }
+            $seen[$line] = true;
+            $lines[] = $line;
+        }
+        return $lines;
+    }
+
+    /**
+     * Settings request_header_access; ensure X-Forwarded-For deny all when any peer opts into XFF.
      * @return list<string>
      */
     private function orderedRequestHeaderAccessLines() {
@@ -421,8 +450,8 @@ class SquidConfigBuilder {
         } catch (Exception $e) {
             $settings = [];
         }
-        $xffPeers = $this->peersForwardingClientIp();
-        if (empty($xffPeers)) {
+        $wantXff = !empty($this->peersForwardingClientIp());
+        if (!$wantXff) {
             return $settings;
         }
         $out = [];
@@ -432,13 +461,12 @@ class SquidConfigBuilder {
                 $haveXffDenyAll = true;
                 continue;
             }
-            if (preg_match('/^X-Forwarded-For\s+allow\s+spm_xff_[A-Za-z0-9._]+$/i', $hdr)) {
+            if (preg_match('/^X-Forwarded-For\s+allow\s+spm_xff_/i', $hdr)) {
                 continue;
             }
             $out[] = $hdr;
         }
-        // Always deny XFF by default when any peer opts in; add re-injects per peer.
-        if ($haveXffDenyAll || !empty($xffPeers)) {
+        if ($haveXffDenyAll || $wantXff) {
             $out[] = 'X-Forwarded-For deny all';
         }
         return $out;
