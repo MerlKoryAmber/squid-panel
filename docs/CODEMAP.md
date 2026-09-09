@@ -25,7 +25,7 @@
 - **Тест/прод:** `spm` (меню) или `spm update` / `spm-update --keep-db` / `sudo bash /opt/update.sh --keep-db`. Без `--keep-db` / `spm update-drop` — сносит `spm.db`.
 - **Лаба:** tar/scp в `/opt/spm` ок для быстрой проверки → человек смотрит → commit → push отдельно.
 - `systemctl restart squid` — только по явной команде. После `spmd.py`: `systemctl restart spmd`.
-- **CLI меню:** `/usr/local/bin/spm` ← `spm.sh` (install/update). Пункты: update, uninstall, password, status, restart spmd/web, backup, URL. Squid restart — не в меню.
+- **CLI меню:** `/usr/bin/spm` (+ `/usr/local/bin/spm`) ← `spm.sh`. Пункты: update, uninstall, password, status, restart spmd/web, backup, URL. Squid restart — не в меню.
 ---
 
 ## Дерево (важное)

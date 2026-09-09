@@ -11,10 +11,7 @@
 - v1: update (keep/drop), uninstall, password, status, restart spmd/web, backup, URL
 - **Нет** restart Squid в меню
 
-## Проверка
+## Hotfix 2026-09-09 ~17:50 МСК
 
-```bash
-sudo bash /opt/update.sh --keep-db
-spm
-# или: spm status | spm backup | spm help
-```
+Root PATH без `/usr/local/bin` → `spm: command not found` после install.
+Стало: ставить в **`/usr/bin/spm`** (+ local).

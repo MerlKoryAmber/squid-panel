@@ -124,7 +124,7 @@ if [ -d "$CLONE_DIR" ]; then
 fi
 
 echo "[8/8] Removing panel files..."
-rm -f /usr/local/bin/spm
+rm -f /usr/bin/spm /usr/local/bin/spm
 rm -f /etc/profile.d/spm-update.sh
 if [ -d "$SPM_DIR" ]; then
     rm -rf "$SPM_DIR"
@@ -154,5 +154,5 @@ echo "  - /etc/squid/*.keytab (not /etc/krb5.keytab)"
 echo "  - ${SQUID_CONF}.spm-install-*  ${SQUID_CONF}.spm-listen-*  ${SQUID_CONF}.spm-policy-*"
 echo "  - SELinux fcontext rules added for $SPM_DIR (harmless if dir is gone)"
 echo "  - /opt/update.sh (if you copied it there)"
-echo "  - /usr/local/bin/spm (removed if present)"
+echo "  - /usr/bin/spm /usr/local/bin/spm (removed if present)"
 echo ""

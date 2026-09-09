@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPM — interactive management CLI (s-ui style)
-# Install: /usr/local/bin/spm → /opt/spm/spm.sh
+# Install: /usr/bin/spm (+ /usr/local/bin/spm) from /opt/spm/spm.sh
 # Usage: spm | spm help | spm <command>
 
 SPM_DIR="/opt/spm"

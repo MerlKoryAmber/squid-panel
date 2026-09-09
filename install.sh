@@ -354,8 +354,12 @@ systemctl restart spmd || echo "WARNING: spmd failed to start, sudo fallback wil
 
 if [ -f "$SPM_DIR/spm.sh" ]; then
     chmod 755 "$SPM_DIR/spm.sh"
-    install -m 755 "$SPM_DIR/spm.sh" /usr/local/bin/spm
-    echo "CLI menu installed: /usr/local/bin/spm"
+    # /usr/bin — always on root PATH; /usr/local/bin sometimes missing (secure_path).
+    install -m 755 "$SPM_DIR/spm.sh" /usr/bin/spm
+    install -m 755 "$SPM_DIR/spm.sh" /usr/local/bin/spm 2>/dev/null || true
+    echo "CLI menu installed: /usr/bin/spm"
+else
+    echo "WARNING: $SPM_DIR/spm.sh missing — CLI menu not installed"
 fi
 
 cp "$SPM_DIR/agent/sudoers.spm" /etc/sudoers.d/spm
@@ -527,5 +531,5 @@ echo "  spm uninstall"
 echo "  # or: $SPM_DIR/uninstall.sh"
 echo ""
 echo "CLI menu:"
-echo "  spm"
+echo "  spm   (or /usr/bin/spm)"
 echo ""
