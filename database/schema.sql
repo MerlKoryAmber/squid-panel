@@ -185,6 +185,7 @@ CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     language TEXT DEFAULT 'ru',
     theme TEXT DEFAULT 'gold',
+    timezone TEXT NOT NULL DEFAULT 'Europe/Moscow',
     panel_allow_ips TEXT NOT NULL DEFAULT '',
     simple_ui_enabled INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT

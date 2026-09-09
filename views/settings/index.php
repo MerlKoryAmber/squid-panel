@@ -193,6 +193,20 @@
                         <option value="bronze" <?= $themeNow === 'bronze' ? 'selected' : '' ?>>Bronze</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label>Timezone</label>
+                    <select name="timezone">
+                        <?php
+                        $tzNow = PanelTimezone::normalize($settings['timezone'] ?? PanelTimezone::DEFAULT);
+                        foreach (PanelTimezone::choices() as $tzId => $tzLabel):
+                        ?>
+                        <option value="<?= htmlspecialchars($tzId, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>" <?= $tzNow === $tzId ? 'selected' : '' ?>><?= htmlspecialchars($tzLabel, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p style="color:var(--ir-text-muted); font-size:0.82rem; margin:0.35rem 0 0;">
+                        Panel UI only (Access Logs, audit). Squid <code>access.log</code> stays epoch; OS TZ unchanged.
+                    </p>
+                </div>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Save Settings</button>

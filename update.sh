@@ -65,10 +65,14 @@ if [ "$1" != "--continue" ]; then
     echo "squid.conf format after parse still runs in install.sh."
     echo ""
 
+    # Non-root: escalate, then cd back in THIS shell only if sourced/function.
+    # Plain "bash /opt/update.sh" is a child — parent cwd still stale after rm -rf.
     if [ "$EUID" -ne 0 ]; then
-        echo "ERROR: Please run as root"
-        echo "  sudo bash /opt/update.sh [--drop-db|--keep-db]"
-        exit 1
+        _spm_cwd=$(pwd -P 2>/dev/null || pwd)
+        sudo env SPM_UPDATE_CWD="$_spm_cwd" bash "$SELF" "$@"
+        _ec=$?
+        cd "$_spm_cwd" 2>/dev/null || cd "$_spm_cwd" 2>/dev/null || true
+        exit $_ec
     fi
 
     ask_drop_db
@@ -85,6 +89,14 @@ if [ "$1" != "--continue" ]; then
         dnf install -y git
     fi
 
+    # Remember launch cwd across exec --continue (and after clone dir swap).
+    if [ -z "${SPM_UPDATE_CWD:-}" ]; then
+        SPM_UPDATE_CWD=$(pwd -P 2>/dev/null || pwd)
+    fi
+    export SPM_UPDATE_CWD
+    printf '%s\n' "$SPM_UPDATE_CWD" > /run/spm-update-cwd
+    chmod 644 /run/spm-update-cwd 2>/dev/null || true
+
     echo "[1/4] Cloning $REPO_URL (live panel stays until install starts)..."
     rm -rf "$CLONE_NEW"
     GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch main "$REPO_URL" "$CLONE_NEW"
@@ -96,7 +108,7 @@ if [ "$1" != "--continue" ]; then
         exit 1
     fi
     chmod 755 "$CLONE_NEW/install.sh" "$CLONE_NEW/uninstall.sh" "$CLONE_NEW/update.sh"
-    exec /bin/bash "$CLONE_NEW/update.sh" --continue "$cont_flag"
+    exec env SPM_UPDATE_CWD="$SPM_UPDATE_CWD" /bin/bash "$CLONE_NEW/update.sh" --continue "$cont_flag"
 fi
 
 if [ "$EUID" -ne 0 ]; then
@@ -107,6 +119,20 @@ fi
 ask_drop_db
 
 install -m 700 "$CLONE_NEW/update.sh" "$SELF"
+
+# Interactive restore: function runs in caller's shell (sudo bash cannot).
+cat > /etc/profile.d/spm-update.sh <<'EOF'
+# SPM: restore cwd after update (same shell). Usage: spm-update --keep-db
+spm-update() {
+    local d ec
+    d=$(pwd -P 2>/dev/null || pwd)
+    sudo env SPM_UPDATE_CWD="$d" bash /opt/update.sh "$@"
+    ec=$?
+    cd "$d" 2>/dev/null || cd "$d" 2>/dev/null || true
+    return $ec
+}
+EOF
+chmod 644 /etc/profile.d/spm-update.sh
 
 echo "[2/4] Stopping panel agent (Squid stays up)..."
 systemctl stop spmd 2>/dev/null || true
@@ -122,4 +148,9 @@ export SPM_DROP_DB="$drop_db"
 if [ "$drop_db" = "0" ]; then
     export SPM_SKIP_ADMIN_PASSWORD=1
 fi
-exec ./install.sh
+./install.sh || _ec=$?
+_ec=${_ec:-0}
+if [ -n "${SPM_UPDATE_CWD:-}" ]; then
+    cd "$SPM_UPDATE_CWD" 2>/dev/null || cd "$SPM_UPDATE_CWD" 2>/dev/null || true
+fi
+exit $_ec

@@ -45,6 +45,7 @@ try {
 
 // Initialize database
 Database::init();
+PanelTimezone::apply();
 
 // Initialize router
 $router = new Router();

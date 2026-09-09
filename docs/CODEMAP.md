@@ -22,7 +22,7 @@
 | Лаба | `root@192.168.0.178`, UI `https://192.168.0.178:8443/` |
 
 Выкладка:
-- **Тест/прод:** `update.sh --keep-db` после push (не раскладывать файлы руками). Без `--keep-db` — сносит `spm.db`.
+- **Тест/прод:** `spm-update --keep-db` (функция из `/etc/profile.d/spm-update.sh` — вернёт cwd) или `sudo bash /opt/update.sh --keep-db` (cwd родителя не вернёт). Без `--keep-db` — сносит `spm.db`.
 - **Лаба:** tar/scp в `/opt/spm` ок для быстрой проверки → человек смотрит → commit → push отдельно.
 - `systemctl restart squid` — только по явной команде. После `spmd.py`: `systemctl restart spmd`.
 
@@ -98,6 +98,7 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 - **Object cache** (`/settings/cache`) — `disable_cache` (ADR 0008).
 - nginx allowlist (`/settings/allow`) — spmd `nginx_allow_apply`.
 - Panel TLS (`/settings/tls`) — spmd `panel_tls_install` (ADR 0007).
+- **Timezone** (`settings.timezone`, General Save) — `Europe/Moscow` | `UTC`; `PanelTimezone::apply()` на каждый request. Только UI `date()`, не Squid/OS.
 - Theme / language / password.
 
 ---

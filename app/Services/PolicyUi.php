@@ -13,8 +13,8 @@ class PolicyUi {
             );
         } else {
             Database::query(
-                "INSERT INTO settings (language, theme, panel_allow_ips, simple_ui_enabled, updated_at)
-                 VALUES ('ru', 'light', '', 1, datetime('now'))"
+                "INSERT INTO settings (language, theme, timezone, panel_allow_ips, simple_ui_enabled, updated_at)
+                 VALUES ('ru', 'light', 'Europe/Moscow', '', 1, datetime('now'))"
             );
         }
     }

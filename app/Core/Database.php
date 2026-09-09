@@ -55,6 +55,7 @@ class Database {
         self::addColumnIfMissing('acls', 'storage', "TEXT NOT NULL DEFAULT 'inline'");
         self::addColumnIfMissing('settings', 'panel_allow_ips', "TEXT NOT NULL DEFAULT ''");
         self::addColumnIfMissing('settings', 'simple_ui_enabled', "INTEGER NOT NULL DEFAULT 0");
+        self::addColumnIfMissing('settings', 'timezone', "TEXT NOT NULL DEFAULT 'Europe/Moscow'");
         self::addColumnIfMissing('users', 'policy_ui', "TEXT NOT NULL DEFAULT 'expert'");
         self::addColumnIfMissing('http_access_rules', 'enabled', 'INTEGER NOT NULL DEFAULT 1');
         self::addColumnIfMissing('squid_globals', 'coredump_dir', "TEXT DEFAULT ''");

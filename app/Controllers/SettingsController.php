@@ -26,17 +26,19 @@ class SettingsController {
 
         $lang = in_array($_POST['language'] ?? '', ['ru', 'en']) ? $_POST['language'] : 'ru';
         $theme = PanelTheme::normalize($_POST['theme'] ?? 'gold');
+        $timezone = PanelTimezone::normalize($_POST['timezone'] ?? PanelTimezone::DEFAULT);
         $prev = Database::fetch("SELECT panel_allow_ips, simple_ui_enabled FROM settings LIMIT 1") ?: [];
         $allow = (string)($prev['panel_allow_ips'] ?? '');
         $simpleUi = (int)($prev['simple_ui_enabled'] ?? 0);
 
         Database::query("DELETE FROM settings");
         Database::query(
-            "INSERT INTO settings (language, theme, panel_allow_ips, simple_ui_enabled, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
-            [$lang, $theme, $allow, $simpleUi]
+            "INSERT INTO settings (language, theme, timezone, panel_allow_ips, simple_ui_enabled, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+            [$lang, $theme, $timezone, $allow, $simpleUi]
         );
 
-        Audit::log('settings_save', 'Updated panel settings');
+        PanelTimezone::apply();
+        Audit::log('settings_save', 'Updated panel settings tz=' . $timezone);
         $_SESSION['flash_success'] = 'Config saved';
         View::redirect('/settings');
     }
@@ -113,17 +115,19 @@ class SettingsController {
 
             $lang = 'ru';
             $theme = 'gold';
+            $timezone = PanelTimezone::DEFAULT;
             $simpleUi = 0;
             $row = Database::fetch("SELECT * FROM settings LIMIT 1");
             if ($row) {
                 $lang = $row['language'] ?? $lang;
                 $theme = $row['theme'] ?? $theme;
+                $timezone = PanelTimezone::normalize($row['timezone'] ?? $timezone);
                 $simpleUi = (int)($row['simple_ui_enabled'] ?? 0);
             }
             Database::query("DELETE FROM settings");
             Database::query(
-                "INSERT INTO settings (language, theme, panel_allow_ips, simple_ui_enabled, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
-                [$lang, $theme, $store, $simpleUi]
+                "INSERT INTO settings (language, theme, timezone, panel_allow_ips, simple_ui_enabled, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+                [$lang, $theme, $timezone, $store, $simpleUi]
             );
 
             PanelNet::writeTmp('spm-allow.inc', $body);

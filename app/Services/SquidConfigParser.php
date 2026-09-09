@@ -715,7 +715,7 @@ class SquidConfigParser {
     private static function importDefaultSettings() {
         $existing = Database::fetch("SELECT id FROM settings LIMIT 1");
         if (!$existing) {
-            Database::query("INSERT INTO settings (language, theme, updated_at) VALUES ('ru', 'light', datetime('now'))");
+            Database::query("INSERT INTO settings (language, theme, timezone, updated_at) VALUES ('ru', 'light', 'Europe/Moscow', datetime('now'))");
         }
     }
 }
