@@ -32,4 +32,6 @@
 
 NetLog: только `events[].params.url` / `url_before_redirect` (не regex по всему файлу — иначе шум из constants).
 Chromium: `--disable-background-networking` и родственные флаги + свежий `--user-data-dir` под `/run/spmd`.
+Media: `--autoplay-policy=document-user-activation-required` + cut MediaSession/autoplay features — Discover нужен hostname, не тело видео.
+`install.sh`: chromium **ставить только если бинарника нет** (не upgrade кодеков на каждый update).
 Дополнительно: denylist `CHROME_NOISE_SLD` (`google.com`, `googleapis.com`, `gstatic.com`, …) — реальные URL_REQUEST телеметрии браузера; SLD стартового URL не режется.

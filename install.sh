@@ -119,11 +119,23 @@ dnf install -y -q epel-release 2>/dev/null || true
 dnf install -y nginx php php-fpm php-pdo php-sqlite3 python3 samba-winbind krb5-workstation openldap-clients sudo tar policycoreutils-python-utils acl openssl
 dnf install -y php-json php-mbstring php-xml 2>/dev/null || true
 # Domain discover (ADR 0009): headless Chromium for spmd domain_discover.
+# Only install if missing — do not upgrade codecs/deps on every update.sh.
 # --exclude=openh264: cisco openh264 often breaks dnf on EL9 (lab: 2026-09-07).
-echo "Installing Chromium (Domain discover)..."
-if ! dnf install -y chromium --exclude=openh264; then
-    echo "WARNING: chromium not installed. Domain discover needs:"
-    echo "  dnf install -y chromium --exclude=openh264"
+CHROME_BIN=""
+for c in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome-stable /usr/bin/google-chrome; do
+    if [ -x "$c" ]; then
+        CHROME_BIN="$c"
+        break
+    fi
+done
+if [ -n "$CHROME_BIN" ]; then
+    echo "Chromium already present ($CHROME_BIN) — skip dnf install/upgrade."
+else
+    echo "Installing Chromium (Domain discover)..."
+    if ! dnf install -y chromium --exclude=openh264; then
+        echo "WARNING: chromium not installed. Domain discover needs:"
+        echo "  dnf install -y chromium --exclude=openh264"
+    fi
 fi
 
 echo "[2/9] Creating system user..."

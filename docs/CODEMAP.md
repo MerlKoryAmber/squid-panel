@@ -125,7 +125,8 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 - NetLog: только request URL из events (не constants); флаги без background networking; `CHROME_NOISE_SLD` режет google/googleapis/… кроме seed URL.
 - Галка Hide ads/analytics: короткий curated denylist → `app/Data/discover_ad_denylist.txt` (ручное пополнение).
 - SSRF: http(s), public IP only; lock `/run/spmd/discover.lock`.
-- Нужен пакет Chromium/Chrome на хосте (`install.sh` ставит).
+- Нужен пакет Chromium/Chrome на хосте (`install.sh` ставит **только если нет** бинарника — не upgrade кодеков на каждый update).
+- Discover: autoplay off / media features cut — hostname из NetLog, не выкачка видео.
 - Тест NetLog: `tests/domain_discover_netlog_cli.py`.
 
 ---

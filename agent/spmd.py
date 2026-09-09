@@ -281,6 +281,7 @@ CHROME_CANDIDATES = (
 
 # Headless flags: cut Chromium background traffic (updates, Safe Browsing, sync…).
 # Domain discover must record page requests, not browser telemetry.
+# Media: no autoplay / no media engagement — we need hostnames, not video bodies.
 CHROME_DISCOVER_FLAGS = (
     "--headless=new",
     "--no-sandbox",
@@ -298,7 +299,7 @@ CHROME_DISCOVER_FLAGS = (
     "--disable-default-apps",
     "--disable-domain-reliability",
     "--disable-extensions",
-    "--disable-features=Translate,BackForwardCache,AcceptCHFrame,MediaRouter,OptimizationHints,DialMediaRouteProvider",
+    "--disable-features=Translate,BackForwardCache,AcceptCHFrame,MediaRouter,OptimizationHints,DialMediaRouteProvider,MediaSessionService,PreloadMediaEngagementData,AutoplayIgnoreWebAudio,InterestFeedContentSuggestions",
     "--disable-hang-monitor",
     "--disable-ipc-flooding-protection",
     "--disable-popup-blocking",
@@ -310,6 +311,8 @@ CHROME_DISCOVER_FLAGS = (
     "--password-store=basic",
     "--use-mock-keychain",
     "--mute-audio",
+    "--autoplay-policy=document-user-activation-required",
+    "--blink-settings=autoplayPolicy=document-user-activation-required",
 )
 
 
@@ -546,6 +549,30 @@ def run_domain_discover(filename):
             pass
         _rm_tree(DISCOVER_CHROME_PROFILE)
         os.makedirs(DISCOVER_CHROME_PROFILE, mode=0o700, exist_ok=True)
+        # Prefer no media autoplay in fresh profile (hostname discovery, not video bytes).
+        try:
+            default_dir = os.path.join(DISCOVER_CHROME_PROFILE, "Default")
+            os.makedirs(default_dir, mode=0o700, exist_ok=True)
+            prefs = {
+                "profile": {
+                    "default_content_setting_values": {
+                        "automatic_downloads": 2,
+                        "media_stream_mic": 2,
+                        "media_stream_camera": 2,
+                    }
+                },
+                "webkit": {
+                    "webprefs": {
+                        "encrypted_media_enabled": False,
+                    }
+                },
+            }
+            with open(
+                os.path.join(default_dir, "Preferences"), "w", encoding="utf-8"
+            ) as pf:
+                json.dump(prefs, pf, separators=(",", ":"))
+        except OSError as e:
+            logging.warning("domain_discover prefs: %s", e)
         cmd = [
             chrome,
             *CHROME_DISCOVER_FLAGS,
