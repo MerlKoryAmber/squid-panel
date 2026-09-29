@@ -1,6 +1,6 @@
 # CODEMAP — карта репозитория SPM
 
-Обновлено: 2026-09-29, 16:30 МСК.  
+Обновлено: 2026-09-29, 17:50 МСК.  
 Назначение: ориентир для агента **до** широкого grep. Не замена коду и ADR.
 
 **Правило:** перед каждым `git push` — сверить и при необходимости обновить этот файл (новые маршруты, сервисы, spmd-команды, ADR).
@@ -39,6 +39,7 @@ app/Core/                 # Database, Auth, View, Router, Audit
 agent/spmd.py             # whitelist привилегированных команд
 views/                    # PHP templates (layout.php = меню)
 docs/adr/                 # архитектурные решения
+docs/design/              # UX-спецификация панели (UI_UX.md)
 docs/patterns/            # переносимые идеи (не ADR): cli-menu-linux.md
 docs/agent_reports/       # handoff, deferred, отчёты
 docs/CODEMAP.md           # этот файл
@@ -47,7 +48,8 @@ install.sh / update.sh / spm.sh   # установка / переустанов�
 tests/*_cli.php           # точечные CLI-тесты
 ```
 
-Паттерн CLI-меню для других репо: `docs/patterns/cli-menu-linux.md` (скопировать файл целиком).
+Паттерн CLI-меню для других репо: `docs/patterns/cli-menu-linux.md` (скопировать файл целиком).  
+UX панели (общая раскладка/скролл/viewport, не продукт-спека): `docs/design/UI_UX.md`.
 
 ---
 
