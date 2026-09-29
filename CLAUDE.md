@@ -159,8 +159,7 @@
 
 ## (проект) SPM
 
-- **Handoff (читать первым):** `docs/agent_reports/handoff/2026-09-09.md` (потом `2026-09-08.md`, `2026-09-07-evening.md`, `2026-09-07.md`)
-- **Карта кода:** `docs/CODEMAP.md` (читать рано; обновлять перед push)
+- **Handoff (читать первым):** `docs/agent_reports/handoff/2026-09-28.md` (потом `2026-09-09.md`, `2026-09-08.md`, `2026-09-07-evening.md`)- **Карта кода:** `docs/CODEMAP.md` (читать рано; обновлять перед push)
 - **Отложенное:** `docs/agent_reports/deferred/README.md`
 - **Владелец:** Merl. Стек: PHP-панель + `spmd` (Python), SQLite `spm.db`,
   Squid на CentOS 9 / Rocky 9, nginx :8443, PHP-FPM `squidmgr`.
