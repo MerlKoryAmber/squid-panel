@@ -32,12 +32,10 @@ ob_start();
 </form>
 <?php $pageToolbar = ob_get_clean(); ?>
 
-<p class="logs-hint"><?= count($logs) ?> entries (newest first, last 16&nbsp;MB of log). Filters apply on Apply.</p>
-
 <div class="card table-card logs-table-card">
     <div class="card-header">
         <h3>Access log</h3>
-        <span class="subtitle"><?= count($logs) ?> shown</span>
+        <span class="subtitle"><?= count($logs) ?> shown · newest first · last 16&nbsp;MB</span>
     </div>
     <div class="card-body" style="padding: 0;">
         <?php if (empty($logs)): ?>

@@ -128,17 +128,39 @@ dnf install -y -q epel-release 2>/dev/null || true
 dnf install -y nginx php php-fpm php-pdo php-sqlite3 python3 samba-winbind krb5-workstation openldap-clients sudo tar policycoreutils-python-utils acl openssl
 dnf install -y php-json php-mbstring php-xml 2>/dev/null || true
 # Domain discover (ADR 0009): headless Chromium for spmd domain_discover.
-# Only install if missing — do not upgrade codecs/deps on every update.sh.
+# Never call dnf if package or binary already present (update must not re-pull codec deps).
 # --exclude=openh264: cisco openh264 often breaks dnf on EL9 (lab: 2026-09-07).
 CHROME_BIN=""
-for c in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome-stable /usr/bin/google-chrome; do
+for c in \
+    /usr/bin/chromium \
+    /usr/bin/chromium-browser \
+    /usr/bin/google-chrome-stable \
+    /usr/bin/google-chrome \
+    /usr/lib64/chromium-browser/chromium-browser \
+    /usr/lib64/chromium-browser/chromium
+do
     if [ -x "$c" ]; then
         CHROME_BIN="$c"
         break
     fi
 done
-if [ -n "$CHROME_BIN" ]; then
-    echo "Chromium already present ($CHROME_BIN) — skip dnf install/upgrade."
+if [ -z "$CHROME_BIN" ]; then
+    CHROME_BIN=$(command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v google-chrome 2>/dev/null || true)
+fi
+CHROME_RPM=""
+if rpm -q chromium >/dev/null 2>&1; then
+    CHROME_RPM=chromium
+elif rpm -q chromium-headless >/dev/null 2>&1; then
+    CHROME_RPM=chromium-headless
+elif rpm -q google-chrome-stable >/dev/null 2>&1; then
+    CHROME_RPM=google-chrome-stable
+fi
+if [ -n "$CHROME_BIN" ] || [ -n "$CHROME_RPM" ]; then
+    if [ -n "$CHROME_BIN" ]; then
+        echo "Chromium already present ($CHROME_BIN) — skip dnf."
+    else
+        echo "Chromium package already present ($CHROME_RPM) — skip dnf."
+    fi
 else
     echo "Installing Chromium (Domain discover)..."
     if ! dnf install -y chromium --exclude=openh264; then

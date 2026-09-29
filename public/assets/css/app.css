@@ -1484,12 +1484,6 @@ body.spm-drawer-open { overflow: hidden; }
 .page-logs .logs-inline-label select {
     min-width: 6.5rem;
 }
-.page-logs .logs-hint {
-    margin: 0 0 var(--space-md);
-    font-size: 0.78rem;
-    color: var(--ir-text-muted);
-    line-height: 1.35;
-}
 .page-logs .logs-table-card {
     margin-bottom: 0;
 }
