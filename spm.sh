@@ -114,7 +114,8 @@ cmd_update_keep() {
         echo -e "${red}ERROR:${plain} $UPDATE_SH not found"
         return 1
     fi
-    if ! confirm "Update panel from GitHub main (KEEP spm.db)?"; then
+    # Menu item already chose keep-db; only confirm running update.
+    if ! confirm "Run update from GitHub main now?"; then
         echo "Cancelled."
         return 0
     fi
