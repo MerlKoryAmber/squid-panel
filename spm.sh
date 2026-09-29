@@ -130,16 +130,12 @@ cmd_set_port() {
     if [ -n "${1:-}" ]; then
         new="$1"
     else
-        read -r -p "New port (1-65535, not 80/443) [${old}]: " new
+        read -r -p "New port (1-65535) [${old}]: " new
         [ -z "$new" ] && new="$old"
     fi
 
     if ! [[ "$new" =~ ^[0-9]+$ ]] || [ "$new" -lt 1 ] || [ "$new" -gt 65535 ]; then
         echo -e "${red}ERROR:${plain} port must be an integer 1–65535"
-        return 1
-    fi
-    if [ "$new" = "80" ] || [ "$new" = "443" ]; then
-        echo -e "${red}ERROR:${plain} ports 80/443 are reserved (panel must not bind them)"
         return 1
     fi
     if [ "$new" = "$old" ]; then

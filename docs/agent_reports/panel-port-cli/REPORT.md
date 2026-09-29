@@ -5,7 +5,7 @@
 
 ## Что сделано
 
-1. `spm.sh`: пункт меню **10** / `spm port [N]` — смена nginx `listen`, запись `PANEL_PORT` в `/etc/spm/install.env`, firewall old→new, `nginx -t` + reload; 80/443 запрещены; **занятый порт — отказ** (`ss -tlnp`, fail-closed); backup `spm.conf.spm-port-*`.
+1. `spm.sh`: пункт меню **10** / `spm port [N]` — смена nginx `listen`, запись `PANEL_PORT` в `/etc/spm/install.env`, firewall old→new, `nginx -t` + reload; **занятый порт — отказ** (`ss -tlnp`, fail-closed); backup `spm.conf.spm-port-*`. 80/443 разрешены, если свободны.
 2. `install.sh`: если `PANEL_PORT` не задан в env — читает из `/etc/spm/install.env` (иначе default 8443).
 3. `update.sh`: перед `install.sh` экспортирует сохранённый `PANEL_PORT` (двойная страховка).
 
