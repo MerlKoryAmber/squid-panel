@@ -1,6 +1,6 @@
 # CODEMAP — карта репозитория SPM
 
-Обновлено: 2026-09-29, 14:50 МСК.  
+Обновлено: 2026-09-29, 16:30 МСК.  
 Назначение: ориентир для агента **до** широкого grep. Не замена коду и ADR.
 
 **Правило:** перед каждым `git push` — сверить и при необходимости обновить этот файл (новые маршруты, сервисы, spmd-команды, ADR).
@@ -26,7 +26,7 @@
 - **Тест/прод:** `spm` (меню) или `spm update` / `spm-update --keep-db` / `sudo bash /opt/update.sh --keep-db`. Без `--keep-db` / `spm update-drop` — сносит `spm.db`.
 - **Лаба:** tar/scp в `/opt/spm` ок для быстрой проверки → человек смотрит → commit → push отдельно.
 - `systemctl restart squid` — только по явной команде. После `spmd.py`: `systemctl restart spmd`.
-- **CLI меню:** `/usr/bin/spm` (+ `/usr/local/bin/spm`) ← `spm.sh`. Пункты: update, uninstall, password, status, restart spmd/web, backup, URL, **port** (HTTPS панели → `/etc/spm/install.env`). Squid restart — не в меню. Update сохраняет `PANEL_PORT`.
+- **CLI меню:** `/usr/bin/spm` ← `spm.sh`. Пункты: update, uninstall, password, status, restart spmd/web, backup, URL, **port**, **repair-deps** (EPEL GPG + Chromium). Squid restart — не в меню. Update сохраняет `PANEL_PORT`; chromium/epel не трогает если уже ок.
 ---
 
 ## Дерево (важное)

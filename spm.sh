@@ -330,6 +330,73 @@ cmd_backup() {
     ls -la "$dest"
 }
 
+# Fix EPEL GPG key + ensure Chromium for Domain discover (no hand ops on host).
+cmd_repair_deps() {
+    local chrome_bin="" chrome_rpm="" need_chrome=0 key="/etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9"
+    echo "=== Repair host deps (EPEL / Chromium) ==="
+    if rpm -q epel-release >/dev/null 2>&1; then
+        echo "  epel-release: $(rpm -q epel-release)"
+    else
+        echo "  epel-release: missing"
+    fi
+    if [ -f "$key" ]; then
+        echo "  EPEL GPG key: present ($key)"
+    else
+        echo -e "  EPEL GPG key: ${red}MISSING${plain} ($key)"
+    fi
+    for c in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome-stable /usr/bin/google-chrome \
+        /usr/lib64/chromium-browser/chromium-browser /usr/lib64/chromium-browser/chromium; do
+        if [ -x "$c" ]; then
+            chrome_bin="$c"
+            break
+        fi
+    done
+    [ -z "$chrome_bin" ] && chrome_bin=$(command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null || true)
+    if rpm -q chromium >/dev/null 2>&1; then
+        chrome_rpm=chromium
+    elif rpm -q chromium-headless >/dev/null 2>&1; then
+        chrome_rpm=chromium-headless
+    elif rpm -q google-chrome-stable >/dev/null 2>&1; then
+        chrome_rpm=google-chrome-stable
+    fi
+    if [ -n "$chrome_bin" ] || [ -n "$chrome_rpm" ]; then
+        echo "  Chromium: OK (${chrome_bin:-$chrome_rpm})"
+    else
+        echo -e "  Chromium: ${yellow}missing${plain} (Domain discover needs it)"
+        need_chrome=1
+    fi
+    echo ""
+    if [ -f "$key" ] && rpm -q epel-release >/dev/null 2>&1 && [ "$need_chrome" = "0" ]; then
+        echo "Nothing to repair."
+        return 0
+    fi
+    if ! confirm "Run repair now (dnf epel-release / chromium)?"; then
+        echo "Cancelled."
+        return 0
+    fi
+    if ! rpm -q epel-release >/dev/null 2>&1; then
+        echo "Installing epel-release..."
+        dnf install -y epel-release || true
+    elif [ ! -f "$key" ]; then
+        echo "Reinstalling epel-release to restore GPG key..."
+        dnf reinstall -y epel-release || dnf install -y epel-release || true
+    fi
+    if [ ! -f "$key" ]; then
+        echo -e "${red}ERROR:${plain} $key still missing after epel-release"
+        return 1
+    fi
+    echo "EPEL GPG key OK."
+    if [ "$need_chrome" = "1" ]; then
+        echo "Installing Chromium..."
+        if ! dnf install -y chromium --exclude=openh264; then
+            echo -e "${red}ERROR:${plain} chromium install failed"
+            return 1
+        fi
+        echo "Chromium installed."
+    fi
+    echo -e "${green}OK:${plain} repair finished"
+}
+
 show_usage() {
     echo "SPM management CLI"
     echo ""
@@ -337,6 +404,7 @@ show_usage() {
     echo "  spm status          Service / db status"
     echo "  spm url             Panel URL"
     echo "  spm port [N]        Change panel HTTPS port (persists across update)"
+    echo "  spm repair-deps     Fix EPEL GPG key + Chromium (Domain discover)"
     echo "  spm update          Update (keep spm.db)"
     echo "  spm update-drop     Update and DROP spm.db"
     echo "  spm uninstall       Remove panel (Squid stays)"
@@ -363,6 +431,7 @@ show_menu() {
     echo -e "  ${green}8.${plain} Backup spm.db + squid.conf"
     echo -e "  ${green}9.${plain} Show panel URL"
     echo -e "  ${green}10.${plain} Change panel HTTPS port"
+    echo -e "  ${green}11.${plain} Repair EPEL / Chromium"
     echo -e "  ${green}0.${plain} Exit"
     echo "  ------------------------------------------"
 }
@@ -371,7 +440,7 @@ run_menu() {
     export SPM_MENU=1
     while true; do
         show_menu
-        read -r -p "Select [0-10]: " choice
+        read -r -p "Select [0-11]: " choice
         case "$choice" in
             1) cmd_update_keep; press_enter ;;
             2) cmd_update_drop; press_enter ;;
@@ -383,6 +452,7 @@ run_menu() {
             8) cmd_backup; press_enter ;;
             9) cmd_url; press_enter ;;
             10) cmd_set_port; press_enter ;;
+            11) cmd_repair_deps; press_enter ;;
             0|q|Q) exit 0 ;;
             *) echo "Invalid option" ;;
         esac
@@ -398,6 +468,7 @@ case "${1:-}" in
     status) cmd_status ;;
     url) cmd_url ;;
     port|set-port) cmd_set_port "${2:-}" ;;
+    repair-deps|fix-epel|repair) cmd_repair_deps ;;
     update) cmd_update_keep ;;
     update-drop) cmd_update_drop ;;
     uninstall) cmd_uninstall ;;

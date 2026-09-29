@@ -124,7 +124,15 @@ nginx_prepare_host_config() {
 }
 
 echo "[1/9] Installing dependencies..."
-dnf install -y -q epel-release 2>/dev/null || true
+# EPEL: install once. Re-running every update can leave repos pointing at a missing
+# RPM-GPG-KEY-EPEL-9 (Curl error 37) while chromium/nginx still need the repo.
+if ! rpm -q epel-release >/dev/null 2>&1; then
+    echo "Installing epel-release..."
+    dnf install -y -q epel-release 2>/dev/null || true
+elif [ ! -f /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9 ]; then
+    echo "EPEL GPG key missing — reinstall epel-release to restore it..."
+    dnf reinstall -y -q epel-release 2>/dev/null || dnf install -y -q epel-release 2>/dev/null || true
+fi
 dnf install -y nginx php php-fpm php-pdo php-sqlite3 python3 samba-winbind krb5-workstation openldap-clients sudo tar policycoreutils-python-utils acl openssl
 dnf install -y php-json php-mbstring php-xml 2>/dev/null || true
 # Domain discover (ADR 0009): headless Chromium for spmd domain_discover.
@@ -163,8 +171,12 @@ if [ -n "$CHROME_BIN" ] || [ -n "$CHROME_RPM" ]; then
     fi
 else
     echo "Installing Chromium (Domain discover)..."
+    if [ ! -f /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9 ]; then
+        echo "WARNING: /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9 missing — try: dnf reinstall -y epel-release"
+    fi
     if ! dnf install -y chromium --exclude=openh264; then
         echo "WARNING: chromium not installed. Domain discover needs:"
+        echo "  dnf reinstall -y epel-release"
         echo "  dnf install -y chromium --exclude=openh264"
     fi
 fi
