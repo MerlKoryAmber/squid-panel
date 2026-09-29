@@ -1,8 +1,11 @@
+<?php $isAdmin = !empty($isAdmin); ?>
 <div class="page-header">
     <h2>Access Control Lists</h2>
     <div>
         <a href="/acl/ad-groups" class="btn btn-secondary">AD groups</a>
+        <?php if ($isAdmin): ?>
         <a href="/acl/create" class="btn btn-primary">+ Add ACL</a>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -15,7 +18,7 @@
         <?php if (empty($acls)): ?>
         <div class="empty-state">
             <h4>No ACLs configured</h4>
-            <p>Create ACLs to define traffic groups for filtering.</p>
+            <p><?= $isAdmin ? 'Create ACLs to define traffic groups for filtering.' : 'No ACLs configured.' ?></p>
         </div>
         <?php else: ?>
         <table class="data-table js-col-sort" data-sort-col="name" data-sort-dir="asc">
@@ -24,7 +27,9 @@
                     <th class="js-sort" data-col="name" role="button" tabindex="0" aria-sort="ascending">Name</th>
                     <th class="js-sort" data-col="type" role="button" tabindex="0" aria-sort="none">Type</th>
                     <th class="js-sort" data-col="values" role="button" tabindex="0" aria-sort="none">Values</th>
+                    <?php if ($isAdmin): ?>
                     <th style="width:180px; white-space:nowrap;">Actions</th>
+                    <?php endif; ?>
                 </tr>
             </thead>
             <tbody>
@@ -57,6 +62,7 @@
                     <td data-col="values" data-sort="<?= htmlspecialchars($valuesSort, ENT_QUOTES) ?>" style="font-size:1.05rem; color:var(--ir-text-secondary);">
                         <?= htmlspecialchars($valuesText) ?>
                     </td>
+                    <?php if ($isAdmin): ?>
                     <td>
                         <a href="/acl/edit?id=<?= $acl['id'] ?>" class="btn btn-sm btn-secondary">Edit</a>
                         <form method="POST" action="/acl/delete" style="display:inline" data-confirm="Delete list <?= htmlspecialchars($acl['name'], ENT_QUOTES) ?>?">
@@ -65,6 +71,7 @@
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                         </form>
                     </td>
+                    <?php endif; ?>
                 </tr>
                 <?php endforeach; ?>
             </tbody>

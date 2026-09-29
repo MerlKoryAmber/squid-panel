@@ -1,6 +1,6 @@
 # CODEMAP — карта репозитория SPM
 
-Обновлено: 2026-09-29, 14:35 МСК.  
+Обновлено: 2026-09-29, 14:50 МСК.  
 Назначение: ориентир для агента **до** широкого grep. Не замена коду и ADR.
 
 **Правило:** перед каждым `git push` — сверить и при необходимости обновить этот файл (новые маршруты, сервисы, spmd-команды, ADR).
@@ -80,9 +80,9 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 | UI | Путь | Контроллер |
 |----|------|------------|
 | Dashboard | `/dashboard` | DashboardController |
-| ACLs | `/acl` | AclController |
+| ACLs | `/acl` | AclController (список: operator read-only UI; create/edit/delete — admin) |
 | AD groups | `/acl/ad-groups` | AdGroupController |
-| HTTP Access | `/http_access` | HttpAccessController |
+| HTTP Access | `/http_access` | HttpAccessController (operator: без Add/Edit/Delete/reorder) |
 | Cascade | `/peers` | CachePeerController |
 | Auth | `/auth/*` | AuthConfigController |
 | Users / Logs / Stats / Audit | … | User / Log / Stats / Audit |

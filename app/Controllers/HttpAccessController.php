@@ -67,7 +67,7 @@ class HttpAccessController {
     }
 
     public function edit($params = []) {
-        Auth::requireAuth();
+        Auth::requireAdmin();
         $id = (int)($_GET['id'] ?? 0);
         $rule = Database::fetch("SELECT * FROM http_access_rules WHERE id = ?", [$id]);
         if (!$rule) {

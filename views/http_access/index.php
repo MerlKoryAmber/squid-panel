@@ -1,36 +1,47 @@
+<?php $isAdmin = !empty($isAdmin); ?>
 <div class="page-header">
     <h2>HTTP Access Rules</h2>
+    <?php if ($isAdmin): ?>
     <a href="/http_access/create" class="btn btn-primary">+ Add Rule</a>
+    <?php endif; ?>
 </div>
 
 <div class="card">
     <div class="card-header">
         <h3>Rules</h3>
-        <span class="subtitle">Drag rows to reorder</span>
+        <span class="subtitle"><?= $isAdmin ? 'Drag rows to reorder' : 'Read-only' ?></span>
     </div>
     <div class="card-body" style="padding: 0;">
         <?php if (empty($rules)): ?>
         <div class="empty-state">
             <h4>No rules configured</h4>
-            <p>Add your first HTTP access rule to start filtering traffic.</p>
+            <p><?= $isAdmin ? 'Add your first HTTP access rule to start filtering traffic.' : 'No rules configured.' ?></p>
+            <?php if ($isAdmin): ?>
             <a href="/http_access/create" class="btn btn-primary" style="margin-top: var(--space-md);">Add Rule</a>
+            <?php endif; ?>
         </div>
         <?php else: ?>
         <table class="data-table" id="rulesTable">
             <thead>
                 <tr>
+                    <?php if ($isAdmin): ?>
                     <th style="width:40px;"></th>
+                    <?php endif; ?>
                     <th>Order</th>
                     <th>Action</th>
                     <th>ACLs</th>
                     <th>Description</th>
+                    <?php if ($isAdmin): ?>
                     <th style="width:180px; white-space:nowrap;">Actions</th>
+                    <?php endif; ?>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($rules as $rule): ?>
                 <tr data-id="<?= $rule['id'] ?>">
+                    <?php if ($isAdmin): ?>
                     <td class="drag-handle">⋮⋮</td>
+                    <?php endif; ?>
                     <td><?= $rule['sort_order'] ?></td>
                     <td>
                         <span class="badge badge-<?= $rule['action'] === 'allow' ? 'success' : 'danger' ?>">
@@ -46,6 +57,7 @@
                         ?>
                     </td>
                     <td style="color: var(--ir-text-secondary);"><?= htmlspecialchars($rule['description'] ?? '') ?></td>
+                    <?php if ($isAdmin): ?>
                     <td>
                         <a href="/http_access/edit?id=<?= $rule['id'] ?>" class="btn btn-sm btn-secondary">Edit</a>
                         <form method="POST" action="/http_access/delete" style="display:inline" data-confirm="Delete this rule?">
@@ -54,6 +66,7 @@
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                         </form>
                     </td>
+                    <?php endif; ?>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -70,6 +83,7 @@
     </div>
 </div>
 
+<?php if ($isAdmin): ?>
 <script src="/assets/js/sortable.js"></script>
 <script>
 const table = document.getElementById('rulesTable');
@@ -96,3 +110,4 @@ if (table) {
     });
 }
 </script>
+<?php endif; ?>

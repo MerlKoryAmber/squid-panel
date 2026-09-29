@@ -8,7 +8,13 @@ class AclController {
         }
         unset($acl);
         $types = (require SPM_CONFIG . '/squid.php')['acl_types'];
-        echo View::render('acl.index', ['title' => 'ACL Management', 'active' => 'acl', 'acls' => $acls, 'types' => $types]);
+        echo View::render('acl.index', [
+            'title' => 'ACL Management',
+            'active' => 'acl',
+            'acls' => $acls,
+            'types' => $types,
+            'isAdmin' => Auth::isAdmin(),
+        ]);
     }
 
     public function create($params = []) {
