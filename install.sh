@@ -12,11 +12,20 @@ SPM_DIR="/opt/spm"
 WEB_USER="squidmgr"
 SQUID_CONF="/etc/squid/squid.conf"
 NGINX_SPM_CONF="/etc/nginx/conf.d/spm.conf"
-PANEL_PORT="${PANEL_PORT:-8443}"
 INSTALL_META="/etc/spm/install.env"
+# Keep existing panel HTTPS port across update/reinstall unless PANEL_PORT is set in the environment.
+if [ -z "${PANEL_PORT:-}" ] && [ -f "$INSTALL_META" ]; then
+    _spm_saved_port=$(grep -E '^PANEL_PORT=' "$INSTALL_META" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r')
+    if [ -n "$_spm_saved_port" ]; then
+        PANEL_PORT="$_spm_saved_port"
+    fi
+    unset _spm_saved_port
+fi
+PANEL_PORT="${PANEL_PORT:-8443}"
 
 echo "=== Squid Proxy Manager Installer ==="
 echo "This installer keeps a running Squid instance intact."
+echo "Panel HTTPS port: $PANEL_PORT (from env /etc/spm/install.env or default 8443)"
 echo ""
 
 if [ "$EUID" -ne 0 ]; then

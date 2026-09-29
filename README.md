@@ -33,7 +33,7 @@ chmod +x install.sh uninstall.sh
 sudo ./install.sh
 ```
 
-- Панель: `https://<IP>:8443/` (порт: `PANEL_PORT`, по умолчанию 8443).
+- Панель: `https://<IP>:8443/` (порт: `PANEL_PORT`, по умолчанию 8443; смена: `spm port` / меню п.10; update **не** сбрасывает).
 - Логин: `admin`. Пароль — введённый при установке или сгенерированный (печатается один раз).
 - Сертификат самоподписанный.
 - Если есть `/etc/krb5.keytab` и ещё нет `/etc/squid/krb5.keytab` — install копирует (640, `squid:squid`).

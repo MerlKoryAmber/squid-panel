@@ -8,6 +8,7 @@ UPDATE_SH="/opt/update.sh"
 UNINSTALL_SH="${SPM_DIR}/uninstall.sh"
 CLONE_UNINSTALL="/opt/squid-panel/uninstall.sh"
 SQUID_CONF="/etc/squid/squid.conf"
+NGINX_SPM_CONF="/etc/nginx/conf.d/spm.conf"
 BACKUP_DIR="${SPM_DIR}/storage/backup"
 INSTALL_META="/etc/spm/install.env"
 PANEL_PORT="8443"
@@ -83,6 +84,7 @@ cmd_status() {
     done
     svc_line squid
     echo ""
+    echo "  panel port: $(current_panel_port)"
     if [ -f "${SPM_DIR}/database/spm.db" ]; then
         echo "  spm.db: present"
     else
@@ -95,18 +97,131 @@ cmd_status() {
     fi
 }
 
-cmd_url() {
-    local ip port
-    port="$PANEL_PORT"
+load_install_meta() {
     if [ -f "$INSTALL_META" ]; then
         # shellcheck disable=SC1090
         . "$INSTALL_META"
-        port="${PANEL_PORT:-$port}"
     fi
+}
+
+current_panel_port() {
+    local port="$PANEL_PORT"
+    load_install_meta
+    port="${PANEL_PORT:-$port}"
+    echo "$port"
+}
+
+cmd_url() {
+    local ip port
+    port=$(current_panel_port)
     ip=$(hostname -I 2>/dev/null | awk '{print $1}')
     [ -z "$ip" ] && ip=$(hostname -f 2>/dev/null || echo "127.0.0.1")
     echo "Panel URL: https://${ip}:${port}/"
     echo "  (TLS may be self-signed)"
+}
+
+# Change nginx panel HTTPS port; persist in /etc/spm/install.env so update keeps it.
+cmd_set_port() {
+    local old new bak holders
+    old=$(current_panel_port)
+    load_install_meta
+
+    echo "Current panel HTTPS port: $old"
+    if [ -n "${1:-}" ]; then
+        new="$1"
+    else
+        read -r -p "New port (1-65535, not 80/443) [${old}]: " new
+        [ -z "$new" ] && new="$old"
+    fi
+
+    if ! [[ "$new" =~ ^[0-9]+$ ]] || [ "$new" -lt 1 ] || [ "$new" -gt 65535 ]; then
+        echo -e "${red}ERROR:${plain} port must be an integer 1–65535"
+        return 1
+    fi
+    if [ "$new" = "80" ] || [ "$new" = "443" ]; then
+        echo -e "${red}ERROR:${plain} ports 80/443 are reserved (panel must not bind them)"
+        return 1
+    fi
+    if [ "$new" = "$old" ]; then
+        echo "Port unchanged ($old)."
+        cmd_url
+        return 0
+    fi
+
+    if [ ! -f "$NGINX_SPM_CONF" ]; then
+        echo -e "${red}ERROR:${plain} $NGINX_SPM_CONF missing — is the panel installed?"
+        return 1
+    fi
+    if ! grep -qE "listen[[:space:]]+${old}[[:space:]]+ssl" "$NGINX_SPM_CONF"; then
+        echo -e "${red}ERROR:${plain} $NGINX_SPM_CONF has no 'listen ${old} ssl' (current port mismatch?)"
+        return 1
+    fi
+
+    # Fail-closed: do not change if something already listens on the new port.
+    holders=""
+    if command -v ss &>/dev/null; then
+        holders=$(ss -tlnp 2>/dev/null | awk -v p=":${new}" 'NR>1 && $4 ~ p"$" {print}')
+        if [ -z "$holders" ]; then
+            holders=$(ss -tlnH "sport = :${new}" 2>/dev/null || true)
+        fi
+    fi
+    if [ -n "$holders" ]; then
+        echo -e "${red}ERROR:${plain} port ${new} is already in use — refuse"
+        echo "$holders"
+        return 1
+    fi
+
+    if ! confirm "Change panel HTTPS port ${old} → ${new}?"; then
+        echo "Cancelled."
+        return 0
+    fi
+
+    cp -a "$NGINX_SPM_CONF" "${NGINX_SPM_CONF}.spm-port-${old}-$(date +%Y%m%d%H%M%S)"
+    # IPv4 listen N ssl; and optional IPv6 listen [::]:N ssl;
+    sed -i -E "s/listen([[:space:]]+)${old}([[:space:]]+ssl)/listen\1${new}\2/" "$NGINX_SPM_CONF"
+    sed -i -E "s/listen([[:space:]]+)\[::\]:${old}([[:space:]]+ssl)/listen\1[::]:${new}\2/" "$NGINX_SPM_CONF"
+
+    if ! nginx -t; then
+        echo -e "${red}ERROR:${plain} nginx -t failed — restoring previous spm.conf"
+        bak=$(ls -1t "${NGINX_SPM_CONF}".spm-port-"${old}"-* 2>/dev/null | head -1)
+        if [ -n "$bak" ] && [ -f "$bak" ]; then
+            cp -a "$bak" "$NGINX_SPM_CONF"
+        fi
+        return 1
+    fi
+
+    systemctl reload nginx || systemctl restart nginx
+
+    mkdir -p /etc/spm
+    if [ -f "$INSTALL_META" ]; then
+        if grep -qE '^PANEL_PORT=' "$INSTALL_META"; then
+            sed -i -E "s/^PANEL_PORT=.*/PANEL_PORT=${new}/" "$INSTALL_META"
+        else
+            printf 'PANEL_PORT=%s\n' "$new" >> "$INSTALL_META"
+        fi
+    else
+        printf 'PANEL_PORT=%s\nFIREWALL_OPENED=0\nINSTALLED_AT=%s\n' "$new" "$(date +%Y%m%d%H%M%S)" > "$INSTALL_META"
+        chmod 600 "$INSTALL_META"
+    fi
+    PANEL_PORT="$new"
+
+    if command -v firewall-cmd &>/dev/null && firewall-cmd --state &>/dev/null; then
+        firewall-cmd --permanent --remove-port="${old}/tcp" 2>/dev/null || true
+        if firewall-cmd --permanent --add-port="${new}/tcp"; then
+            firewall-cmd --reload || true
+            if grep -qE '^FIREWALL_OPENED=' "$INSTALL_META" 2>/dev/null; then
+                sed -i -E 's/^FIREWALL_OPENED=.*/FIREWALL_OPENED=1/' "$INSTALL_META"
+            else
+                printf 'FIREWALL_OPENED=1\n' >> "$INSTALL_META"
+            fi
+            echo "Firewall: closed ${old}/tcp, opened ${new}/tcp"
+        else
+            echo -e "${yellow}WARNING:${plain} could not open firewall port ${new}/tcp"
+        fi
+    fi
+
+    echo -e "${green}OK:${plain} panel HTTPS port is now ${new}"
+    cmd_url
 }
 
 cmd_update_keep() {
@@ -225,6 +340,7 @@ show_usage() {
     echo "  spm                 Interactive menu"
     echo "  spm status          Service / db status"
     echo "  spm url             Panel URL"
+    echo "  spm port [N]        Change panel HTTPS port (persists across update)"
     echo "  spm update          Update (keep spm.db)"
     echo "  spm update-drop     Update and DROP spm.db"
     echo "  spm uninstall       Remove panel (Squid stays)"
@@ -250,6 +366,7 @@ show_menu() {
     echo -e "  ${green}7.${plain} Restart nginx + php-fpm"
     echo -e "  ${green}8.${plain} Backup spm.db + squid.conf"
     echo -e "  ${green}9.${plain} Show panel URL"
+    echo -e "  ${green}10.${plain} Change panel HTTPS port"
     echo -e "  ${green}0.${plain} Exit"
     echo "  ------------------------------------------"
 }
@@ -258,7 +375,7 @@ run_menu() {
     export SPM_MENU=1
     while true; do
         show_menu
-        read -r -p "Select [0-9]: " choice
+        read -r -p "Select [0-10]: " choice
         case "$choice" in
             1) cmd_update_keep; press_enter ;;
             2) cmd_update_drop; press_enter ;;
@@ -269,6 +386,7 @@ run_menu() {
             7) cmd_restart_web; press_enter ;;
             8) cmd_backup; press_enter ;;
             9) cmd_url; press_enter ;;
+            10) cmd_set_port; press_enter ;;
             0|q|Q) exit 0 ;;
             *) echo "Invalid option" ;;
         esac
@@ -283,6 +401,7 @@ case "${1:-}" in
     help|-h|--help) show_usage ;;
     status) cmd_status ;;
     url) cmd_url ;;
+    port|set-port) cmd_set_port "${2:-}" ;;
     update) cmd_update_keep ;;
     update-drop) cmd_update_drop ;;
     uninstall) cmd_uninstall ;;

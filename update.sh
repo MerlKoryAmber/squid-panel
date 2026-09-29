@@ -173,6 +173,15 @@ export SPM_DROP_DB="$drop_db"
 if [ "$drop_db" = "0" ]; then
     export SPM_SKIP_ADMIN_PASSWORD=1
 fi
+# Do not reset panel HTTPS port on update (install.sh also reads install.env).
+if [ -z "${PANEL_PORT:-}" ] && [ -f /etc/spm/install.env ]; then
+    _spm_saved_port=$(grep -E '^PANEL_PORT=' /etc/spm/install.env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r')
+    if [ -n "$_spm_saved_port" ]; then
+        export PANEL_PORT="$_spm_saved_port"
+        echo "Preserving panel HTTPS port: $PANEL_PORT"
+    fi
+    unset _spm_saved_port
+fi
 ./install.sh || _ec=$?
 _ec=${_ec:-0}
 if [ -n "${SPM_UPDATE_CWD:-}" ]; then

@@ -14,7 +14,7 @@
 
 | Что | Где |
 |-----|-----|
-| Панель | PHP под `/opt/spm`, nginx **:8443**, PHP-FPM `squidmgr` |
+| Панель | PHP под `/opt/spm`, nginx (**PANEL_PORT**, default **8443**), PHP-FPM `squidmgr` |
 | БД | SQLite `spm.db` (`DB_PATH`, schema `database/schema.sql` + `Database::ensureSchema`) |
 | Агент | `agent/spmd.py`, socket `/run/spmd.sock`, лог `/var/log/spmd.log` |
 | Live Squid | `/etc/squid/squid.conf` — только parse→backup→write→reconfigure (ADR 0005) |
@@ -26,7 +26,7 @@
 - **Тест/прод:** `spm` (меню) или `spm update` / `spm-update --keep-db` / `sudo bash /opt/update.sh --keep-db`. Без `--keep-db` / `spm update-drop` — сносит `spm.db`.
 - **Лаба:** tar/scp в `/opt/spm` ок для быстрой проверки → человек смотрит → commit → push отдельно.
 - `systemctl restart squid` — только по явной команде. После `spmd.py`: `systemctl restart spmd`.
-- **CLI меню:** `/usr/bin/spm` (+ `/usr/local/bin/spm`) ← `spm.sh`. Пункты: update, uninstall, password, status, restart spmd/web, backup, URL. Squid restart — не в меню.
+- **CLI меню:** `/usr/bin/spm` (+ `/usr/local/bin/spm`) ← `spm.sh`. Пункты: update, uninstall, password, status, restart spmd/web, backup, URL, **port** (HTTPS панели → `/etc/spm/install.env`). Squid restart — не в меню. Update сохраняет `PANEL_PORT`.
 ---
 
 ## Дерево (важное)

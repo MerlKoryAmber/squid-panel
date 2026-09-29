@@ -55,10 +55,13 @@ UX такого типа встречается у многих Linux-панел
 7. Restart web (nginx / php-fpm / …)
 8. Backup DB + main config
 9. Show panel URL
+10. Change panel HTTPS port
 0. Exit
 ```
 
-Подкоманды-зеркало: `update`, `update-drop`, `uninstall`, `password`, `status`, `restart-agent`, `restart-web`, `backup`, `url`, `help`.
+Подкоманды-зеркало: `update`, `update-drop`, `uninstall`, `password`, `status`, `restart-agent`, `restart-web`, `backup`, `url`, `port`, `help`.
+
+Порт панели (HTTPS) хранить в `/etc/<app>/install.env` (`PANEL_PORT=…`). **Update / reinstall не должен сбрасывать порт** — installer читает сохранённое значение, если env не задан явно. Смена порта — отдельный пункт меню + `tool port [N]`.
 
 ---
 
