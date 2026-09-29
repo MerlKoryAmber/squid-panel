@@ -1,6 +1,6 @@
 # CODEMAP — карта репозитория SPM
 
-Обновлено: 2026-09-29, 11:51 МСК.  
+Обновлено: 2026-09-29, 14:35 МСК.  
 Назначение: ориентир для агента **до** широкого grep. Не замена коду и ADR.
 
 **Правило:** перед каждым `git push` — сверить и при необходимости обновить этот файл (новые маршруты, сервисы, spmd-команды, ADR).
@@ -87,7 +87,7 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 | Auth | `/auth/*` | AuthConfigController |
 | Users / Logs / Stats / Audit | … | User / Log / Stats / Audit |
 | Live config | `/live-config` | SquidConfController (read-only) |
-| Domain discover | `/discover` | DiscoverController (ADR 0009, не Squid) |
+| Domain discover | `/discover` | DiscoverController (ADR 0009, не Squid; **admin + operator** Run) |
 | Settings | `/settings` | SettingsController (admin) |
 | Instructions | `/instructions` | InstructionsController |
 
@@ -133,6 +133,7 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 - Нужен пакет Chromium/Chrome на хосте (`install.sh` ставит **только если нет** бинарника — не upgrade кодеков на каждый update).
 - Discover: autoplay off / media features cut — hostname из NetLog, не выкачка видео.
 - Тест NetLog: `tests/domain_discover_netlog_cli.py`.
+- RBAC: Run доступен **admin и operator** (`requireAuth`); не Settings/политика Squid.
 
 ---
 

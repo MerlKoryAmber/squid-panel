@@ -25,7 +25,6 @@ class DiscoverController {
         echo View::render('discover.index', [
             'title' => 'Domain discover',
             'active' => 'discover',
-            'isAdmin' => Auth::isAdmin(),
             'flashError' => $flashError,
             'flashSuccess' => $flashSuccess,
             'domains' => $domains,
@@ -37,7 +36,7 @@ class DiscoverController {
     }
 
     public function run($params = []) {
-        Auth::requireAdmin();
+        Auth::requireAuth();
         View::verifyCsrf();
         $hideAds = !empty($_POST['hide_ads']);
         $_SESSION['discover_hide_ads'] = $hideAds ? 1 : 0;

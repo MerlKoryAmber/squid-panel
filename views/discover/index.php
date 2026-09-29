@@ -27,9 +27,6 @@ $domains = is_array($domains ?? null) ? $domains : [];
 <div class="card">
     <div class="card-header"><h3>Discover</h3></div>
     <div class="card-body">
-        <?php if (empty($isAdmin)): ?>
-        <p style="color:var(--ir-text-muted);">Admin only.</p>
-        <?php else: ?>
         <form method="POST" action="/discover/run">
             <?= View::csrf() ?>
             <div class="form-group">
@@ -46,7 +43,6 @@ $domains = is_array($domains ?? null) ? $domains : [];
                 <button type="submit" class="btn btn-primary">Run discover</button>
             </div>
         </form>
-        <?php endif; ?>
     </div>
 </div>
 

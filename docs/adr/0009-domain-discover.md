@@ -35,3 +35,7 @@ Chromium: `--disable-background-networking` и родственные флаги
 Media: `--autoplay-policy=document-user-activation-required` + cut MediaSession/autoplay features — Discover нужен hostname, не тело видео.
 `install.sh`: chromium **ставить только если бинарника нет** (не upgrade кодеков на каждый update).
 Дополнительно: denylist `CHROME_NOISE_SLD` (`google.com`, `googleapis.com`, `gstatic.com`, …) — реальные URL_REQUEST телеметрии браузера; SLD стартового URL не режется.
+
+## Дополнено (2026-09-29)
+
+RBAC: Run discover — **admin и operator** (не только admin).
