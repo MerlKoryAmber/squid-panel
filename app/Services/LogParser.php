@@ -5,6 +5,9 @@ class LogParser {
 
     /** Larger window for CSV export. */
     private const EXPORT_SCAN_BYTES = 67108864; // 64 MiB
+
+    /** Max bytes from end of access.log for Statistics (avoid full-file scan hang). */
+    private const STATS_SCAN_BYTES = 33554432; // 32 MiB
     /**
      * Parse Squid access.log (native format)
      * timestamp elapsed remotehost code/status bytes method URL rfc931 peerstatus/peerhost type
@@ -13,7 +16,7 @@ class LogParser {
         $parts = preg_split('/\s+/', trim($line));
         if (count($parts) < 9) return null;
 
-        // peer field: hierarchy/peerhost (e.g. DIRECT/172.26.13.1 or PARENT_HIT/ksmg)
+        // peer field: hierarchy/peerhost (e.g. HIER_DIRECT/1.2.3.4 or FIRST_UP_PARENT/ksmg)
         $peerRaw = $parts[8] ?? '';
         $hierarchy = '';
         $peerHost = '';
@@ -22,6 +25,7 @@ class LogParser {
         } else {
             $hierarchy = $peerRaw;
         }
+        $hierarchy = self::normalizeHierarchy($hierarchy);
 
         return [
             'timestamp' => isset($parts[0]) ? date('Y-m-d H:i:s', (int)$parts[0]) : null,
@@ -149,9 +153,9 @@ class LogParser {
         }
         if (!empty($filters['peer'])) {
             if ($filters['peer'] === 'DIRECT') {
-                $hierarchy = $parsed['hierarchy'] ?? '';
-                $peerHost = $parsed['peer_host'] ?? '';
-                if (!in_array($hierarchy, ['DIRECT', 'NONE', ''], true) && $peerHost !== '' && $peerHost !== '-') {
+                // Squid: HIER_DIRECT/ip — went to origin. HIER_NONE/- is NOT direct (auth deny etc.).
+                $hierarchy = self::normalizeHierarchy($parsed['hierarchy'] ?? '');
+                if ($hierarchy !== 'DIRECT') {
                     return false;
                 }
             } else {
@@ -168,6 +172,15 @@ class LogParser {
         return true;
     }
 
+    /** Strip Squid HIER_ prefix so DIRECT / NONE / FIRST_UP_PARENT match filters. */
+    public static function normalizeHierarchy($hierarchy) {
+        $hierarchy = trim((string)$hierarchy);
+        if (stripos($hierarchy, 'HIER_') === 0) {
+            return substr($hierarchy, 5);
+        }
+        return $hierarchy;
+    }
+
     public static function getStats($file, $hours = 24) {
         $hours = max(1, min(168, (int)$hours));
         $empty = self::emptyStats($hours);
@@ -181,11 +194,11 @@ class LogParser {
             return $empty;
         }
 
-        $handle = fopen($file, 'r');
-        if (!$handle) {
-            $empty['error'] = 'Could not open access log';
+        $text = self::tailBytes($file, self::STATS_SCAN_BYTES);
+        if ($text === '') {
             return $empty;
         }
+        $text = self::dropPartialHeadLine($file, $text, self::STATS_SCAN_BYTES);
 
         $domains = [];
         $users = [];
@@ -204,14 +217,18 @@ class LogParser {
         $misses = 0;
         $errors = 0;
 
-        while (($line = fgets($handle)) !== false) {
+        foreach (explode("\n", $text) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
             $parsed = self::parseLine($line);
-            if (!$parsed || empty($parsed['timestamp'])) {
+            if (!$parsed) {
                 continue;
             }
 
-            $ts = strtotime($parsed['timestamp']);
-            if ($ts === false || $ts < $cutoff) {
+            $ts = (int)($parsed['timestamp_unix'] ?? 0);
+            if ($ts <= 0 || $ts < $cutoff) {
                 continue;
             }
 
@@ -241,8 +258,6 @@ class LogParser {
                 $misses++;
             }
         }
-
-        fclose($handle);
 
         arsort($domains);
         arsort($users);
@@ -309,13 +324,15 @@ class LogParser {
      * Get hierarchy type label
      */
     public static function hierarchyLabel($hierarchy) {
-        $direct = ['DIRECT', 'NONE'];
+        $hierarchy = self::normalizeHierarchy($hierarchy);
         $peer = ['PARENT_HIT', 'SIBLING_HIT', 'DEFAULT_PARENT', 'FIRST_UP_PARENT', 'ROUNDROBIN_PARENT', 'CLOSEST_PARENT'];
 
-        if (in_array($hierarchy, $direct)) {
+        if ($hierarchy === 'DIRECT') {
             return ['label' => 'Direct', 'class' => 'badge-success'];
-        } elseif (in_array($hierarchy, $peer)) {
+        } elseif (in_array($hierarchy, $peer, true)) {
             return ['label' => 'Peer', 'class' => 'badge-parent'];
+        } elseif ($hierarchy === 'NONE' || $hierarchy === '') {
+            return ['label' => 'None', 'class' => ''];
         } else {
             return ['label' => $hierarchy ?: 'Unknown', 'class' => ''];
         }

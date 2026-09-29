@@ -41,7 +41,7 @@
                     <label>Peer</label>
                     <select name="peer">
                         <option value="">All</option>
-                        <option value="DIRECT" <?= ($filters['peer'] ?? '') === 'DIRECT' ? 'selected' : '' ?>>Direct (no peer)</option>
+                        <option value="DIRECT" <?= ($filters['peer'] ?? '') === 'DIRECT' ? 'selected' : '' ?>>Direct (HIER_DIRECT)</option>
                         <?php foreach ($peers as $peer): ?>
                         <option value="<?= htmlspecialchars($peer['name'], ENT_QUOTES) ?>" <?= ($filters['peer'] ?? '') === $peer['name'] ? 'selected' : '' ?>>
                             <?= htmlspecialchars($peer['name']) ?><?= !empty($peer['hostname']) ? ' (' . htmlspecialchars($peer['hostname']) . ')' : '' ?>
