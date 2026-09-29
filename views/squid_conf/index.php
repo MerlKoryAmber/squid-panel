@@ -1,7 +1,3 @@
-<div class="page-header">
-    <h2>Live config</h2>
-</div>
-
 <div class="card">
     <div class="card-header">
         <h3><?= htmlspecialchars((string)$path, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></h3>

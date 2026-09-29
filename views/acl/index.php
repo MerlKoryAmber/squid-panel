@@ -1,15 +1,14 @@
-<?php $isAdmin = !empty($isAdmin); ?>
-<div class="page-header">
-    <h2>Access Control Lists</h2>
-    <div>
-        <a href="/acl/ad-groups" class="btn btn-secondary">AD groups</a>
-        <?php if ($isAdmin): ?>
-        <a href="/acl/create" class="btn btn-primary">+ Add ACL</a>
-        <?php endif; ?>
-    </div>
-</div>
+<?php
+$isAdmin = !empty($isAdmin);
+ob_start();
+?>
+<a href="/acl/ad-groups" class="btn btn-secondary">AD groups</a>
+<?php if ($isAdmin): ?>
+<a href="/acl/create" class="btn btn-primary">+ Add ACL</a>
+<?php endif; ?>
+<?php $pageToolbar = ob_get_clean(); ?>
 
-<div class="card">
+<div class="card table-card">
     <div class="card-header">
         <h3>ACLs</h3>
         <span class="subtitle"><?= count($acls) ?> defined</span>
@@ -21,6 +20,7 @@
             <p><?= $isAdmin ? 'Create ACLs to define traffic groups for filtering.' : 'No ACLs configured.' ?></p>
         </div>
         <?php else: ?>
+        <div class="table-scroll">
         <table class="data-table js-col-sort" data-sort-col="name" data-sort-dir="asc">
             <thead>
                 <tr>
@@ -76,6 +76,7 @@
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
         <?php endif; ?>
     </div>
 </div>

@@ -1,7 +1,4 @@
-<div class="page-header">
-    <h2>Add HTTP Access Rule</h2>
-    <a href="/http_access" class="btn btn-secondary">← Back to Rules</a>
-</div>
+<?php $pageToolbar = '<a href="/http_access" class="btn btn-secondary">← Back to Rules</a>'; ?>
 
 <div class="card">
     <div class="card-header">

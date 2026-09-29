@@ -1,7 +1,4 @@
-<div class="page-header">
-    <h2>Live Logs</h2>
-    <a href="/logs" class="btn btn-secondary">← Back to Logs</a>
-</div>
+<?php $pageToolbar = '<a href="/logs" class="btn btn-secondary">← Back to Logs</a>'; ?>
 
 <div class="card">
     <div class="card-header">

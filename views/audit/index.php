@@ -1,11 +1,8 @@
 <?php
 $logs = is_array($logs ?? null) ? $logs : [];
 ?>
-<div class="page-header">
-    <h2>Audit Log</h2>
-</div>
 
-<div class="card">
+<div class="card table-card">
     <div class="card-header">
         <h3>Events</h3>
         <span class="subtitle"><?= count($logs) ?> recorded</span>
@@ -14,6 +11,7 @@ $logs = is_array($logs ?? null) ? $logs : [];
         <?php if (empty($logs)): ?>
         <div class="empty-state"><h4>No audit events</h4></div>
         <?php else: ?>
+        <div class="table-scroll">
         <table class="data-table">
             <thead>
                 <tr>
@@ -36,6 +34,7 @@ $logs = is_array($logs ?? null) ? $logs : [];
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
         <?php endif; ?>
     </div>
 </div>

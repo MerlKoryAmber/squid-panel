@@ -1,7 +1,3 @@
-<div class="page-header">
-    <h2>NTLM Authentication</h2>
-</div>
-
 <div class="card">
     <div class="card-header"><h3>NTLM Settings</h3></div>
     <div class="card-body">

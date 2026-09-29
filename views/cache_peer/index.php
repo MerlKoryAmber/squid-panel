@@ -8,9 +8,6 @@ $cascadeAclLists = is_array($cascadeAclLists ?? null) ? $cascadeAclLists : $from
 $editPeer = $editPeer ?? null;
 $newPeer = !empty($newPeer);
 ?>
-<div class="page-header">
-    <h2>Cascade</h2>
-</div>
 
 <p class="text-secondary" style="margin-top:-12px; margin-bottom: var(--space-lg);">
     Route matching clients to an upstream peer or Direct. First match wins. Drag rules to reorder.

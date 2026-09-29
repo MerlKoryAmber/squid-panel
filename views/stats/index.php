@@ -1,7 +1,4 @@
-<div class="page-header">
-    <h2>Statistics</h2>
-    <p id="stats-status" style="color:var(--ir-text-muted);margin:0 0 1rem;">Loading last 24h from access.log…</p>
-</div>
+<p id="stats-status" style="color:var(--ir-text-muted);margin:0 0 1rem;">Loading last 24h from access.log…</p>
 
 <div class="stats-grid">
     <div class="stat-card">

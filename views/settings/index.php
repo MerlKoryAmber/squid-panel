@@ -1,7 +1,3 @@
-<div class="page-header">
-    <h2>Settings</h2>
-</div>
-
 <?php if (!empty($flashError)): ?>
 <div class="alert alert-danger"><?= htmlspecialchars((string)$flashError, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
 <?php endif; ?>

@@ -1,7 +1,3 @@
-<div class="page-header">
-    <h2>Users</h2>
-</div>
-
 <?php if (!empty($flashError)): ?>
 <div class="card" style="border-color: var(--ir-danger, #c0392b);">
     <div class="card-body"><?= htmlspecialchars($flashError) ?></div>

@@ -6,10 +6,7 @@ $listed = is_array($listed ?? null) ? $listed : ['ok' => false, 'groups' => [], 
 $listedGroups = is_array($listed['groups'] ?? null) ? $listed['groups'] : [];
 $imported = is_array($imported ?? null) ? $imported : [];
 ?>
-<div class="page-header">
-    <h2>AD groups</h2>
-    <a href="/acl" class="btn btn-secondary">← ACLs</a>
-</div>
+<?php $pageToolbar = '<a href="/acl" class="btn btn-secondary">← ACLs</a>'; ?>
 
 <?php if (!empty($flashError)): ?>
 <div class="alert alert-danger"><?= $h($flashError) ?></div>

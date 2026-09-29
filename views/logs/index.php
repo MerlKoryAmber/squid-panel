@@ -1,67 +1,43 @@
-<div class="page-header">
-    <h2>Access Logs</h2>
-    <a href="/logs/live" class="btn btn-primary">▶ Live View</a>
-</div>
+<?php
+ob_start();
+?>
+<form method="GET" action="/logs" id="logFilterForm" class="logs-filter-bar">
+    <input class="f-ip" type="text" name="ip" value="<?= htmlspecialchars($filters['ip'] ?? '') ?>" placeholder="Client IP" aria-label="Client IP">
+    <input class="f-user" type="text" name="user" value="<?= htmlspecialchars($filters['user'] ?? '') ?>" placeholder="User" aria-label="User">
+    <input class="f-status" type="text" name="status" value="<?= htmlspecialchars($filters['status'] ?? '') ?>" placeholder="Status / TCP_*" aria-label="Status">
+    <input class="f-url" type="text" name="url" value="<?= htmlspecialchars($filters['url'] ?? '') ?>" placeholder="URL contains" aria-label="URL">
+    <label class="logs-inline-label">method
+        <select name="method" aria-label="Method">
+            <option value="">All</option>
+            <option value="GET" <?= ($filters['method'] ?? '') === 'GET' ? 'selected' : '' ?>>GET</option>
+            <option value="POST" <?= ($filters['method'] ?? '') === 'POST' ? 'selected' : '' ?>>POST</option>
+            <option value="CONNECT" <?= ($filters['method'] ?? '') === 'CONNECT' ? 'selected' : '' ?>>CONNECT</option>
+            <option value="HEAD" <?= ($filters['method'] ?? '') === 'HEAD' ? 'selected' : '' ?>>HEAD</option>
+        </select>
+    </label>
+    <label class="logs-inline-label">peer
+        <select name="peer" aria-label="Peer">
+            <option value="">All</option>
+            <option value="DIRECT" <?= ($filters['peer'] ?? '') === 'DIRECT' ? 'selected' : '' ?>>Direct</option>
+            <?php foreach ($peers as $peer): ?>
+            <option value="<?= htmlspecialchars($peer['name'], ENT_QUOTES) ?>" <?= ($filters['peer'] ?? '') === $peer['name'] ? 'selected' : '' ?>>
+                <?= htmlspecialchars($peer['name']) ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
+    </label>
+    <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+    <a href="/logs" class="btn btn-secondary btn-sm">Reset</a>
+    <a href="/logs/live" class="btn btn-primary btn-sm">▶ Live</a>
+</form>
+<?php $pageToolbar = ob_get_clean(); ?>
 
-<div class="card">
-    <div class="card-header">
-        <h3>Filters</h3>
-        <span class="subtitle">Narrow down log entries</span>
-    </div>
-    <div class="card-body">
-        <form method="GET" action="/logs" id="logFilterForm">
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Client IP</label>
-                    <input type="text" name="ip" value="<?= htmlspecialchars($filters['ip'] ?? '') ?>" placeholder="192.168.1.1">
-                </div>
-                <div class="form-group">
-                    <label>User</label>
-                    <input type="text" name="user" value="<?= htmlspecialchars($filters['user'] ?? '') ?>" placeholder="username">
-                </div>
-                <div class="form-group">
-                    <label>Status Code</label>
-                    <input type="text" name="status" value="<?= htmlspecialchars($filters['status'] ?? '') ?>" placeholder="200, 404, TCP_MISS">
-                </div>
-                <div class="form-group" style="flex: 2;">
-                    <label>URL Contains</label>
-                    <input type="text" name="url" value="<?= htmlspecialchars($filters['url'] ?? '') ?>" placeholder="example.com">
-                </div>
-                <div class="form-group">
-                    <label>Method</label>
-                    <select name="method">
-                        <option value="">All</option>
-                        <option value="GET" <?= ($filters['method'] ?? '') === 'GET' ? 'selected' : '' ?>>GET</option>
-                        <option value="POST" <?= ($filters['method'] ?? '') === 'POST' ? 'selected' : '' ?>>POST</option>
-                        <option value="CONNECT" <?= ($filters['method'] ?? '') === 'CONNECT' ? 'selected' : '' ?>>CONNECT</option>
-                        <option value="HEAD" <?= ($filters['method'] ?? '') === 'HEAD' ? 'selected' : '' ?>>HEAD</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Peer</label>
-                    <select name="peer">
-                        <option value="">All</option>
-                        <option value="DIRECT" <?= ($filters['peer'] ?? '') === 'DIRECT' ? 'selected' : '' ?>>Direct (HIER_DIRECT)</option>
-                        <?php foreach ($peers as $peer): ?>
-                        <option value="<?= htmlspecialchars($peer['name'], ENT_QUOTES) ?>" <?= ($filters['peer'] ?? '') === $peer['name'] ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($peer['name']) ?><?= !empty($peer['hostname']) ? ' (' . htmlspecialchars($peer['hostname']) . ')' : '' ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Apply Filters</button>
-                <a href="/logs" class="btn btn-secondary">Reset</a>
-            </div>
-        </form>
-    </div>
-</div>
+<p class="logs-hint"><?= count($logs) ?> entries (newest first, last 16&nbsp;MB of log). Filters apply on Apply.</p>
 
-<div class="card">
+<div class="card table-card logs-table-card">
     <div class="card-header">
-        <h3>Access Log Entries</h3>
-        <span class="subtitle"><?= count($logs) ?> entries shown (newest first, last 16&nbsp;MB of log)</span>
+        <h3>Access log</h3>
+        <span class="subtitle"><?= count($logs) ?> shown</span>
     </div>
     <div class="card-body" style="padding: 0;">
         <?php if (empty($logs)): ?>
@@ -70,7 +46,7 @@
             <p>Check filters or verify that Squid is logging to <?= htmlspecialchars(SQUID_ACCESS_LOG) ?></p>
         </div>
         <?php else: ?>
-        <div style="overflow-x: auto;">
+        <div class="table-scroll">
         <table class="data-table js-col-sort" id="logsTable" data-sort-col="timestamp" data-sort-dir="desc">
             <thead>
                 <tr>

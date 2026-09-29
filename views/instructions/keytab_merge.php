@@ -1,7 +1,4 @@
-<div class="page-header">
-    <h2>Merging two keytab files</h2>
-    <a href="/instructions" class="btn btn-secondary">← Instructions</a>
-</div>
+<?php $pageToolbar = '<a href="/instructions" class="btn btn-secondary">← Instructions</a>'; ?>
 
 <div class="card">
     <div class="card-header"><h3>Добавить SPN в уже существующий keytab (Windows, ktpass)</h3></div>

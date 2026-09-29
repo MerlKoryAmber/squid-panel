@@ -81,6 +81,9 @@
                     <?php endif; ?>
                 </div>
             </header>
+            <?php if (!empty($pageToolbar)): ?>
+            <div class="page-toolbar"><?= $pageToolbar ?></div>
+            <?php endif; ?>
             <main class="content-area">
                 <?= $content ?? '' ?>
             </main>

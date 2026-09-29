@@ -34,6 +34,7 @@ class LogController {
 
         echo View::render('logs.index', [
             'title' => 'Access Logs',
+            'active' => 'logs',
             'logs' => $logs,
             'filters' => $filters,
             'peers' => $peers,
@@ -42,7 +43,7 @@ class LogController {
 
     public function live($params = []) {
         Auth::requireAuth();
-        echo View::render('logs.live', ['title' => 'Live Log Tail']);
+        echo View::render('logs.live', ['title' => 'Live Log Tail', 'active' => 'logs']);
     }
 
     public function stream($params = []) {

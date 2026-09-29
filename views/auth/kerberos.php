@@ -1,7 +1,3 @@
-<div class="page-header">
-    <h2>Kerberos Authentication</h2>
-</div>
-
 <?php if (!empty($flashError)): ?>
 <div class="alert alert-danger"><?= htmlspecialchars($flashError) ?></div>
 <?php endif; ?>

@@ -1,7 +1,3 @@
-<div class="page-header">
-    <h2>Instructions</h2>
-</div>
-
 <div class="card">
     <div class="card-header">
         <h3>Guides</h3>

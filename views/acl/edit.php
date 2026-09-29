@@ -1,7 +1,4 @@
-<div class="page-header">
-    <h2><?= !empty($acl['id']) ? 'Edit' : 'Add' ?> ACL</h2>
-    <a href="/acl" class="btn btn-secondary">← Back to ACLs</a>
-</div>
+<?php $pageToolbar = '<a href="/acl" class="btn btn-secondary">← Back to ACLs</a>'; ?>
 
 <?php
 $isFile = isset($acl) && (($acl['storage'] ?? 'inline') === 'file');

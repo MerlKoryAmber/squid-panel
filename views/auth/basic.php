@@ -1,7 +1,4 @@
-<div class="page-header">
-    <h2>Basic Authentication</h2>
-    <a href="/auth" class="btn btn-secondary">← Back</a>
-</div>
+<?php $pageToolbar = '<a href="/auth" class="btn btn-secondary">← Back</a>'; ?>
 
 <div class="card">
     <div class="card-header"><h3>Helper settings</h3></div>

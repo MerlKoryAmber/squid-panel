@@ -1,7 +1,4 @@
-<div class="page-header">
-    <h2>Creating a keytab file</h2>
-    <a href="/instructions" class="btn btn-secondary">← Instructions</a>
-</div>
+<?php $pageToolbar = '<a href="/instructions" class="btn btn-secondary">← Instructions</a>'; ?>
 
 <div class="card">
     <div class="card-header"><h3>Where and who</h3></div>

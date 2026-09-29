@@ -1,12 +1,11 @@
-<?php $isAdmin = !empty($isAdmin); ?>
-<div class="page-header">
-    <h2>HTTP Access Rules</h2>
-    <?php if ($isAdmin): ?>
-    <a href="/http_access/create" class="btn btn-primary">+ Add Rule</a>
-    <?php endif; ?>
-</div>
+<?php
+$isAdmin = !empty($isAdmin);
+if ($isAdmin) {
+    $pageToolbar = '<a href="/http_access/create" class="btn btn-primary">+ Add Rule</a>';
+}
+?>
 
-<div class="card">
+<div class="card table-card">
     <div class="card-header">
         <h3>Rules</h3>
         <span class="subtitle"><?= $isAdmin ? 'Drag rows to reorder' : 'Read-only' ?></span>
@@ -21,6 +20,7 @@
             <?php endif; ?>
         </div>
         <?php else: ?>
+        <div class="table-scroll">
         <table class="data-table" id="rulesTable">
             <thead>
                 <tr>
@@ -71,6 +71,7 @@
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
         <?php endif; ?>
     </div>
 </div>

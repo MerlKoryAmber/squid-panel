@@ -1,7 +1,3 @@
-<div class="page-header">
-    <h2>Authentication</h2>
-</div>
-
 <div class="stats-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
     <a href="/auth/basic" class="card" style="text-decoration:none; color:inherit;">
         <div class="card-body" style="text-align:center; padding: var(--space-xl);">

@@ -4,9 +4,6 @@ $h = function ($s) {
 };
 $domains = is_array($domains ?? null) ? $domains : [];
 ?>
-<div class="page-header">
-    <h2>Domain discover</h2>
-</div>
 
 <?php if (!empty($flashError)): ?>
 <div class="alert alert-danger"><?= $h($flashError) ?></div>
