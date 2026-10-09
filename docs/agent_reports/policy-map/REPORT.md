@@ -1,20 +1,25 @@
 # Policy map (read-only)
 
-Дата: 2026-10-09, 10:35 МСК.  
+Дата: 2026-10-09, 10:50 МСК.  
 Статус: РЕАЛИЗОВАНО НО НЕ ПРИНЯТО.
 
 ## Решение
 
-Пункт меню **Policy map** (`/policy-map`): схема из `spm.db` (не live conf).
+Пункт меню **Policy map** (`/policy-map`): **схема** (узлы + стрелки) из `spm.db`, не таблица/список карточек.
 
-- Слой HTTP Access — порядок top→bottom, allow/deny, disabled
-- Слой Cascade — `routing_rules` + peers / `cache_peer_access`
-- Клик по ACL — подсветка на обоих слоях
+- HTTP Access: ACL(+ACL) → ALLOW/DENY, вертикальный поток #1→#N
+- Cascade: ACL → never_direct/always_direct → peer/DIRECT; peer_access к пирам
+- Пустой cascade — заглушка → DIRECT
+- Клик ACL — подсветка на обоих слоях
 
-Файлы: `PolicyMapController`, `PolicyMapBuilder`, `views/policy_map/index.php`, CSS, route, sidebar.
+Файлы: `PolicyMapController`, `PolicyMapBuilder`, `views/policy_map/index.php`, CSS.
+
+## Исправление UX 10:50 МСК
+
+Первая выкладка была списками — не совпала с согласованным макетом. Перерисовано под schematic.
 
 ## Проверка
 
-1. `update.sh --keep-db` / `spm update`
-2. Сайдбар → Policy map
-3. Клик ACL на Access — подсветка и на Cascade (если ACL там есть)
+1. `spm update` / `update.sh --keep-db`
+2. Policy map: видны узлы и стрелки, не «таблица правил»
+3. Только HTTP Access — верхний поток полный; Cascade показывает пустую схему → DIRECT
