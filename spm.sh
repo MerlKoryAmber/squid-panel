@@ -330,6 +330,92 @@ cmd_backup() {
     ls -la "$dest"
 }
 
+# EL9 / CentOS: Fedora dl.* often blocked. Restore key without fedoraproject.org.
+# Order: extract from local dnf cache RPM → optional SPM_EPEL_GPG_URL → done.
+# Install uses --nogpgcheck so Curl 37 (missing file:// key) does not block.
+extract_epel9_gpg_from_rpm() {
+    local rpm_file="$1"
+    local key="/etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9"
+    local work found
+    [ -n "$rpm_file" ] && [ -f "$rpm_file" ] || return 1
+    command -v rpm2cpio >/dev/null 2>&1 || return 1
+    command -v cpio >/dev/null 2>&1 || return 1
+    work=$(mktemp -d /tmp/epel-gpg.XXXXXX) || return 1
+    if ! (cd "$work" && rpm2cpio "$rpm_file" | cpio -idmu --quiet 2>/dev/null); then
+        rm -rf "$work"
+        return 1
+    fi
+    found=$(find "$work" -type f -name 'RPM-GPG-KEY-EPEL-9' 2>/dev/null | head -1)
+    if [ -z "$found" ] || [ ! -s "$found" ]; then
+        rm -rf "$work"
+        return 1
+    fi
+    mkdir -p /etc/pki/rpm-gpg
+    cp -f "$found" "$key"
+    chmod 644 "$key"
+    rm -rf "$work"
+    rpm --import "$key" 2>/dev/null || true
+    echo "  GPG key restored from $(basename "$rpm_file")"
+    return 0
+}
+
+restore_epel9_gpg_key() {
+    local key="/etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9"
+    local rpm_file="" url="" tmp
+    if [ -f "$key" ] && [ -s "$key" ]; then
+        return 0
+    fi
+    echo "Restoring EPEL-9 GPG key (local cache, no Fedora)..."
+    # 1) Cached epel-release RPM (common after Curl 37 — packages already downloaded)
+    rpm_file=$(find /var/cache/dnf /var/cache/yum -type f -name 'epel-release-*.rpm' 2>/dev/null | head -1 || true)
+    if [ -n "$rpm_file" ] && extract_epel9_gpg_from_rpm "$rpm_file"; then
+        return 0
+    fi
+    # 2) Already-installed package payload (rare: packaged but key deleted)
+    if rpm -q epel-release >/dev/null 2>&1; then
+        rpm_file=$(rpm -ql epel-release 2>/dev/null | grep -E 'RPM-GPG-KEY-EPEL-9$' | head -1 || true)
+        if [ -n "$rpm_file" ] && [ -s "$rpm_file" ]; then
+            mkdir -p /etc/pki/rpm-gpg
+            cp -f "$rpm_file" "$key"
+            chmod 644 "$key"
+            rpm --import "$key" 2>/dev/null || true
+            echo "  GPG key copied from installed epel-release"
+            return 0
+        fi
+    fi
+    # 3) Optional corporate / reachable mirror (set on host if needed)
+    url="${SPM_EPEL_GPG_URL:-}"
+    if [ -n "$url" ]; then
+        echo "  Trying SPM_EPEL_GPG_URL..."
+        mkdir -p /etc/pki/rpm-gpg
+        tmp=$(mktemp /tmp/RPM-GPG-KEY-EPEL-9.XXXXXX) || return 1
+        if curl -fsSL --connect-timeout 15 --max-time 60 -o "$tmp" "$url" && [ -s "$tmp" ]; then
+            mv -f "$tmp" "$key"
+            chmod 644 "$key"
+            rpm --import "$key" 2>/dev/null || true
+            echo "  GPG key from SPM_EPEL_GPG_URL"
+            return 0
+        fi
+        rm -f "$tmp"
+    fi
+    return 1
+}
+
+install_epel_release() {
+    # --nogpgcheck: skip file:// key read so cached/repo packages can install.
+    if rpm -q epel-release >/dev/null 2>&1; then
+        echo "Reinstalling epel-release (restore key/files)..."
+        dnf reinstall -y --nogpgcheck epel-release || dnf install -y --nogpgcheck epel-release || return 1
+    else
+        echo "Installing epel-release (--nogpgcheck)..."
+        dnf install -y --nogpgcheck epel-release || return 1
+    fi
+    if [ ! -f /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9 ]; then
+        restore_epel9_gpg_key || return 1
+    fi
+    return 0
+}
+
 # Fix EPEL GPG key + ensure Chromium for Domain discover (no hand ops on host).
 cmd_repair_deps() {
     local chrome_bin="" chrome_rpm="" need_chrome=0 key="/etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9"
@@ -370,19 +456,23 @@ cmd_repair_deps() {
         echo "Nothing to repair."
         return 0
     fi
-    if ! confirm "Run repair now (dnf epel-release / chromium)?"; then
+    if ! confirm "Run repair now (local GPG restore / dnf epel-release / chromium)?"; then
         echo "Cancelled."
         return 0
     fi
-    if ! rpm -q epel-release >/dev/null 2>&1; then
-        echo "Installing epel-release..."
-        dnf install -y epel-release || true
+    # Prefer --nogpgcheck install first (puts key from RPM); else extract from dnf cache.
+    if [ ! -f "$key" ] || ! rpm -q epel-release >/dev/null 2>&1; then
+        if ! install_epel_release; then
+            echo -e "${red}ERROR:${plain} could not install epel-release / GPG key"
+            echo "  Hint: packages often already in /var/cache/dnf — or set SPM_EPEL_GPG_URL to a reachable mirror"
+            return 1
+        fi
     elif [ ! -f "$key" ]; then
-        echo "Reinstalling epel-release to restore GPG key..."
-        dnf reinstall -y epel-release || dnf install -y epel-release || true
+        restore_epel9_gpg_key || true
     fi
     if [ ! -f "$key" ]; then
-        echo -e "${red}ERROR:${plain} $key still missing after epel-release"
+        echo -e "${red}ERROR:${plain} $key still missing after repair"
+        echo "  Set SPM_EPEL_GPG_URL to a mirror that hosts RPM-GPG-KEY-EPEL-9, then re-run."
         return 1
     fi
     echo "EPEL GPG key OK."

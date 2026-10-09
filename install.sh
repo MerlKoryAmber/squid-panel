@@ -124,14 +124,42 @@ nginx_prepare_host_config() {
 }
 
 echo "[1/9] Installing dependencies..."
-# EPEL: install once. Re-running every update can leave repos pointing at a missing
-# RPM-GPG-KEY-EPEL-9 (Curl error 37) while chromium/nginx still need the repo.
+# EPEL on CentOS/EL9: Fedora dl.* often blocked. Do not curl fedoraproject.org.
+# Curl 37 = .repo points at missing file:// RPM-GPG-KEY-EPEL-9 → use --nogpgcheck,
+# then restore key from package / dnf cache (same logic as spm repair-deps).
+EPEL_GPG_KEY="/etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9"
 if ! rpm -q epel-release >/dev/null 2>&1; then
-    echo "Installing epel-release..."
-    dnf install -y -q epel-release 2>/dev/null || true
-elif [ ! -f /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9 ]; then
-    echo "EPEL GPG key missing — reinstall epel-release to restore it..."
-    dnf reinstall -y -q epel-release 2>/dev/null || dnf install -y -q epel-release 2>/dev/null || true
+    echo "Installing epel-release (--nogpgcheck)..."
+    dnf install -y -q --nogpgcheck epel-release 2>/dev/null || true
+elif [ ! -f "$EPEL_GPG_KEY" ]; then
+    echo "EPEL GPG key missing — reinstall epel-release (--nogpgcheck)..."
+    dnf reinstall -y -q --nogpgcheck epel-release 2>/dev/null || true
+fi
+if [ ! -f "$EPEL_GPG_KEY" ] || [ ! -s "$EPEL_GPG_KEY" ]; then
+    _epel_rpm=$(find /var/cache/dnf /var/cache/yum -type f -name 'epel-release-*.rpm' 2>/dev/null | head -1 || true)
+    if [ -n "$_epel_rpm" ] && command -v rpm2cpio >/dev/null 2>&1 && command -v cpio >/dev/null 2>&1; then
+        echo "Restoring EPEL GPG key from cache $(basename "$_epel_rpm")..."
+        _epel_work=$(mktemp -d /tmp/epel-gpg.XXXXXX) || true
+        if [ -n "$_epel_work" ] && (cd "$_epel_work" && rpm2cpio "$_epel_rpm" | cpio -idmu --quiet 2>/dev/null); then
+            _epel_found=$(find "$_epel_work" -type f -name 'RPM-GPG-KEY-EPEL-9' 2>/dev/null | head -1)
+            if [ -n "$_epel_found" ] && [ -s "$_epel_found" ]; then
+                mkdir -p /etc/pki/rpm-gpg
+                cp -f "$_epel_found" "$EPEL_GPG_KEY"
+                chmod 644 "$EPEL_GPG_KEY"
+                rpm --import "$EPEL_GPG_KEY" 2>/dev/null || true
+            fi
+        fi
+        rm -rf "$_epel_work" 2>/dev/null || true
+    fi
+    unset _epel_rpm _epel_work _epel_found
+fi
+if [ ! -f "$EPEL_GPG_KEY" ] && [ -n "${SPM_EPEL_GPG_URL:-}" ]; then
+    echo "Trying SPM_EPEL_GPG_URL for EPEL GPG key..."
+    mkdir -p /etc/pki/rpm-gpg
+    if curl -fsSL --connect-timeout 15 --max-time 60 -o "$EPEL_GPG_KEY" "$SPM_EPEL_GPG_URL"; then
+        chmod 644 "$EPEL_GPG_KEY"
+        rpm --import "$EPEL_GPG_KEY" 2>/dev/null || true
+    fi
 fi
 dnf install -y nginx php php-fpm php-pdo php-sqlite3 python3 samba-winbind krb5-workstation openldap-clients sudo tar policycoreutils-python-utils acl openssl
 dnf install -y php-json php-mbstring php-xml 2>/dev/null || true
@@ -172,12 +200,10 @@ if [ -n "$CHROME_BIN" ] || [ -n "$CHROME_RPM" ]; then
 else
     echo "Installing Chromium (Domain discover)..."
     if [ ! -f /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9 ]; then
-        echo "WARNING: /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9 missing — try: dnf reinstall -y epel-release"
+        echo "WARNING: EPEL GPG key still missing — run: spm repair-deps"
     fi
     if ! dnf install -y chromium --exclude=openh264; then
-        echo "WARNING: chromium not installed. Domain discover needs:"
-        echo "  dnf reinstall -y epel-release"
-        echo "  dnf install -y chromium --exclude=openh264"
+        echo "WARNING: chromium not installed. Domain discover needs: spm repair-deps"
     fi
 fi
 

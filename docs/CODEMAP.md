@@ -26,7 +26,7 @@
 - **Тест/прод:** `spm` (меню) или `spm update` / `spm-update --keep-db` / `sudo bash /opt/update.sh --keep-db`. Без `--keep-db` / `spm update-drop` — сносит `spm.db`.
 - **Лаба:** tar/scp в `/opt/spm` ок для быстрой проверки → человек смотрит → commit → push отдельно.
 - `systemctl restart squid` — только по явной команде. После `spmd.py`: `systemctl restart spmd`.
-- **CLI меню:** `/usr/bin/spm` ← `spm.sh`. Пункты: update, uninstall, password, status, restart spmd/web, backup, URL, **port**, **repair-deps** (EPEL GPG + Chromium). Squid restart — не в меню. Update сохраняет `PANEL_PORT`; chromium/epel не трогает если уже ок.
+- **CLI меню:** `/usr/bin/spm` ← `spm.sh`. Пункты: update, uninstall, password, status, restart spmd/web, backup, URL, **port**, **repair-deps** (EPEL GPG + Chromium). Squid restart — не в меню. Update сохраняет `PANEL_PORT`; chromium/epel не трогает если уже ок. `repair-deps` / install (CentOS, Fedora dl часто закрыт): `dnf --nogpgcheck epel-release`, ключ из RPM в `/var/cache/dnf` (`rpm2cpio`); опционально `SPM_EPEL_GPG_URL` — свой зеркальный URL ключа. Без curl на fedoraproject.org.
 ---
 
 ## Дерево (важное)
