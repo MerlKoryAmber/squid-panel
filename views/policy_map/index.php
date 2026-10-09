@@ -1,15 +1,19 @@
 <?php
-/** @var string $svgAccess */
+/** @var string $svgAccess1 */
+/** @var string $svgAccess2 */
 /** @var string $svgCascade */
 /** @var int $httpAccessCount */
 /** @var int $peerCount */
 /** @var int $routingCount */
+/** @var array $accessMeta */
+/** @var array $cascadeMeta */
 ?>
 <div class="page-header">
     <h2>Policy map</h2>
     <p class="pm-map-lead">
-        Read-only graph from the panel database (what Apply writes to Squid).
-        Flow is <strong>top → bottom</strong> (first match). Click an ACL node to highlight related edges.
+        Compact graph from the panel database.
+        HTTP Access: <strong>AND</strong> inside a rule, <strong>first match</strong> in reading order.
+        Cascade: only ACLs that actually enter a peer / DIRECT.
     </p>
 </div>
 
@@ -23,16 +27,17 @@
 
 <section class="card pm-map-layer" id="pm-layer-access">
     <div class="card-header">
-        <h3>HTTP Access <span class="pm-map-hint"><?= (int)$httpAccessCount ?> rule(s) · ACL → decision</span></h3>
+        <h3>HTTP Access <span class="pm-map-hint"><?= (int)$httpAccessCount ?> rule(s) · AND → decision</span></h3>
     </div>
     <div class="card-body pm-map-svg-wrap">
-        <?= $svgAccess ?>
+        <div class="pm-svg-slot pm-svg-slot-narrow"><?= $svgAccess1 ?></div>
+        <div class="pm-svg-slot pm-svg-slot-wide"><?= $svgAccess2 ?></div>
     </div>
 </section>
 
 <section class="card pm-map-layer" id="pm-layer-cascade">
     <div class="card-header">
-        <h3>Cascade <span class="pm-map-hint"><?= (int)$routingCount ?> routing · <?= (int)$peerCount ?> peer(s)</span></h3>
+        <h3>Cascade <span class="pm-map-hint">real paths only · <?= (int)$routingCount ?> routing · <?= (int)$peerCount ?> peer(s) in DB</span></h3>
     </div>
     <div class="card-body pm-map-svg-wrap">
         <?= $svgCascade ?>

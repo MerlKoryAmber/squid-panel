@@ -1544,27 +1544,44 @@ body.spm-drawer-open { overflow: hidden; }
 }
 .pm-map-svg-wrap {
     overflow: auto;
-    max-height: min(70vh, 900px);
+    max-height: min(65vh, 720px);
     background:
-        radial-gradient(circle at 1px 1px, rgba(42, 53, 72, 0.55) 1px, transparent 0);
-    background-size: 16px 16px;
+        radial-gradient(circle at 1px 1px, rgba(42, 53, 72, 0.45) 1px, transparent 0);
+    background-size: 14px 14px;
     border-radius: 6px;
+    /* fit content — no giant empty square */
+    display: inline-block;
+    max-width: 100%;
+    vertical-align: top;
+}
+.pm-svg-slot-wide { display: none; }
+.pm-svg-slot-narrow { display: block; }
+@media (min-width: 900px) {
+    .pm-svg-slot-narrow { display: none; }
+    .pm-svg-slot-wide { display: block; }
 }
 .pm-svg {
     display: block;
-    min-width: 320px;
+    width: auto;
+    height: auto;
+    max-width: 100%;
 }
-.pm-svg-muted { fill: var(--ir-text-muted); font-size: 14px; }
-.pm-svg-section { fill: var(--ir-text-secondary); font-size: 12px; font-weight: 600; }
-.pm-svg-ord { fill: var(--ir-text-muted); font-size: 11px; text-anchor: end; }
-.pm-svg-edge-label { fill: var(--ir-text-muted); font-size: 10px; }
+.pm-svg-muted { fill: var(--ir-text-muted); font-size: 13px; }
+.pm-svg-caption { fill: var(--ir-text-muted); font-size: 10px; }
+.pm-svg-ord { fill: var(--ir-text-muted); font-size: 11px; }
+.pm-svg-and { fill: var(--ir-text-muted); font-size: 12px; font-weight: 700; }
 .pm-svg-edge {
     fill: none;
     stroke: var(--ir-border);
     stroke-width: 2;
 }
-.pm-svg-edge-dashed { stroke-dasharray: 5 4; }
+.pm-svg-edge-next {
+    stroke-width: 1.5;
+    stroke: var(--ir-border-light);
+    opacity: 0.85;
+}
 .pm-svg-marker { fill: var(--ir-border); }
+.pm-svg-marker-muted { fill: var(--ir-border-light); }
 .pm-svg-node { cursor: default; }
 .pm-svg-node[data-acl] { cursor: pointer; }
 .pm-svg-node rect {
@@ -1580,6 +1597,7 @@ body.spm-drawer-open { overflow: hidden; }
 .pm-svg-node-deny rect { fill: var(--ir-danger-bg); stroke: var(--ir-danger); }
 .pm-svg-node-deny .pm-svg-title { fill: var(--ir-danger); }
 .pm-svg-node-peer rect { fill: var(--ir-accent-light); stroke: var(--ir-accent); }
+.pm-svg-node-parent rect { fill: var(--ir-accent-light); stroke: var(--ir-accent); }
 .pm-svg-node-direct rect {
     fill: transparent;
     stroke: var(--ir-text-muted);
