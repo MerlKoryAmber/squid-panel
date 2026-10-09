@@ -13,6 +13,14 @@
 
 Рисовать всех ACL/пиров «на всякий случай» — нет.
 
+## UX 2026-10-09 ~12:20 МСК
+
+- Убран дубль `h2` Policy map (остаётся только top-header).
+- Без вложенного scrollbar и без точечного grid под SVG.
+- ACL-чип: имя и `src`/type на разных строках (без перекрытия).
+- Пиры cascade: чередование silver / bronze.
+- Клик по ACL → тот же tip с содержимым, что в HTTP Access (`View::aclTipText`).
+
 ## Проверка
 
-`spm update` → Policy map: нет пустого квадрата; Access читается как AND+порядок; Cascade без простыни deny/orphan.
+`spm update` → Policy map: один заголовок сверху; без полосы у SVG; `src` читается; клик ACL показывает values.

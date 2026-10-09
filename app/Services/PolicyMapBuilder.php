@@ -193,13 +193,13 @@ class PolicyMapBuilder {
         }
 
         $cols = $n >= 4 ? min(2, (int)$maxCols) : 1;
-        $chipH = 28;
+        $chipH = 42; // room for ACL name + type (src) without overlap
         $chipGap = 6;
         $rowPad = 10;
         $cellPadX = 12;
         $cellPadY = 10;
         $actionW = 86;
-        $actionH = 40;
+        $actionH = 42;
         $arrow = 36;
         $colGap = 28;
         $rowGap = 18;
@@ -531,10 +531,10 @@ class PolicyMapBuilder {
             $byDest[$dk]['acls'][$p['acl']] = true;
         }
 
-        $nw = 140;
-        $nh = 36;
-        $pw = 150;
-        $ph = 44;
+        $nw = 148;
+        $nh = 42;
+        $pw = 156;
+        $ph = 48;
         $pad = 16;
         $gap = 14;
         $xAcl = $pad;
@@ -547,6 +547,7 @@ class PolicyMapBuilder {
         $y = $pad + 14;
 
         $maxY = $y;
+        $peerColorIdx = 0;
         foreach ($destList as $dest) {
             $acls = array_keys($dest['acls']);
             sort($acls);
@@ -562,13 +563,20 @@ class PolicyMapBuilder {
             if (!empty($meta['denies'])) {
                 $sub .= ' · denies:' . (int)$meta['denies'];
             }
-            $kind = $meta['kind'] === 'direct' ? 'direct' : 'peer';
+            if ($meta['kind'] === 'direct') {
+                $kind = 'direct';
+            } elseif ($meta['kind'] === 'parent') {
+                $kind = 'parent';
+            } else {
+                $kind = ($peerColorIdx % 2 === 0) ? 'peer-silver' : 'peer-bronze';
+                $peerColorIdx++;
+            }
             $parts[] = self::svgChip($xPeer, $peerY, $pw, $ph, self::trunc($meta['label'], 16), self::trunc($sub, 22), $kind, '', implode(' ', $acls));
 
             foreach ($acls as $i => $acl) {
                 $ay = $y + $i * ($nh + 8);
                 $type = (string)($aclIndex[$acl]['type'] ?? '');
-                $parts[] = self::svgChip($xAcl, $ay, $nw, $nh, self::trunc($acl, 18), $type, 'acl', $acl, $acl);
+                $parts[] = self::svgChip($xAcl, $ay, $nw, $nh, self::trunc($acl, 16), $type, 'acl', $acl, $acl);
                 $parts[] = sprintf(
                     '<path class="pm-svg-edge" d="M %.1f %.1f C %.1f %.1f, %.1f %.1f, %.1f %.1f" marker-end="url(#pmArrow)" />',
                     $xAcl + $nw,
@@ -604,7 +612,8 @@ class PolicyMapBuilder {
     }
 
     private static function svgChip($x, $y, $w, $h, $title, $sub, $kind, $aclName, $aclsAttr) {
-        $cls = 'pm-svg-node pm-svg-node-' . preg_replace('/[^a-z]+/', '-', strtolower(trim(explode(' ', $kind)[0])));
+        $slug = preg_replace('/[^a-z0-9-]+/', '-', strtolower(trim((string)$kind)));
+        $cls = 'pm-svg-node pm-svg-node-' . $slug;
         if (strpos($kind, 'disabled') !== false) {
             $cls .= ' pm-svg-node-disabled';
         }
@@ -613,10 +622,12 @@ class PolicyMapBuilder {
         $role = $aclName !== '' ? ' role="button" tabindex="0"' : '';
         $out = sprintf('<g class="%s"%s%s%s transform="translate(%.1f,%.1f)">', $cls, $dataAcl, $dataAcls, $role, $x, $y);
         $out .= sprintf('<rect width="%.1f" height="%.1f" rx="7" ry="7" />', $w, $h);
-        $ty = $sub !== '' ? 16 : ($h / 2 + 4);
-        $out .= sprintf('<text x="10" y="%.1f" class="pm-svg-title">%s</text>', $ty, self::esc($title));
+        // Title on first line, type/sub on second — never overlap.
         if ($sub !== '') {
-            $out .= sprintf('<text x="10" y="%.1f" class="pm-svg-sub">%s</text>', min($h - 8, 30), self::esc($sub));
+            $out .= sprintf('<text x="10" y="17" class="pm-svg-title">%s</text>', self::esc($title));
+            $out .= sprintf('<text x="10" y="33" class="pm-svg-sub">%s</text>', self::esc($sub));
+        } else {
+            $out .= sprintf('<text x="10" y="%.1f" class="pm-svg-title">%s</text>', $h / 2 + 4, self::esc($title));
         }
         $out .= '</g>';
         return $out;

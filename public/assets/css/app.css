@@ -1533,7 +1533,8 @@ body.spm-drawer-open { overflow: hidden; }
 .pm-map-leg-acl::before { background: var(--ir-primary-light); }
 .pm-map-leg-allow::before { background: var(--ir-success); border-color: transparent; }
 .pm-map-leg-deny::before { background: var(--ir-danger); border-color: transparent; }
-.pm-map-leg-peer::before { background: var(--ir-accent); border-color: transparent; }
+.pm-map-leg-peer-silver::before { background: #c5cdd6; border-color: transparent; }
+.pm-map-leg-peer-bronze::before { background: #c56e45; border-color: transparent; }
 .pm-map-leg-direct::before { background: var(--ir-text-muted); border-color: transparent; }
 .pm-map-layer { margin-bottom: 1.1rem; }
 .pm-map-hint {
@@ -1542,17 +1543,14 @@ body.spm-drawer-open { overflow: hidden; }
     color: var(--ir-text-muted);
     margin-left: 0.4rem;
 }
+.page-policy_map .page-header { display: none; } /* title only in top-header */
 .pm-map-svg-wrap {
-    overflow: auto;
-    max-height: min(65vh, 720px);
-    background:
-        radial-gradient(circle at 1px 1px, rgba(42, 53, 72, 0.45) 1px, transparent 0);
-    background-size: 14px 14px;
-    border-radius: 6px;
-    /* fit content — no giant empty square */
-    display: inline-block;
+    /* no nested scrollbar / no dotted grid — page .content-area scrolls */
+    overflow: visible;
+    background: transparent;
+    border-radius: 0;
+    display: block;
     max-width: 100%;
-    vertical-align: top;
 }
 .pm-svg-slot-wide { display: none; }
 .pm-svg-slot-narrow { display: block; }
@@ -1575,6 +1573,9 @@ body.spm-drawer-open { overflow: hidden; }
     stroke: var(--ir-border);
     stroke-width: 2;
 }
+.pm-map-layer-cascade .pm-svg-edge {
+    stroke: #8a94a3;
+}
 .pm-svg-edge-next {
     stroke-width: 1.5;
     stroke: var(--ir-border-light);
@@ -1596,8 +1597,21 @@ body.spm-drawer-open { overflow: hidden; }
 .pm-svg-node-allow .pm-svg-title { fill: var(--ir-success); }
 .pm-svg-node-deny rect { fill: var(--ir-danger-bg); stroke: var(--ir-danger); }
 .pm-svg-node-deny .pm-svg-title { fill: var(--ir-danger); }
-.pm-svg-node-peer rect { fill: var(--ir-accent-light); stroke: var(--ir-accent); }
-.pm-svg-node-parent rect { fill: var(--ir-accent-light); stroke: var(--ir-accent); }
+.pm-svg-node-peer-silver rect {
+    fill: rgba(197, 205, 214, 0.14);
+    stroke: #c5cdd6;
+}
+.pm-svg-node-peer-silver .pm-svg-title { fill: #c5cdd6; }
+.pm-svg-node-peer-bronze rect {
+    fill: rgba(197, 110, 69, 0.16);
+    stroke: #c56e45;
+}
+.pm-svg-node-peer-bronze .pm-svg-title { fill: #c56e45; }
+.pm-svg-node-parent rect {
+    fill: rgba(197, 205, 214, 0.1);
+    stroke: #aeb6c0;
+    stroke-dasharray: 4 3;
+}
 .pm-svg-node-direct rect {
     fill: transparent;
     stroke: var(--ir-text-muted);

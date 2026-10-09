@@ -5,23 +5,20 @@
 /** @var int $httpAccessCount */
 /** @var int $peerCount */
 /** @var int $routingCount */
-/** @var array $accessMeta */
-/** @var array $cascadeMeta */
+/** @var array $aclTips */
 ?>
-<div class="page-header">
-    <h2>Policy map</h2>
-    <p class="pm-map-lead">
-        Compact graph from the panel database.
-        HTTP Access: <strong>AND</strong> inside a rule, <strong>first match</strong> in reading order.
-        Cascade: only ACLs that actually enter a peer / DIRECT.
-    </p>
-</div>
+<p class="pm-map-lead">
+    Compact graph from the panel database.
+    HTTP Access: <strong>AND</strong> inside a rule, <strong>first match</strong> in reading order.
+    Cascade: only ACLs that actually enter a peer / DIRECT. Click an ACL to see its values.
+</p>
 
 <div class="pm-map-legend" aria-hidden="true">
     <span class="pm-map-leg pm-map-leg-acl">ACL</span>
     <span class="pm-map-leg pm-map-leg-allow">allow</span>
     <span class="pm-map-leg pm-map-leg-deny">deny</span>
-    <span class="pm-map-leg pm-map-leg-peer">peer</span>
+    <span class="pm-map-leg pm-map-leg-peer-silver">peer (silver)</span>
+    <span class="pm-map-leg pm-map-leg-peer-bronze">peer (bronze)</span>
     <span class="pm-map-leg pm-map-leg-direct">DIRECT</span>
 </div>
 
@@ -35,7 +32,7 @@
     </div>
 </section>
 
-<section class="card pm-map-layer" id="pm-layer-cascade">
+<section class="card pm-map-layer pm-map-layer-cascade" id="pm-layer-cascade">
     <div class="card-header">
         <h3>Cascade <span class="pm-map-hint">real paths only · <?= (int)$routingCount ?> routing · <?= (int)$peerCount ?> peer(s) in DB</span></h3>
     </div>
@@ -48,24 +45,57 @@
 (function () {
     var root = document.querySelector('.content-area');
     if (!root) return;
+    var tips = <?= json_encode($aclTips, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS) ?>;
+    var pop = document.getElementById('acl-tip-pop');
     var selected = null;
 
-    function clear() {
+    function clearHighlight() {
         root.querySelectorAll('.pm-svg-node.is-active, .pm-svg-node.is-related').forEach(function (el) {
             el.classList.remove('is-active', 'is-related');
         });
     }
 
-    function selectAcl(name) {
-        clear();
+    function hideTip() {
+        if (!pop) return;
+        pop.hidden = true;
+    }
+
+    function showTip(name, anchorEl) {
+        if (!pop) return;
+        var text = tips[name] || (name + '\n(no ACL details)');
+        pop.textContent = text;
+        pop.hidden = false;
+        var r = anchorEl.getBoundingClientRect();
+        var margin = 8;
+        pop.style.left = r.left + 'px';
+        pop.style.top = (r.bottom + 6) + 'px';
+        var pr = pop.getBoundingClientRect();
+        var left = r.left;
+        var top = r.bottom + 6;
+        if (pr.right > window.innerWidth - margin) {
+            left = Math.max(margin, window.innerWidth - pr.width - margin);
+        }
+        if (pr.bottom > window.innerHeight - margin) {
+            top = Math.max(margin, r.top - pr.height - 6);
+        }
+        pop.style.left = left + 'px';
+        pop.style.top = top + 'px';
+    }
+
+    function selectAcl(name, anchorEl) {
         if (!name) {
+            clearHighlight();
+            hideTip();
             selected = null;
             return;
         }
         if (selected === name) {
+            clearHighlight();
+            hideTip();
             selected = null;
             return;
         }
+        clearHighlight();
         selected = name;
         root.querySelectorAll('.pm-svg-node').forEach(function (g) {
             var acl = g.getAttribute('data-acl') || '';
@@ -76,13 +106,23 @@
                 g.classList.add('is-related');
             }
         });
+        showTip(name, anchorEl);
     }
 
     root.addEventListener('click', function (ev) {
         var g = ev.target.closest('.pm-svg-node[data-acl]');
-        if (!g) return;
+        if (!g) {
+            if (!ev.target.closest('#acl-tip-pop')) {
+                hideTip();
+            }
+            return;
+        }
         ev.preventDefault();
-        selectAcl(g.getAttribute('data-acl') || '');
+        ev.stopPropagation();
+        selectAcl(g.getAttribute('data-acl') || '', g);
     });
+
+    window.addEventListener('scroll', hideTip, true);
+    window.addEventListener('resize', hideTip);
 })();
 </script>
