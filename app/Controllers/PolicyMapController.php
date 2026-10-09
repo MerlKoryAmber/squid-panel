@@ -6,11 +6,11 @@ class PolicyMapController {
         echo View::render('policy_map.index', [
             'title' => 'Policy map',
             'active' => 'policy_map',
-            'httpAccess' => $map['http_access'],
-            'peers' => $map['peers'],
-            'peerAccess' => $map['peer_access'],
-            'routing' => $map['routing'],
-            'aclIndex' => $map['acl_index'],
+            'svgAccess' => $map['svg_access'],
+            'svgCascade' => $map['svg_cascade'],
+            'httpAccessCount' => count($map['http_access']),
+            'peerCount' => count($map['peers']),
+            'routingCount' => count($map['routing']),
         ]);
     }
 }

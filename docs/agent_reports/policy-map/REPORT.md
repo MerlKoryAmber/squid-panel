@@ -1,25 +1,22 @@
 # Policy map (read-only)
 
-Дата: 2026-10-09, 10:50 МСК.  
+Дата: 2026-10-09, 11:40 МСК.  
 Статус: РЕАЛИЗОВАНО НО НЕ ПРИНЯТО.
 
 ## Решение
 
-Пункт меню **Policy map** (`/policy-map`): **схема** (узлы + стрелки) из `spm.db`, не таблица/список карточек.
+**Policy map** = SVG-граф (узлы + рёбра со стрелками), как на согласованном макете — не таблица и не список карточек.
 
-- HTTP Access: ACL(+ACL) → ALLOW/DENY, вертикальный поток #1→#N
-- Cascade: ACL → never_direct/always_direct → peer/DIRECT; peer_access к пирам
-- Пустой cascade — заглушка → DIRECT
-- Клик ACL — подсветка на обоих слоях
+- HTTP Access: ACL → кривые к ALLOW/DENY, вертикальная цепочка правил
+- Cascade: ACL → peer / DIRECT; пусто → заглушка DIRECT
+- Клик по ACL-узлу — подсветка связанных узлов
 
-Файлы: `PolicyMapController`, `PolicyMapBuilder`, `views/policy_map/index.php`, CSS.
+## История промахов
 
-## Исправление UX 10:50 МСК
-
-Первая выкладка была списками — не совпала с согласованным макетом. Перерисовано под schematic.
+1. v1 списки — не макет  
+2. v2 HTML «карточки+CSS стрелки» — всё ещё не граф  
+3. v3 SVG layout в `PolicyMapBuilder` — целевой вид
 
 ## Проверка
 
-1. `spm update` / `update.sh --keep-db`
-2. Policy map: видны узлы и стрелки, не «таблица правил»
-3. Только HTTP Access — верхний поток полный; Cascade показывает пустую схему → DIRECT
+`spm update` → Policy map: должны быть **прямоугольники-узлы и линии со стрелками** на сетке, не строки таблицы.
