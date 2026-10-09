@@ -17,8 +17,7 @@
     <span class="pm-map-leg pm-map-leg-acl">ACL</span>
     <span class="pm-map-leg pm-map-leg-allow">allow</span>
     <span class="pm-map-leg pm-map-leg-deny">deny</span>
-    <span class="pm-map-leg pm-map-leg-peer-silver">peer (silver)</span>
-    <span class="pm-map-leg pm-map-leg-peer-bronze">peer (bronze)</span>
+    <span class="pm-map-leg pm-map-leg-peer">peer / cascade</span>
     <span class="pm-map-leg pm-map-leg-direct">DIRECT</span>
 </div>
 

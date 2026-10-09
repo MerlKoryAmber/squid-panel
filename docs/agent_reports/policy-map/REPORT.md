@@ -18,7 +18,7 @@
 - Убран дубль `h2` Policy map (остаётся только top-header).
 - Без вложенного scrollbar и без точечного grid под SVG.
 - ACL-чип: имя и `src`/type на разных строках (без перекрытия).
-- Пиры cascade: чередование silver / bronze.
+- Пиры cascade: один цвет (silver) на все пиры, не палитра по узлам.
 - Клик по ACL → тот же tip с содержимым, что в HTTP Access (`View::aclTipText`).
 
 ## Проверка

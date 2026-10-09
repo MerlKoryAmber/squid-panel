@@ -547,7 +547,6 @@ class PolicyMapBuilder {
         $y = $pad + 14;
 
         $maxY = $y;
-        $peerColorIdx = 0;
         foreach ($destList as $dest) {
             $acls = array_keys($dest['acls']);
             sort($acls);
@@ -563,13 +562,13 @@ class PolicyMapBuilder {
             if (!empty($meta['denies'])) {
                 $sub .= ' · denies:' . (int)$meta['denies'];
             }
+            // One cascade peer color for all peers (not per-peer palette).
             if ($meta['kind'] === 'direct') {
                 $kind = 'direct';
             } elseif ($meta['kind'] === 'parent') {
                 $kind = 'parent';
             } else {
-                $kind = ($peerColorIdx % 2 === 0) ? 'peer-silver' : 'peer-bronze';
-                $peerColorIdx++;
+                $kind = 'peer';
             }
             $parts[] = self::svgChip($xPeer, $peerY, $pw, $ph, self::trunc($meta['label'], 16), self::trunc($sub, 22), $kind, '', implode(' ', $acls));
 

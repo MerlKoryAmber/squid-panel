@@ -1533,8 +1533,7 @@ body.spm-drawer-open { overflow: hidden; }
 .pm-map-leg-acl::before { background: var(--ir-primary-light); }
 .pm-map-leg-allow::before { background: var(--ir-success); border-color: transparent; }
 .pm-map-leg-deny::before { background: var(--ir-danger); border-color: transparent; }
-.pm-map-leg-peer-silver::before { background: #c5cdd6; border-color: transparent; }
-.pm-map-leg-peer-bronze::before { background: #c56e45; border-color: transparent; }
+.pm-map-leg-peer::before { background: #c5cdd6; border-color: transparent; }
 .pm-map-leg-direct::before { background: var(--ir-text-muted); border-color: transparent; }
 .pm-map-layer { margin-bottom: 1.1rem; }
 .pm-map-hint {
@@ -1597,16 +1596,12 @@ body.spm-drawer-open { overflow: hidden; }
 .pm-svg-node-allow .pm-svg-title { fill: var(--ir-success); }
 .pm-svg-node-deny rect { fill: var(--ir-danger-bg); stroke: var(--ir-danger); }
 .pm-svg-node-deny .pm-svg-title { fill: var(--ir-danger); }
-.pm-svg-node-peer-silver rect {
+/* One silver tone for every cascade peer */
+.pm-svg-node-peer rect {
     fill: rgba(197, 205, 214, 0.14);
     stroke: #c5cdd6;
 }
-.pm-svg-node-peer-silver .pm-svg-title { fill: #c5cdd6; }
-.pm-svg-node-peer-bronze rect {
-    fill: rgba(197, 110, 69, 0.16);
-    stroke: #c56e45;
-}
-.pm-svg-node-peer-bronze .pm-svg-title { fill: #c56e45; }
+.pm-svg-node-peer .pm-svg-title { fill: #c5cdd6; }
 .pm-svg-node-parent rect {
     fill: rgba(197, 205, 214, 0.1);
     stroke: #aeb6c0;
