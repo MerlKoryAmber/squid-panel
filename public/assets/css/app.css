@@ -1505,5 +1505,168 @@ body.spm-drawer-open { overflow: hidden; }
     }
 }
 
+/* Policy map (read-only ACL / access / cascade schematic) */
+.pm-map-lead {
+    color: var(--ir-text-muted);
+    font-size: 0.88rem;
+    margin: 0.25rem 0 0.75rem;
+    max-width: 52rem;
+}
+.pm-map-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.85rem;
+    margin-bottom: 1rem;
+    font-size: 0.78rem;
+    color: var(--ir-text-muted);
+}
+.pm-map-leg::before {
+    content: '';
+    display: inline-block;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 2px;
+    margin-right: 0.35rem;
+    vertical-align: -0.05rem;
+}
+.pm-map-leg-allow::before { background: var(--ir-success); }
+.pm-map-leg-deny::before { background: var(--ir-danger); }
+.pm-map-leg-disabled::before { background: var(--ir-text-muted); opacity: 0.5; }
+.pm-map-leg-peer::before { background: var(--ir-accent); }
+.pm-map-leg-direct::before { background: var(--ir-text-muted); }
+.pm-map-layer { margin-bottom: 1.1rem; }
+.pm-map-hint {
+    font-weight: 400;
+    font-size: 0.78rem;
+    color: var(--ir-text-muted);
+    margin-left: 0.4rem;
+}
+.pm-map-empty, .pm-map-muted {
+    color: var(--ir-text-muted);
+    font-size: 0.85rem;
+    margin: 0.25rem 0;
+}
+.pm-map-flow, .pm-map-peers, .pm-map-peer-rules {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.pm-map-flow > li,
+.pm-map-peer-rules > li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.55rem 0.65rem;
+    margin: 0 0 0.45rem;
+    border: 1px solid var(--ir-border);
+    border-radius: 6px;
+    background: var(--ir-surface);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pm-map-flow > li.is-related,
+.pm-map-peer-rules > li.is-related,
+.pm-map-rule.is-related {
+    border-color: var(--ir-accent);
+    box-shadow: 0 0 0 1px var(--ir-accent-light);
+}
+.pm-map-rule-allow { border-left: 3px solid var(--ir-success); }
+.pm-map-rule-deny { border-left: 3px solid var(--ir-danger); }
+.pm-map-rule-peer { border-left: 3px solid var(--ir-accent); }
+.pm-map-rule-direct { border-left: 3px solid var(--ir-text-muted); }
+.pm-map-rule-disabled { opacity: 0.55; }
+.pm-map-ord {
+    flex: 0 0 auto;
+    font-size: 0.75rem;
+    color: var(--ir-text-muted);
+    min-width: 1.6rem;
+    padding-top: 0.15rem;
+}
+.pm-map-rule-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.55rem;
+}
+.pm-map-acls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+.pm-map-acl {
+    appearance: none;
+    border: 1px solid var(--ir-border);
+    background: var(--ir-primary-dark);
+    color: var(--ir-text);
+    border-radius: 4px;
+    padding: 0.2rem 0.45rem;
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+    line-height: 1.25;
+}
+.pm-map-acl small {
+    display: block;
+    font-size: 0.68rem;
+    color: var(--ir-text-muted);
+}
+.pm-map-acl.is-active,
+.pm-map-acl:hover {
+    border-color: var(--ir-accent);
+    background: var(--ir-accent-light);
+}
+.pm-map-action {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ir-text-secondary);
+}
+.pm-map-action-allow { color: var(--ir-success); }
+.pm-map-action-deny { color: var(--ir-danger); }
+.pm-map-badge {
+    font-size: 0.68rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    border: 1px solid var(--ir-border);
+    color: var(--ir-text-muted);
+}
+.pm-map-desc {
+    font-size: 0.78rem;
+    color: var(--ir-text-muted);
+    width: 100%;
+}
+.pm-map-cascade {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+.pm-map-col h4 {
+    margin: 0 0 0.65rem;
+    font-size: 0.9rem;
+    color: var(--ir-text-secondary);
+}
+.pm-map-peer {
+    border: 1px solid var(--ir-border);
+    border-radius: 6px;
+    padding: 0.55rem 0.65rem;
+    margin: 0 0 0.65rem;
+    background: var(--ir-surface);
+}
+.pm-map-peer-disabled { opacity: 0.55; }
+.pm-map-peer-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.55rem;
+    margin-bottom: 0.45rem;
+}
+.pm-map-peer-rules > li {
+    margin-bottom: 0.35rem;
+}
+@media (max-width: 900px) {
+    .pm-map-cascade {
+        grid-template-columns: 1fr;
+    }
+}
 
 

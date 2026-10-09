@@ -86,6 +86,7 @@ Save (ACL / HTTP Access / Cascade / Listen / cache toggle / …)
 | AD groups | `/acl/ad-groups` | AdGroupController |
 | HTTP Access | `/http_access` | HttpAccessController (operator: без Add/Edit/Delete/reorder) |
 | Cascade | `/peers` | CachePeerController |
+| Policy map | `/policy-map` | PolicyMapController (read-only ACL/access/cascade) |
 | Auth | `/auth/*` | AuthConfigController |
 | Users / Logs / Stats / Audit | … | User / Log / Stats / Audit |
 | Live config | `/live-config` | SquidConfController (read-only) |

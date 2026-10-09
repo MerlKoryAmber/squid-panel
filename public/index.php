@@ -104,6 +104,8 @@ $router->post('/peers/routes/store', 'CachePeerController@storeRoute');
 $router->post('/peers/routes/delete', 'CachePeerController@deleteRoute');
 $router->post('/peers/routes/reorder', 'CachePeerController@reorderRoutes');
 
+$router->get('/policy-map', 'PolicyMapController@index');
+
 // Authentication (Kerberos/NTLM/Basic)
 $router->get('/auth', 'AuthConfigController@index');
 $router->get('/auth/kerberos', 'AuthConfigController@kerberos');
